@@ -2,10 +2,10 @@
 	"header": {
 		"version_major": 4,
 		"version_minor": 1,
-		"version_patch": 2,
-		"version_status": "rc",
-		"version_build": "custom_build",
-		"version_full_name": "Godot Engine v4.1.2.rc.custom_build"
+		"version_patch": 3,
+		"version_status": "stable",
+		"version_build": "official",
+		"version_full_name": "Godot Engine v4.1.3.stable.official"
 	},
 	"builtin_class_sizes": [
 		{
@@ -2594,6 +2594,22 @@
 					"value": 4194415
 				},
 				{
+					"name": "KEY_GLOBE",
+					"value": 4194416
+				},
+				{
+					"name": "KEY_KEYBOARD",
+					"value": 4194417
+				},
+				{
+					"name": "KEY_JIS_EISU",
+					"value": 4194418
+				},
+				{
+					"name": "KEY_JIS_KANA",
+					"value": 4194419
+				},
+				{
 					"name": "KEY_UNKNOWN",
 					"value": 8388607
 				},
@@ -2880,22 +2896,6 @@
 				{
 					"name": "KEY_SECTION",
 					"value": 167
-				},
-				{
-					"name": "KEY_GLOBE",
-					"value": 4194416
-				},
-				{
-					"name": "KEY_KEYBOARD",
-					"value": 4194417
-				},
-				{
-					"name": "KEY_JIS_EISU",
-					"value": 4194418
-				},
-				{
-					"name": "KEY_JIS_KANA",
-					"value": 4194419
 				}
 			]
 		},
@@ -95247,6 +95247,13 @@
 			]
 		},
 		{
+			"name": "FramebufferCacheRD",
+			"is_refcounted": false,
+			"is_instantiable": false,
+			"inherits": "Object",
+			"api_type": "core"
+		},
+		{
 			"name": "GDExtension",
 			"is_refcounted": true,
 			"is_instantiable": true,
@@ -113083,6 +113090,29 @@
 					]
 				},
 				{
+					"name": "should_ignore_device",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 2522259332,
+					"return_value": {
+						"type": "bool"
+					},
+					"arguments": [
+						{
+							"name": "vendor_id",
+							"type": "int",
+							"meta": "int32"
+						},
+						{
+							"name": "product_id",
+							"type": "int",
+							"meta": "int32"
+						}
+					]
+				},
+				{
 					"name": "get_connected_joypads",
 					"is_const": false,
 					"is_vararg": false,
@@ -122002,6 +122032,10 @@
 						{
 							"name": "BAKE_ERROR_USER_ABORTED",
 							"value": 8
+						},
+						{
+							"name": "BAKE_ERROR_TEXTURE_SIZE_TOO_SMALL",
+							"value": 9
 						}
 					]
 				},
@@ -250389,6 +250423,43 @@
 					]
 				},
 				{
+					"name": "set_text_overrun_behavior",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 1940772195,
+					"arguments": [
+						{
+							"name": "column",
+							"type": "int",
+							"meta": "int32"
+						},
+						{
+							"name": "overrun_behavior",
+							"type": "enum::TextServer.OverrunBehavior"
+						}
+					]
+				},
+				{
+					"name": "get_text_overrun_behavior",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 3782727860,
+					"return_value": {
+						"type": "enum::TextServer.OverrunBehavior"
+					},
+					"arguments": [
+						{
+							"name": "column",
+							"type": "int",
+							"meta": "int32"
+						}
+					]
+				},
+				{
 					"name": "set_structured_text_bidi_override",
 					"is_const": false,
 					"is_vararg": false,
@@ -254037,6 +254108,13 @@
 					"name": "version_changed"
 				}
 			]
+		},
+		{
+			"name": "UniformSetCacheRD",
+			"is_refcounted": false,
+			"is_instantiable": false,
+			"inherits": "Object",
+			"api_type": "core"
 		},
 		{
 			"name": "VBoxContainer",
