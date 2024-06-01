@@ -3,9 +3,9 @@
 		"version_major": 4,
 		"version_minor": 3,
 		"version_patch": 0,
-		"version_status": "dev",
+		"version_status": "beta",
 		"version_build": "custom_build",
-		"version_full_name": "Godot Engine v4.3.dev.custom_build"
+		"version_full_name": "Godot Engine v4.3.beta.custom_build"
 	},
 	"builtin_class_sizes": [
 		{
@@ -161,6 +161,10 @@
 				},
 				{
 					"name": "PackedColorArray",
+					"size": 8
+				},
+				{
+					"name": "PackedVector4Array",
 					"size": 8
 				},
 				{
@@ -325,6 +329,10 @@
 					"size": 16
 				},
 				{
+					"name": "PackedVector4Array",
+					"size": 16
+				},
+				{
 					"name": "Variant",
 					"size": 24
 				}
@@ -486,6 +494,10 @@
 					"size": 8
 				},
 				{
+					"name": "PackedVector4Array",
+					"size": 8
+				},
+				{
 					"name": "Variant",
 					"size": 40
 				}
@@ -644,6 +656,10 @@
 				},
 				{
 					"name": "PackedColorArray",
+					"size": 16
+				},
+				{
+					"name": "PackedVector4Array",
 					"size": 16
 				},
 				{
@@ -4427,8 +4443,13 @@
 					"description": "Variable is of type [PackedColorArray]."
 				},
 				{
-					"name": "TYPE_MAX",
+					"name": "TYPE_PACKED_VECTOR4_ARRAY",
 					"value": 38,
+					"description": "Variable is of type [PackedVector4Array]."
+				},
+				{
+					"name": "TYPE_MAX",
+					"value": 39,
 					"description": "Represents the size of the [enum Variant.Type] enum."
 				}
 			]
@@ -5579,7 +5600,7 @@
 					"type": "float"
 				}
 			],
-			"description": "Maps a [param value] from range [code][istart, istop][/code] to [code][ostart, ostop][/code]. See also [method lerp] and [method inverse_lerp]. If [param value] is outside [code][istart, istop][/code], then the resulting value will also be outside [code][ostart, ostop][/code]. If this is not desired, use [method clamp] on the result of this function.\n[codeblock]\nremap(75, 0, 100, -1, 1) # Returns 0.5\n[/codeblock]\nFor complex use cases where multiple ranges are needed, consider using [Curve] or [Gradient] instead."
+			"description": "Maps a [param value] from range [code][istart, istop][/code] to [code][ostart, ostop][/code]. See also [method lerp] and [method inverse_lerp]. If [param value] is outside [code][istart, istop][/code], then the resulting value will also be outside [code][ostart, ostop][/code]. If this is not desired, use [method clamp] on the result of this function.\n[codeblock]\nremap(75, 0, 100, -1, 1) # Returns 0.5\n[/codeblock]\nFor complex use cases where multiple ranges are needed, consider using [Curve] or [Gradient] instead.\n[b]Note:[/b] If [code]istart == istop[/code], the return value is undefined (most likely NaN, INF, or -INF)."
 		},
 		{
 			"name": "smoothstep",
@@ -6462,7 +6483,7 @@
 					"type": "Variant"
 				}
 			],
-			"description": "Returns [code]true[/code], for value types, if [param a] and [param b] share the same value. Returns [code]true[/code], for reference types, if the references of [param a] and [param b] are the same.\n[codeblock]\n# Vector2 is a value type\nvar vec2_a = Vector2(0, 0)\nvar vec2_b = Vector2(0, 0)\nvar vec2_c = Vector2(1, 1)\nis_same(vec2_a, vec2_a)  # true\nis_same(vec2_a, vec2_b)  # true\nis_same(vec2_a, vec2_c)  # false\n\n# Array is a reference type\nvar arr_a = []\nvar arr_b = []\nis_same(arr_a, arr_a)  # true\nis_same(arr_a, arr_b)  # false\n[/codeblock]\nThese are [Variant] value types: [code]null[/code], [bool], [int], [float], [String], [StringName], [Vector2], [Vector2i], [Vector3], [Vector3i], [Vector4], [Vector4i], [Rect2], [Rect2i], [Transform2D], [Transform3D], [Plane], [Quaternion], [AABB], [Basis], [Projection], [Color], [NodePath], [RID], [Callable] and [Signal].\nThese are [Variant] reference types: [Object], [Dictionary], [Array], [PackedByteArray], [PackedInt32Array], [PackedInt64Array], [PackedFloat32Array], [PackedFloat64Array], [PackedStringArray], [PackedVector2Array], [PackedVector3Array] and [PackedColorArray]."
+			"description": "Returns [code]true[/code], for value types, if [param a] and [param b] share the same value. Returns [code]true[/code], for reference types, if the references of [param a] and [param b] are the same.\n[codeblock]\n# Vector2 is a value type\nvar vec2_a = Vector2(0, 0)\nvar vec2_b = Vector2(0, 0)\nvar vec2_c = Vector2(1, 1)\nis_same(vec2_a, vec2_a)  # true\nis_same(vec2_a, vec2_b)  # true\nis_same(vec2_a, vec2_c)  # false\n\n# Array is a reference type\nvar arr_a = []\nvar arr_b = []\nis_same(arr_a, arr_a)  # true\nis_same(arr_a, arr_b)  # false\n[/codeblock]\nThese are [Variant] value types: [code]null[/code], [bool], [int], [float], [String], [StringName], [Vector2], [Vector2i], [Vector3], [Vector3i], [Vector4], [Vector4i], [Rect2], [Rect2i], [Transform2D], [Transform3D], [Plane], [Quaternion], [AABB], [Basis], [Projection], [Color], [NodePath], [RID], [Callable] and [Signal].\nThese are [Variant] reference types: [Object], [Dictionary], [Array], [PackedByteArray], [PackedInt32Array], [PackedInt64Array], [PackedFloat32Array], [PackedFloat64Array], [PackedStringArray], [PackedVector2Array], [PackedVector3Array], [PackedVector4Array], and [PackedColorArray]."
 		}
 	],
 	"builtin_classes": [
@@ -6927,6 +6948,16 @@
 				{
 					"name": "!=",
 					"right_type": "PackedColorArray",
+					"return_type": "bool"
+				},
+				{
+					"name": "==",
+					"right_type": "PackedVector4Array",
+					"return_type": "bool"
+				},
+				{
+					"name": "!=",
+					"right_type": "PackedVector4Array",
 					"return_type": "bool"
 				}
 			],
@@ -8187,6 +8218,11 @@
 					"name": "%",
 					"right_type": "PackedColorArray",
 					"return_type": "String"
+				},
+				{
+					"name": "%",
+					"right_type": "PackedVector4Array",
+					"return_type": "String"
 				}
 			],
 			"methods": [
@@ -8263,7 +8299,7 @@
 							"type": "String"
 						}
 					],
-					"description": "Like [method naturalcasecmp_to] but prioritises strings that begin with periods ([code].[/code]) and underscores ([code]_[/code]) before any other character. Useful when sorting folders or file names.\nTo get a [bool] result from a string comparison, use the [code]==[/code] operator instead. See also [method filenocasecmp_to], [method naturalcasecmp_to], and [method casecmp_to]."
+					"description": "Like [method naturalcasecmp_to] but prioritizes strings that begin with periods ([code].[/code]) and underscores ([code]_[/code]) before any other character. Useful when sorting folders or file names.\nTo get a [bool] result from a string comparison, use the [code]==[/code] operator instead. See also [method filenocasecmp_to], [method naturalcasecmp_to], and [method casecmp_to]."
 				},
 				{
 					"name": "filenocasecmp_to",
@@ -8278,7 +8314,7 @@
 							"type": "String"
 						}
 					],
-					"description": "Like [method naturalnocasecmp_to] but prioritises strings that begin with periods ([code].[/code]) and underscores ([code]_[/code]) before any other character. Useful when sorting folders or file names.\nTo get a [bool] result from a string comparison, use the [code]==[/code] operator instead. See also [method filecasecmp_to], [method naturalnocasecmp_to], and [method nocasecmp_to]."
+					"description": "Like [method naturalnocasecmp_to] but prioritizes strings that begin with periods ([code].[/code]) and underscores ([code]_[/code]) before any other character. Useful when sorting folders or file names.\nTo get a [bool] result from a string comparison, use the [code]==[/code] operator instead. See also [method filecasecmp_to], [method naturalnocasecmp_to], and [method nocasecmp_to]."
 				},
 				{
 					"name": "length",
@@ -8383,6 +8419,26 @@
 					"description": "Returns the index of the [b]first[/b] occurrence of [param what] in this string, or [code]-1[/code] if there are none. The search's start can be specified with [param from], continuing to the end of the string.\n[codeblocks]\n[gdscript]\nprint(\"Team\".find(\"I\")) # Prints -1\n\nprint(\"Potato\".find(\"t\"))    # Prints 2\nprint(\"Potato\".find(\"t\", 3)) # Prints 4\nprint(\"Potato\".find(\"t\", 5)) # Prints -1\n[/gdscript]\n[csharp]\nGD.Print(\"Team\".Find(\"I\")); // Prints -1\n\nGD.Print(\"Potato\".Find(\"t\"));    // Prints 2\nGD.Print(\"Potato\".Find(\"t\", 3)); // Prints 4\nGD.Print(\"Potato\".Find(\"t\", 5)); // Prints -1\n[/csharp]\n[/codeblocks]\n[b]Note:[/b] If you just want to know whether the string contains [param what], use [method contains]. In GDScript, you may also use the [code]in[/code] operator."
 				},
 				{
+					"name": "findn",
+					"return_type": "int",
+					"is_vararg": false,
+					"is_const": true,
+					"is_static": false,
+					"hash": 1760645412,
+					"arguments": [
+						{
+							"name": "what",
+							"type": "String"
+						},
+						{
+							"name": "from",
+							"type": "int",
+							"default_value": "0"
+						}
+					],
+					"description": "Returns the index of the [b]first[/b] [b]case-insensitive[/b] occurrence of [param what] in this string, or [code]-1[/code] if there are none. The starting search index can be specified with [param from], continuing to the end of the string."
+				},
+				{
 					"name": "count",
 					"return_type": "int",
 					"is_vararg": false,
@@ -8431,26 +8487,6 @@
 						}
 					],
 					"description": "Returns the number of occurrences of the substring [param what] between [param from] and [param to] positions, [b]ignoring case[/b]. If [param to] is 0, the search continues until the end of the string."
-				},
-				{
-					"name": "findn",
-					"return_type": "int",
-					"is_vararg": false,
-					"is_const": true,
-					"is_static": false,
-					"hash": 1760645412,
-					"arguments": [
-						{
-							"name": "what",
-							"type": "String"
-						},
-						{
-							"name": "from",
-							"type": "int",
-							"default_value": "0"
-						}
-					],
-					"description": "Returns the index of the [b]first[/b] [b]case-insensitive[/b] occurrence of [param what] in this string, or [code]-1[/code] if there are none. The starting search index can be specified with [param from], continuing to the end of the string."
 				},
 				{
 					"name": "rfind",
@@ -9115,7 +9151,22 @@
 							"type": "String"
 						}
 					],
-					"description": "Returns [code]true[/code] if the string contains [param what]. In GDScript, this corresponds to the [code]in[/code] operator.\n[codeblocks]\n[gdscript]\nprint(\"Node\".contains(\"de\")) # Prints true\nprint(\"team\".contains(\"I\"))  # Prints false\nprint(\"I\" in \"team\")         # Prints false\n[/gdscript]\n[csharp]\nGD.Print(\"Node\".Contains(\"de\")); // Prints true\nGD.Print(\"team\".Contains(\"I\"));  // Prints false\n[/csharp]\n[/codeblocks]\nIf you need to know where [param what] is within the string, use [method find]."
+					"description": "Returns [code]true[/code] if the string contains [param what]. In GDScript, this corresponds to the [code]in[/code] operator.\n[codeblocks]\n[gdscript]\nprint(\"Node\".contains(\"de\")) # Prints true\nprint(\"team\".contains(\"I\"))  # Prints false\nprint(\"I\" in \"team\")         # Prints false\n[/gdscript]\n[csharp]\nGD.Print(\"Node\".Contains(\"de\")); // Prints true\nGD.Print(\"team\".Contains(\"I\"));  // Prints false\n[/csharp]\n[/codeblocks]\nIf you need to know where [param what] is within the string, use [method find]. See also [method containsn]."
+				},
+				{
+					"name": "containsn",
+					"return_type": "bool",
+					"is_vararg": false,
+					"is_const": true,
+					"is_static": false,
+					"hash": 2566493496,
+					"arguments": [
+						{
+							"name": "what",
+							"type": "String"
+						}
+					],
+					"description": "Returns [code]true[/code] if the string contains [param what], [b]ignoring case[/b].\nIf you need to know where [param what] is within the string, use [method findn]. See also [method contains]."
 				},
 				{
 					"name": "is_absolute_path",
@@ -14057,6 +14108,11 @@
 				{
 					"name": "in",
 					"right_type": "Array",
+					"return_type": "bool"
+				},
+				{
+					"name": "in",
+					"right_type": "PackedVector4Array",
 					"return_type": "bool"
 				}
 			],
@@ -19645,6 +19701,11 @@
 					"name": "%",
 					"right_type": "PackedColorArray",
 					"return_type": "String"
+				},
+				{
+					"name": "%",
+					"right_type": "PackedVector4Array",
+					"return_type": "String"
 				}
 			],
 			"methods": [
@@ -19721,7 +19782,7 @@
 							"type": "String"
 						}
 					],
-					"description": "Like [method naturalcasecmp_to] but prioritises strings that begin with periods ([code].[/code]) and underscores ([code]_[/code]) before any other character. Useful when sorting folders or file names.\nTo get a [bool] result from a string comparison, use the [code]==[/code] operator instead. See also [method filenocasecmp_to], [method naturalcasecmp_to], and [method casecmp_to]."
+					"description": "Like [method naturalcasecmp_to] but prioritizes strings that begin with periods ([code].[/code]) and underscores ([code]_[/code]) before any other character. Useful when sorting folders or file names.\nTo get a [bool] result from a string comparison, use the [code]==[/code] operator instead. See also [method filenocasecmp_to], [method naturalcasecmp_to], and [method casecmp_to]."
 				},
 				{
 					"name": "filenocasecmp_to",
@@ -19736,7 +19797,7 @@
 							"type": "String"
 						}
 					],
-					"description": "Like [method naturalnocasecmp_to] but prioritises strings that begin with periods ([code].[/code]) and underscores ([code]_[/code]) before any other character. Useful when sorting folders or file names.\nTo get a [bool] result from a string comparison, use the [code]==[/code] operator instead. See also [method filecasecmp_to], [method naturalnocasecmp_to], and [method nocasecmp_to]."
+					"description": "Like [method naturalnocasecmp_to] but prioritizes strings that begin with periods ([code].[/code]) and underscores ([code]_[/code]) before any other character. Useful when sorting folders or file names.\nTo get a [bool] result from a string comparison, use the [code]==[/code] operator instead. See also [method filecasecmp_to], [method naturalnocasecmp_to], and [method nocasecmp_to]."
 				},
 				{
 					"name": "length",
@@ -19841,6 +19902,26 @@
 					"description": "Returns the index of the [b]first[/b] occurrence of [param what] in this string, or [code]-1[/code] if there are none. The search's start can be specified with [param from], continuing to the end of the string.\n[codeblocks]\n[gdscript]\nprint(\"Team\".find(\"I\")) # Prints -1\n\nprint(\"Potato\".find(\"t\"))    # Prints 2\nprint(\"Potato\".find(\"t\", 3)) # Prints 4\nprint(\"Potato\".find(\"t\", 5)) # Prints -1\n[/gdscript]\n[csharp]\nGD.Print(\"Team\".Find(\"I\")); // Prints -1\n\nGD.Print(\"Potato\".Find(\"t\"));    // Prints 2\nGD.Print(\"Potato\".Find(\"t\", 3)); // Prints 4\nGD.Print(\"Potato\".Find(\"t\", 5)); // Prints -1\n[/csharp]\n[/codeblocks]\n[b]Note:[/b] If you just want to know whether the string contains [param what], use [method contains]. In GDScript, you may also use the [code]in[/code] operator."
 				},
 				{
+					"name": "findn",
+					"return_type": "int",
+					"is_vararg": false,
+					"is_const": true,
+					"is_static": false,
+					"hash": 1760645412,
+					"arguments": [
+						{
+							"name": "what",
+							"type": "String"
+						},
+						{
+							"name": "from",
+							"type": "int",
+							"default_value": "0"
+						}
+					],
+					"description": "Returns the index of the [b]first[/b] [b]case-insensitive[/b] occurrence of [param what] in this string, or [code]-1[/code] if there are none. The starting search index can be specified with [param from], continuing to the end of the string."
+				},
+				{
 					"name": "count",
 					"return_type": "int",
 					"is_vararg": false,
@@ -19889,26 +19970,6 @@
 						}
 					],
 					"description": "Returns the number of occurrences of the substring [param what] between [param from] and [param to] positions, [b]ignoring case[/b]. If [param to] is 0, the search continues until the end of the string."
-				},
-				{
-					"name": "findn",
-					"return_type": "int",
-					"is_vararg": false,
-					"is_const": true,
-					"is_static": false,
-					"hash": 1760645412,
-					"arguments": [
-						{
-							"name": "what",
-							"type": "String"
-						},
-						{
-							"name": "from",
-							"type": "int",
-							"default_value": "0"
-						}
-					],
-					"description": "Returns the index of the [b]first[/b] [b]case-insensitive[/b] occurrence of [param what] in this string, or [code]-1[/code] if there are none. The starting search index can be specified with [param from], continuing to the end of the string."
 				},
 				{
 					"name": "rfind",
@@ -20564,7 +20625,22 @@
 							"type": "String"
 						}
 					],
-					"description": "Returns [code]true[/code] if the string contains [param what]. In GDScript, this corresponds to the [code]in[/code] operator.\n[codeblocks]\n[gdscript]\nprint(\"Node\".contains(\"de\")) # Prints true\nprint(\"team\".contains(\"I\"))  # Prints false\nprint(\"I\" in \"team\")         # Prints false\n[/gdscript]\n[csharp]\nGD.Print(\"Node\".Contains(\"de\")); // Prints true\nGD.Print(\"team\".Contains(\"I\"));  // Prints false\n[/csharp]\n[/codeblocks]\nIf you need to know where [param what] is within the string, use [method find]."
+					"description": "Returns [code]true[/code] if the string contains [param what]. In GDScript, this corresponds to the [code]in[/code] operator.\n[codeblocks]\n[gdscript]\nprint(\"Node\".contains(\"de\")) # Prints true\nprint(\"team\".contains(\"I\"))  # Prints false\nprint(\"I\" in \"team\")         # Prints false\n[/gdscript]\n[csharp]\nGD.Print(\"Node\".Contains(\"de\")); // Prints true\nGD.Print(\"team\".Contains(\"I\"));  // Prints false\n[/csharp]\n[/codeblocks]\nIf you need to know where [param what] is within the string, use [method find]. See also [method containsn]."
+				},
+				{
+					"name": "containsn",
+					"return_type": "bool",
+					"is_vararg": false,
+					"is_const": true,
+					"is_static": false,
+					"hash": 2566493496,
+					"arguments": [
+						{
+							"name": "what",
+							"type": "String"
+						}
+					],
+					"description": "Returns [code]true[/code] if the string contains [param what], [b]ignoring case[/b].\nIf you need to know where [param what] is within the string, use [method findn]. See also [method contains]."
 				},
 				{
 					"name": "is_absolute_path",
@@ -21192,7 +21268,7 @@
 			],
 			"has_destructor": true,
 			"brief_description": "A pre-parsed scene tree path.",
-			"description": "The [NodePath] built-in [Variant] type represents a path to a node or property in a hierarchy of nodes. It is designed to be efficiently passed into many built-in methods (such as [method Node.get_node], [method Object.set_indexed], [method Tween.tween_property], etc.) without a hard dependence on the node or property they point to.\nA node path is represented as a [String] composed of slash-separated ([code]/[/code]) node names and colon-separated ([code]:[/code]) property names (also called \"subnames\"). Similar to a filesystem path, [code]\"..\"[/code] and [code]\".\"[/code] are special node names. They refer to the parent node and the current node, respectively.\nThe following examples are paths relative to the current node:\n[codeblock]\n^\"A\"     # Points to the direct child A.\n^\"A/B\"   # Points to A's child B.\n^\".\"     # Points to the current node.\n^\"..\"    # Points to the parent node.\n^\"../C\"  # Points to the sibling node C.\n^\"../..\" # Points to the grandparent node.\n[/codeblock]\nA leading slash means the path is absolute, and begins from the [SceneTree]:\n[codeblock]\n^\"/root\"            # Points to the SceneTree's root Window.\n^\"/root/Title\"      # May point to the main scene's root node named \"Title\".\n^\"/root/Global\"     # May point to an autoloaded node or scene named \"Global\".\n[/codeblock]\nDespite their name, node paths may also point to a property:\n[codeblock]\n^\"position\"            # Points to this object's position.\n^\"position:x\"          # Points to this object's position in the x axis.\n^\"Camera3D:rotation:y\" # Points to the child Camera3D and its y rotation.\n^\"/root:size:x\"        # Points to the root Window and its width.\n[/codeblock]\nNode paths cannot check whether they are valid and may point to nodes or properties that do not exist. Their meaning depends entirely on the context in which they're used.\nYou usually do not have to worry about the [NodePath] type, as strings are automatically converted to the type when necessary. There are still times when defining node paths is useful. For example, exported [NodePath] properties allow you to easily select any node within the currently edited scene. They are also automatically updated when moving, renaming or deleting nodes in the scene tree editor. See also [annotation @GDScript.@export_node_path].\nSee also [StringName], which is a similar type designed for optimised strings.\n[b]Note:[/b] In a boolean context, a [NodePath] will evaluate to [code]false[/code] if it is empty ([code]NodePath(\"\")[/code]). Otherwise, a [NodePath] will always evaluate to [code]true[/code]."
+			"description": "The [NodePath] built-in [Variant] type represents a path to a node or property in a hierarchy of nodes. It is designed to be efficiently passed into many built-in methods (such as [method Node.get_node], [method Object.set_indexed], [method Tween.tween_property], etc.) without a hard dependence on the node or property they point to.\nA node path is represented as a [String] composed of slash-separated ([code]/[/code]) node names and colon-separated ([code]:[/code]) property names (also called \"subnames\"). Similar to a filesystem path, [code]\"..\"[/code] and [code]\".\"[/code] are special node names. They refer to the parent node and the current node, respectively.\nThe following examples are paths relative to the current node:\n[codeblock]\n^\"A\"     # Points to the direct child A.\n^\"A/B\"   # Points to A's child B.\n^\".\"     # Points to the current node.\n^\"..\"    # Points to the parent node.\n^\"../C\"  # Points to the sibling node C.\n^\"../..\" # Points to the grandparent node.\n[/codeblock]\nA leading slash means the path is absolute, and begins from the [SceneTree]:\n[codeblock]\n^\"/root\"            # Points to the SceneTree's root Window.\n^\"/root/Title\"      # May point to the main scene's root node named \"Title\".\n^\"/root/Global\"     # May point to an autoloaded node or scene named \"Global\".\n[/codeblock]\nDespite their name, node paths may also point to a property:\n[codeblock]\n^\"position\"            # Points to this object's position.\n^\"position:x\"          # Points to this object's position in the x axis.\n^\"Camera3D:rotation:y\" # Points to the child Camera3D and its y rotation.\n^\"/root:size:x\"        # Points to the root Window and its width.\n[/codeblock]\nNode paths cannot check whether they are valid and may point to nodes or properties that do not exist. Their meaning depends entirely on the context in which they're used.\nYou usually do not have to worry about the [NodePath] type, as strings are automatically converted to the type when necessary. There are still times when defining node paths is useful. For example, exported [NodePath] properties allow you to easily select any node within the currently edited scene. They are also automatically updated when moving, renaming or deleting nodes in the scene tree editor. See also [annotation @GDScript.@export_node_path].\nSee also [StringName], which is a similar type designed for optimized strings.\n[b]Note:[/b] In a boolean context, a [NodePath] will evaluate to [code]false[/code] if it is empty ([code]NodePath(\"\")[/code]). Otherwise, a [NodePath] will always evaluate to [code]true[/code]."
 		},
 		{
 			"name": "RID",
@@ -22850,6 +22926,16 @@
 						}
 					],
 					"description": "Constructs an array from a [PackedColorArray]."
+				},
+				{
+					"index": 12,
+					"arguments": [
+						{
+							"name": "from",
+							"type": "PackedVector4Array"
+						}
+					],
+					"description": "Constructs an array from a [PackedVector4Array]."
 				}
 			],
 			"has_destructor": true,
@@ -26817,6 +26903,380 @@
 			"has_destructor": true,
 			"brief_description": "A packed array of [Color]s.",
 			"description": "An array specifically designed to hold [Color]. Packs data tightly, so it saves memory for large array sizes.\n[b]Differences between packed arrays, typed arrays, and untyped arrays:[/b] Packed arrays are generally faster to iterate on and modify compared to a typed array of the same type (e.g. [PackedColorArray] versus [code]Array[Color][/code]). Also, packed arrays consume less memory. As a downside, packed arrays are less flexible as they don't offer as many convenience methods such as [method Array.map]. Typed arrays are in turn faster to iterate on and modify than untyped arrays.\n[b]Note:[/b] Packed arrays are always passed by reference. To get a copy of an array that can be modified independently of the original array, use [method duplicate]. This is [i]not[/i] the case for built-in properties and methods. The returned packed array of these are a copies, and changing it will [i]not[/i] affect the original value. To update a built-in property you need to modify the returned array, and then assign it to the property again."
+		},
+		{
+			"name": "PackedVector4Array",
+			"indexing_return_type": "Vector4",
+			"is_keyed": false,
+			"operators": [
+				{
+					"name": "==",
+					"right_type": "Variant",
+					"return_type": "bool"
+				},
+				{
+					"name": "!=",
+					"right_type": "Variant",
+					"return_type": "bool"
+				},
+				{
+					"name": "not",
+					"return_type": "bool"
+				},
+				{
+					"name": "in",
+					"right_type": "Dictionary",
+					"return_type": "bool"
+				},
+				{
+					"name": "in",
+					"right_type": "Array",
+					"return_type": "bool"
+				},
+				{
+					"name": "==",
+					"right_type": "PackedVector4Array",
+					"return_type": "bool",
+					"description": "Returns [code]true[/code] if contents of both arrays are the same, i.e. they have all equal [Vector4]s at the corresponding indices."
+				},
+				{
+					"name": "!=",
+					"right_type": "PackedVector4Array",
+					"return_type": "bool",
+					"description": "Returns [code]true[/code] if contents of the arrays differ."
+				},
+				{
+					"name": "+",
+					"right_type": "PackedVector4Array",
+					"return_type": "PackedVector4Array",
+					"description": "Returns a new [PackedVector4Array] with contents of [param right] added at the end of this array. For better performance, consider using [method append_array] instead."
+				}
+			],
+			"methods": [
+				{
+					"name": "size",
+					"return_type": "int",
+					"is_vararg": false,
+					"is_const": true,
+					"is_static": false,
+					"hash": 3173160232,
+					"description": "Returns the number of elements in the array."
+				},
+				{
+					"name": "is_empty",
+					"return_type": "bool",
+					"is_vararg": false,
+					"is_const": true,
+					"is_static": false,
+					"hash": 3918633141,
+					"description": "Returns [code]true[/code] if the array is empty."
+				},
+				{
+					"name": "set",
+					"is_vararg": false,
+					"is_const": false,
+					"is_static": false,
+					"hash": 1350366223,
+					"arguments": [
+						{
+							"name": "index",
+							"type": "int"
+						},
+						{
+							"name": "value",
+							"type": "Vector4"
+						}
+					],
+					"description": "Changes the [Vector4] at the given index."
+				},
+				{
+					"name": "push_back",
+					"return_type": "bool",
+					"is_vararg": false,
+					"is_const": false,
+					"is_static": false,
+					"hash": 3289167688,
+					"arguments": [
+						{
+							"name": "value",
+							"type": "Vector4"
+						}
+					],
+					"description": "Inserts a [Vector4] at the end."
+				},
+				{
+					"name": "append",
+					"return_type": "bool",
+					"is_vararg": false,
+					"is_const": false,
+					"is_static": false,
+					"hash": 3289167688,
+					"arguments": [
+						{
+							"name": "value",
+							"type": "Vector4"
+						}
+					],
+					"description": "Appends an element at the end of the array (alias of [method push_back])."
+				},
+				{
+					"name": "append_array",
+					"is_vararg": false,
+					"is_const": false,
+					"is_static": false,
+					"hash": 537428395,
+					"arguments": [
+						{
+							"name": "array",
+							"type": "PackedVector4Array"
+						}
+					],
+					"description": "Appends a [PackedVector4Array] at the end of this array."
+				},
+				{
+					"name": "remove_at",
+					"is_vararg": false,
+					"is_const": false,
+					"is_static": false,
+					"hash": 2823966027,
+					"arguments": [
+						{
+							"name": "index",
+							"type": "int"
+						}
+					],
+					"description": "Removes an element from the array by index."
+				},
+				{
+					"name": "insert",
+					"return_type": "int",
+					"is_vararg": false,
+					"is_const": false,
+					"is_static": false,
+					"hash": 11085009,
+					"arguments": [
+						{
+							"name": "at_index",
+							"type": "int"
+						},
+						{
+							"name": "value",
+							"type": "Vector4"
+						}
+					],
+					"description": "Inserts a new element at a given position in the array. The position must be valid, or at the end of the array ([code]idx == size()[/code])."
+				},
+				{
+					"name": "fill",
+					"is_vararg": false,
+					"is_const": false,
+					"is_static": false,
+					"hash": 3761353134,
+					"arguments": [
+						{
+							"name": "value",
+							"type": "Vector4"
+						}
+					],
+					"description": "Assigns the given value to all elements in the array. This can typically be used together with [method resize] to create an array with a given size and initialized elements."
+				},
+				{
+					"name": "resize",
+					"return_type": "int",
+					"is_vararg": false,
+					"is_const": false,
+					"is_static": false,
+					"hash": 848867239,
+					"arguments": [
+						{
+							"name": "new_size",
+							"type": "int"
+						}
+					],
+					"description": "Sets the size of the array. If the array is grown, reserves elements at the end of the array. If the array is shrunk, truncates the array to the new size."
+				},
+				{
+					"name": "clear",
+					"is_vararg": false,
+					"is_const": false,
+					"is_static": false,
+					"hash": 3218959716,
+					"description": "Clears the array. This is equivalent to using [method resize] with a size of [code]0[/code]."
+				},
+				{
+					"name": "has",
+					"return_type": "bool",
+					"is_vararg": false,
+					"is_const": true,
+					"is_static": false,
+					"hash": 88913544,
+					"arguments": [
+						{
+							"name": "value",
+							"type": "Vector4"
+						}
+					],
+					"description": "Returns [code]true[/code] if the array contains [param value].\n[b]Note:[/b] Vectors with [constant @GDScript.NAN] elements don't behave the same as other vectors. Therefore, the results from this method may not be accurate if NaNs are included."
+				},
+				{
+					"name": "reverse",
+					"is_vararg": false,
+					"is_const": false,
+					"is_static": false,
+					"hash": 3218959716,
+					"description": "Reverses the order of the elements in the array."
+				},
+				{
+					"name": "slice",
+					"return_type": "PackedVector4Array",
+					"is_vararg": false,
+					"is_const": true,
+					"is_static": false,
+					"hash": 2942803855,
+					"arguments": [
+						{
+							"name": "begin",
+							"type": "int"
+						},
+						{
+							"name": "end",
+							"type": "int",
+							"default_value": "2147483647"
+						}
+					],
+					"description": "Returns the slice of the [PackedVector4Array], from [param begin] (inclusive) to [param end] (exclusive), as a new [PackedVector4Array].\nThe absolute value of [param begin] and [param end] will be clamped to the array size, so the default value for [param end] makes it slice to the size of the array by default (i.e. [code]arr.slice(1)[/code] is a shorthand for [code]arr.slice(1, arr.size())[/code]).\nIf either [param begin] or [param end] are negative, they will be relative to the end of the array (i.e. [code]arr.slice(0, -2)[/code] is a shorthand for [code]arr.slice(0, arr.size() - 2)[/code])."
+				},
+				{
+					"name": "to_byte_array",
+					"return_type": "PackedByteArray",
+					"is_vararg": false,
+					"is_const": true,
+					"is_static": false,
+					"hash": 247621236,
+					"description": "Returns a [PackedByteArray] with each vector encoded as bytes."
+				},
+				{
+					"name": "sort",
+					"is_vararg": false,
+					"is_const": false,
+					"is_static": false,
+					"hash": 3218959716,
+					"description": "Sorts the elements of the array in ascending order.\n[b]Note:[/b] Vectors with [constant @GDScript.NAN] elements don't behave the same as other vectors. Therefore, the results from this method may not be accurate if NaNs are included."
+				},
+				{
+					"name": "bsearch",
+					"return_type": "int",
+					"is_vararg": false,
+					"is_const": false,
+					"is_static": false,
+					"hash": 735671678,
+					"arguments": [
+						{
+							"name": "value",
+							"type": "Vector4"
+						},
+						{
+							"name": "before",
+							"type": "bool",
+							"default_value": "true"
+						}
+					],
+					"description": "Finds the index of an existing value (or the insertion index that maintains sorting order, if the value is not yet present in the array) using binary search. Optionally, a [param before] specifier can be passed. If [code]false[/code], the returned index comes after all existing entries of the value in the array.\n[b]Note:[/b] Calling [method bsearch] on an unsorted array results in unexpected behavior.\n[b]Note:[/b] Vectors with [constant @GDScript.NAN] elements don't behave the same as other vectors. Therefore, the results from this method may not be accurate if NaNs are included."
+				},
+				{
+					"name": "duplicate",
+					"return_type": "PackedVector4Array",
+					"is_vararg": false,
+					"is_const": false,
+					"is_static": false,
+					"hash": 3186305013,
+					"description": "Creates a copy of the array, and returns it."
+				},
+				{
+					"name": "find",
+					"return_type": "int",
+					"is_vararg": false,
+					"is_const": true,
+					"is_static": false,
+					"hash": 3091171314,
+					"arguments": [
+						{
+							"name": "value",
+							"type": "Vector4"
+						},
+						{
+							"name": "from",
+							"type": "int",
+							"default_value": "0"
+						}
+					],
+					"description": "Searches the array for a value and returns its index or [code]-1[/code] if not found. Optionally, the initial search index can be passed.\n[b]Note:[/b] Vectors with [constant @GDScript.NAN] elements don't behave the same as other vectors. Therefore, the results from this method may not be accurate if NaNs are included."
+				},
+				{
+					"name": "rfind",
+					"return_type": "int",
+					"is_vararg": false,
+					"is_const": true,
+					"is_static": false,
+					"hash": 3091171314,
+					"arguments": [
+						{
+							"name": "value",
+							"type": "Vector4"
+						},
+						{
+							"name": "from",
+							"type": "int",
+							"default_value": "-1"
+						}
+					],
+					"description": "Searches the array in reverse order. Optionally, a start search index can be passed. If negative, the start index is considered relative to the end of the array.\n[b]Note:[/b] Vectors with [constant @GDScript.NAN] elements don't behave the same as other vectors. Therefore, the results from this method may not be accurate if NaNs are included."
+				},
+				{
+					"name": "count",
+					"return_type": "int",
+					"is_vararg": false,
+					"is_const": true,
+					"is_static": false,
+					"hash": 3956594488,
+					"arguments": [
+						{
+							"name": "value",
+							"type": "Vector4"
+						}
+					],
+					"description": "Returns the number of times an element is in the array.\n[b]Note:[/b] Vectors with [constant @GDScript.NAN] elements don't behave the same as other vectors. Therefore, the results from this method may not be accurate if NaNs are included."
+				}
+			],
+			"constructors": [
+				{
+					"index": 0,
+					"description": "Constructs an empty [PackedVector4Array]."
+				},
+				{
+					"index": 1,
+					"arguments": [
+						{
+							"name": "from",
+							"type": "PackedVector4Array"
+						}
+					],
+					"description": "Constructs a [PackedVector4Array] as a copy of the given [PackedVector4Array]."
+				},
+				{
+					"index": 2,
+					"arguments": [
+						{
+							"name": "from",
+							"type": "Array"
+						}
+					],
+					"description": "Constructs a new [PackedVector4Array]. Optionally, you can pass in a generic [Array] that will be converted.\n[b]Note:[/b] When initializing a [PackedVector4Array] with elements, it must be initialized with an [Array] of [Vector4] values:\n[codeblock]\nvar array = PackedVector4Array([Vector4(12, 34, 56, 78), Vector4(90, 12, 34, 56)])\n[/codeblock]"
+				}
+			],
+			"has_destructor": true,
+			"brief_description": "A packed array of [Vector4]s.",
+			"description": "An array specifically designed to hold [Vector4]. Packs data tightly, so it saves memory for large array sizes.\n[b]Note:[/b] Packed arrays are always passed by reference. To get a copy of an array that can be modified independently of the original array, use [method duplicate]. This is [i]not[/i] the case for built-in properties and methods. The returned packed array of these are a copies, and changing it will [i]not[/i] affect the original value. To update a built-in property you need to modify the returned array, and then assign it to the property again."
 		}
 	],
 	"classes": [
@@ -32339,17 +32799,17 @@
 						{
 							"name": "ANIMATION_CALLBACK_MODE_DISCRETE_DOMINANT",
 							"value": 0,
-							"description": "An [constant Animation.UPDATE_DISCRETE] track value takes precedence when blending [constant Animation.UPDATE_CONTINUOUS] or [constant Animation.UPDATE_CAPTURE] track values and [constant Animation.UPDATE_DISCRETE] track values. This is the default behavior for [AnimationPlayer].\n[b]Note:[/b] If a value track has non-numeric type key values, it is internally converted to use [constant ANIMATION_CALLBACK_MODE_DISCRETE_DOMINANT] with [constant Animation.UPDATE_DISCRETE]."
+							"description": "An [constant Animation.UPDATE_DISCRETE] track value takes precedence when blending [constant Animation.UPDATE_CONTINUOUS] or [constant Animation.UPDATE_CAPTURE] track values and [constant Animation.UPDATE_DISCRETE] track values."
 						},
 						{
 							"name": "ANIMATION_CALLBACK_MODE_DISCRETE_RECESSIVE",
 							"value": 1,
-							"description": "An [constant Animation.UPDATE_CONTINUOUS] or [constant Animation.UPDATE_CAPTURE] track value takes precedence when blending the [constant Animation.UPDATE_CONTINUOUS] or [constant Animation.UPDATE_CAPTURE] track values and the [constant Animation.UPDATE_DISCRETE] track values."
+							"description": "An [constant Animation.UPDATE_CONTINUOUS] or [constant Animation.UPDATE_CAPTURE] track value takes precedence when blending the [constant Animation.UPDATE_CONTINUOUS] or [constant Animation.UPDATE_CAPTURE] track values and the [constant Animation.UPDATE_DISCRETE] track values. This is the default behavior for [AnimationPlayer]."
 						},
 						{
 							"name": "ANIMATION_CALLBACK_MODE_DISCRETE_FORCE_CONTINUOUS",
 							"value": 2,
-							"description": "Always treat the [constant Animation.UPDATE_DISCRETE] track value as [constant Animation.UPDATE_CONTINUOUS] with [constant Animation.INTERPOLATION_NEAREST]. This is the default behavior for [AnimationTree]."
+							"description": "Always treat the [constant Animation.UPDATE_DISCRETE] track value as [constant Animation.UPDATE_CONTINUOUS] with [constant Animation.INTERPOLATION_NEAREST]. This is the default behavior for [AnimationTree].\nIf a value track has non-numeric type key values, it is internally converted to use [constant ANIMATION_CALLBACK_MODE_DISCRETE_RECESSIVE] with [constant Animation.UPDATE_DISCRETE]."
 						}
 					]
 				}
@@ -36943,6 +37403,83 @@
 					}
 				},
 				{
+					"name": "set_auto_capture_duration",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 373806689,
+					"arguments": [
+						{
+							"name": "auto_capture_duration",
+							"type": "float",
+							"meta": "double"
+						}
+					]
+				},
+				{
+					"name": "get_auto_capture_duration",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 1740695150,
+					"return_value": {
+						"type": "float",
+						"meta": "double"
+					}
+				},
+				{
+					"name": "set_auto_capture_transition_type",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 1058637742,
+					"arguments": [
+						{
+							"name": "auto_capture_transition_type",
+							"type": "enum::Tween.TransitionType"
+						}
+					]
+				},
+				{
+					"name": "get_auto_capture_transition_type",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 3842314528,
+					"return_value": {
+						"type": "enum::Tween.TransitionType"
+					}
+				},
+				{
+					"name": "set_auto_capture_ease_type",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 1208105857,
+					"arguments": [
+						{
+							"name": "auto_capture_ease_type",
+							"type": "enum::Tween.EaseType"
+						}
+					]
+				},
+				{
+					"name": "get_auto_capture_ease_type",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 631880200,
+					"return_value": {
+						"type": "enum::Tween.EaseType"
+					}
+				},
+				{
 					"name": "play",
 					"is_const": false,
 					"is_vararg": false,
@@ -37465,7 +38002,28 @@
 					"name": "playback_auto_capture",
 					"setter": "set_auto_capture",
 					"getter": "is_auto_capture",
-					"description": "If [code]true[/code], performs [method AnimationMixer.capture] before playback automatically. This means just [method play_with_capture] is executed with default arguments instead of [method play]."
+					"description": "If [code]true[/code], performs [method AnimationMixer.capture] before playback automatically. This means just [method play_with_capture] is executed with default arguments instead of [method play].\n[b]Note:[/b] Capture interpolation is only performed if the animation contains a capture track. See also [constant Animation.UPDATE_CAPTURE]."
+				},
+				{
+					"type": "float",
+					"name": "playback_auto_capture_duration",
+					"setter": "set_auto_capture_duration",
+					"getter": "get_auto_capture_duration",
+					"description": "See also [method play_with_capture] and [method AnimationMixer.capture].\nIf [member playback_auto_capture_duration] is negative value, the duration is set to the interval between the current position and the first key."
+				},
+				{
+					"type": "int",
+					"name": "playback_auto_capture_transition_type",
+					"setter": "set_auto_capture_transition_type",
+					"getter": "get_auto_capture_transition_type",
+					"description": "The transition type of the capture interpolation. See also [enum Tween.TransitionType]."
+				},
+				{
+					"type": "int",
+					"name": "playback_auto_capture_ease_type",
+					"setter": "set_auto_capture_ease_type",
+					"getter": "get_auto_capture_ease_type",
+					"description": "The ease type of the capture interpolation. See also [enum Tween.EaseType]."
 				},
 				{
 					"type": "float",
@@ -63783,8 +64341,9 @@
 					"is_vararg": false,
 					"is_static": false,
 					"is_virtual": false,
-					"hash": 684651049,
+					"hash": 3653831622,
 					"hash_compatibility": [
+						684651049,
 						2175215884
 					],
 					"arguments": [
@@ -63816,9 +64375,14 @@
 							"name": "aligned",
 							"type": "bool",
 							"default_value": "true"
+						},
+						{
+							"name": "antialiased",
+							"type": "bool",
+							"default_value": "false"
 						}
 					],
-					"description": "Draws a dashed line from a 2D point to another, with a given color and width. See also [method draw_multiline] and [method draw_polyline].\nIf [param width] is negative, then a two-point primitives will be drawn instead of a four-point ones. This means that when the CanvasItem is scaled, the line parts will remain thin. If this behavior is not desired, then pass a positive [param width] like [code]1.0[/code]."
+					"description": "Draws a dashed line from a 2D point to another, with a given color and width. See also [method draw_multiline] and [method draw_polyline].\nIf [param width] is negative, then a two-point primitives will be drawn instead of a four-point ones. This means that when the CanvasItem is scaled, the line parts will remain thin. If this behavior is not desired, then pass a positive [param width] like [code]1.0[/code].\nIf [param antialiased] is [code]true[/code], half transparent \"feathers\" will be attached to the boundary, making outlines smooth.\n[b]Note:[/b] [param antialiased] is only effective if [param width] is greater than [code]0.0[/code]."
 				},
 				{
 					"name": "draw_polyline",
@@ -63945,8 +64509,9 @@
 					"is_vararg": false,
 					"is_static": false,
 					"is_virtual": false,
-					"hash": 2239075205,
+					"hash": 3797364428,
 					"hash_compatibility": [
+						2239075205,
 						4230657331
 					],
 					"arguments": [
@@ -63963,9 +64528,14 @@
 							"type": "float",
 							"meta": "float",
 							"default_value": "-1.0"
+						},
+						{
+							"name": "antialiased",
+							"type": "bool",
+							"default_value": "false"
 						}
 					],
-					"description": "Draws multiple disconnected lines with a uniform [param width] and [param color]. Each line is defined by two consecutive points from [param points] array, i.e. i-th segment consists of [code]points[2 * i][/code], [code]points[2 * i + 1][/code] endpoints. When drawing large amounts of lines, this is faster than using individual [method draw_line] calls. To draw interconnected lines, use [method draw_polyline] instead.\nIf [param width] is negative, then two-point primitives will be drawn instead of a four-point ones. This means that when the CanvasItem is scaled, the lines will remain thin. If this behavior is not desired, then pass a positive [param width] like [code]1.0[/code]."
+					"description": "Draws multiple disconnected lines with a uniform [param width] and [param color]. Each line is defined by two consecutive points from [param points] array, i.e. i-th segment consists of [code]points[2 * i][/code], [code]points[2 * i + 1][/code] endpoints. When drawing large amounts of lines, this is faster than using individual [method draw_line] calls. To draw interconnected lines, use [method draw_polyline] instead.\nIf [param width] is negative, then two-point primitives will be drawn instead of a four-point ones. This means that when the CanvasItem is scaled, the lines will remain thin. If this behavior is not desired, then pass a positive [param width] like [code]1.0[/code].\n[b]Note:[/b] [param antialiased] is only effective if [param width] is greater than [code]0.0[/code]."
 				},
 				{
 					"name": "draw_multiline_colors",
@@ -63973,8 +64543,9 @@
 					"is_vararg": false,
 					"is_static": false,
 					"is_virtual": false,
-					"hash": 4072951537,
+					"hash": 2311979562,
 					"hash_compatibility": [
+						4072951537,
 						235933050
 					],
 					"arguments": [
@@ -63991,9 +64562,14 @@
 							"type": "float",
 							"meta": "float",
 							"default_value": "-1.0"
+						},
+						{
+							"name": "antialiased",
+							"type": "bool",
+							"default_value": "false"
 						}
 					],
-					"description": "Draws multiple disconnected lines with a uniform [param width] and segment-by-segment coloring. Each segment is defined by two consecutive points from [param points] array and a corresponding color from [param colors] array, i.e. i-th segment consists of [code]points[2 * i][/code], [code]points[2 * i + 1][/code] endpoints and has [code]colors[i][/code] color. When drawing large amounts of lines, this is faster than using individual [method draw_line] calls. To draw interconnected lines, use [method draw_polyline_colors] instead.\nIf [param width] is negative, then two-point primitives will be drawn instead of a four-point ones. This means that when the CanvasItem is scaled, the lines will remain thin. If this behavior is not desired, then pass a positive [param width] like [code]1.0[/code]."
+					"description": "Draws multiple disconnected lines with a uniform [param width] and segment-by-segment coloring. Each segment is defined by two consecutive points from [param points] array and a corresponding color from [param colors] array, i.e. i-th segment consists of [code]points[2 * i][/code], [code]points[2 * i + 1][/code] endpoints and has [code]colors[i][/code] color. When drawing large amounts of lines, this is faster than using individual [method draw_line] calls. To draw interconnected lines, use [method draw_polyline_colors] instead.\nIf [param width] is negative, then two-point primitives will be drawn instead of a four-point ones. This means that when the CanvasItem is scaled, the lines will remain thin. If this behavior is not desired, then pass a positive [param width] like [code]1.0[/code].\n[b]Note:[/b] [param antialiased] is only effective if [param width] is greater than [code]0.0[/code]."
 				},
 				{
 					"name": "draw_rect",
@@ -64001,8 +64577,9 @@
 					"is_vararg": false,
 					"is_static": false,
 					"is_virtual": false,
-					"hash": 2417231121,
+					"hash": 2773573813,
 					"hash_compatibility": [
+						2417231121,
 						84391229
 					],
 					"arguments": [
@@ -64024,9 +64601,14 @@
 							"type": "float",
 							"meta": "float",
 							"default_value": "-1.0"
+						},
+						{
+							"name": "antialiased",
+							"type": "bool",
+							"default_value": "false"
 						}
 					],
-					"description": "Draws a rectangle. If [param filled] is [code]true[/code], the rectangle will be filled with the [param color] specified. If [param filled] is [code]false[/code], the rectangle will be drawn as a stroke with the [param color] and [param width] specified. See also [method draw_texture_rect].\nIf [param width] is negative, then two-point primitives will be drawn instead of a four-point ones. This means that when the CanvasItem is scaled, the lines will remain thin. If this behavior is not desired, then pass a positive [param width] like [code]1.0[/code].\n[b]Note:[/b] [param width] is only effective if [param filled] is [code]false[/code].\n[b]Note:[/b] Unfilled rectangles drawn with a negative [param width] may not display perfectly. For example, corners may be missing or brighter due to overlapping lines (for a translucent [param color])."
+					"description": "Draws a rectangle. If [param filled] is [code]true[/code], the rectangle will be filled with the [param color] specified. If [param filled] is [code]false[/code], the rectangle will be drawn as a stroke with the [param color] and [param width] specified. See also [method draw_texture_rect].\nIf [param width] is negative, then two-point primitives will be drawn instead of a four-point ones. This means that when the CanvasItem is scaled, the lines will remain thin. If this behavior is not desired, then pass a positive [param width] like [code]1.0[/code].\nIf [param antialiased] is [code]true[/code], half transparent \"feathers\" will be attached to the boundary, making outlines smooth.\n[b]Note:[/b] [param width] is only effective if [param filled] is [code]false[/code].\n[b]Note:[/b] Unfilled rectangles drawn with a negative [param width] may not display perfectly. For example, corners may be missing or brighter due to overlapping lines (for a translucent [param color])."
 				},
 				{
 					"name": "draw_circle",
@@ -64069,7 +64651,7 @@
 							"default_value": "false"
 						}
 					],
-					"description": "Draws a circle. See also [method draw_arc], [method draw_polyline], and [method draw_polygon].\nIf [param filled] is [code]true[/code], the circle will be filled with the [param color] specified. If [param filled] is [code]false[/code], the circle will be drawn as a stroke with the [param color] and [param width] specified.\nIf [param width] is negative, then two-point primitives will be drawn instead of a four-point ones. This means that when the CanvasItem is scaled, the lines will remain thin. If this behavior is not desired, then pass a positive [param width] like [code]1.0[/code].\n[b]Note:[/b] [param width] is only effective if [param filled] is [code]false[/code]."
+					"description": "Draws a circle. See also [method draw_arc], [method draw_polyline], and [method draw_polygon].\nIf [param filled] is [code]true[/code], the circle will be filled with the [param color] specified. If [param filled] is [code]false[/code], the circle will be drawn as a stroke with the [param color] and [param width] specified.\nIf [param width] is negative, then two-point primitives will be drawn instead of a four-point ones. This means that when the CanvasItem is scaled, the lines will remain thin. If this behavior is not desired, then pass a positive [param width] like [code]1.0[/code].\nIf [param antialiased] is [code]true[/code], half transparent \"feathers\" will be attached to the boundary, making outlines smooth.\n[b]Note:[/b] [param width] is only effective if [param filled] is [code]false[/code]."
 				},
 				{
 					"name": "draw_texture",
@@ -75690,7 +76272,7 @@
 				}
 			],
 			"brief_description": "A dialog used for confirmation of actions.",
-			"description": "A dialog used for confirmation of actions. This window is similar to [AcceptDialog], but pressing its Cancel button can have a different outcome from pressing the OK button. The order of the two buttons varies depending on the host OS.\nTo get cancel action, you can use:\n[codeblocks]\n[gdscript]\nget_cancel_button().pressed.connect(self.canceled)\n[/gdscript]\n[csharp]\nGetCancelButton().Pressed += Canceled;\n[/csharp]\n[/codeblocks]"
+			"description": "A dialog used for confirmation of actions. This window is similar to [AcceptDialog], but pressing its Cancel button can have a different outcome from pressing the OK button. The order of the two buttons varies depending on the host OS.\nTo get cancel action, you can use:\n[codeblocks]\n[gdscript]\nget_cancel_button().pressed.connect(_on_canceled)\n[/gdscript]\n[csharp]\nGetCancelButton().Pressed += OnCanceled;\n[/csharp]\n[/codeblocks]"
 		},
 		{
 			"name": "Container",
@@ -79058,7 +79640,7 @@
 				}
 			],
 			"brief_description": "Provides access to advanced cryptographic functionalities.",
-			"description": "The Crypto class provides access to advanced cryptographic functionalities.\nCurrently, this includes asymmetric key encryption/decryption, signing/verification, and generating cryptographically secure random bytes, RSA keys, HMAC digests, and self-signed [X509Certificate]s.\n[codeblocks]\n[gdscript]\nextends Node\n\nvar crypto = Crypto.new()\nvar key = CryptoKey.new()\nvar cert = X509Certificate.new()\n\nfunc _ready():\n    # Generate new RSA key.\n    key = crypto.generate_rsa(4096)\n    # Generate new self-signed certificate with the given key.\n    cert = crypto.generate_self_signed_certificate(key, \"CN=mydomain.com,O=My Game Company,C=IT\")\n    # Save key and certificate in the user folder.\n    key.save(\"user://generated.key\")\n    cert.save(\"user://generated.crt\")\n    # Encryption\n    var data = \"Some data\"\n    var encrypted = crypto.encrypt(key, data.to_utf8_buffer())\n    # Decryption\n    var decrypted = crypto.decrypt(key, encrypted)\n    # Signing\n    var signature = crypto.sign(HashingContext.HASH_SHA256, data.sha256_buffer(), key)\n    # Verifying\n    var verified = crypto.verify(HashingContext.HASH_SHA256, data.sha256_buffer(), signature, key)\n    # Checks\n    assert(verified)\n    assert(data.to_utf8_buffer() == decrypted)\n[/gdscript]\n[csharp]\nusing Godot;\nusing System.Diagnostics;\n\npublic partial class MyNode : Node\n{\n    private Crypto _crypto = new Crypto();\n    private CryptoKey _key = new CryptoKey();\n    private X509Certificate _cert = new X509Certificate();\n\n    public override void _Ready()\n    {\n        // Generate new RSA key.\n        _key = _crypto.GenerateRsa(4096);\n        // Generate new self-signed certificate with the given key.\n        _cert = _crypto.GenerateSelfSignedCertificate(_key, \"CN=mydomain.com,O=My Game Company,C=IT\");\n        // Save key and certificate in the user folder.\n        _key.Save(\"user://generated.key\");\n        _cert.Save(\"user://generated.crt\");\n        // Encryption\n        string data = \"Some data\";\n        byte[] encrypted = _crypto.Encrypt(_key, data.ToUtf8Buffer());\n        // Decryption\n        byte[] decrypted = _crypto.Decrypt(_key, encrypted);\n        // Signing\n        byte[] signature = _crypto.Sign(HashingContext.HashType.Sha256, Data.Sha256Buffer(), _key);\n        // Verifying\n        bool verified = _crypto.Verify(HashingContext.HashType.Sha256, Data.Sha256Buffer(), signature, _key);\n        // Checks\n        Debug.Assert(verified);\n        Debug.Assert(data.ToUtf8Buffer() == decrypted);\n    }\n}\n[/csharp]\n[/codeblocks]"
+			"description": "The Crypto class provides access to advanced cryptographic functionalities.\nCurrently, this includes asymmetric key encryption/decryption, signing/verification, and generating cryptographically secure random bytes, RSA keys, HMAC digests, and self-signed [X509Certificate]s.\n[codeblocks]\n[gdscript]\nvar crypto = Crypto.new()\n\n# Generate new RSA key.\nvar key = crypto.generate_rsa(4096)\n\n# Generate new self-signed certificate with the given key.\nvar cert = crypto.generate_self_signed_certificate(key, \"CN=mydomain.com,O=My Game Company,C=IT\")\n\n# Save key and certificate in the user folder.\nkey.save(\"user://generated.key\")\ncert.save(\"user://generated.crt\")\n\n# Encryption\nvar data = \"Some data\"\nvar encrypted = crypto.encrypt(key, data.to_utf8_buffer())\n\n# Decryption\nvar decrypted = crypto.decrypt(key, encrypted)\n\n# Signing\nvar signature = crypto.sign(HashingContext.HASH_SHA256, data.sha256_buffer(), key)\n\n# Verifying\nvar verified = crypto.verify(HashingContext.HASH_SHA256, data.sha256_buffer(), signature, key)\n\n# Checks\nassert(verified)\nassert(data.to_utf8_buffer() == decrypted)\n[/gdscript]\n[csharp]\nusing Godot;\nusing System.Diagnostics;\n\nCrypto crypto = new Crypto();\n\n// Generate new RSA key.\nCryptoKey key = crypto.GenerateRsa(4096);\n\n// Generate new self-signed certificate with the given key.\nX509Certificate cert = crypto.GenerateSelfSignedCertificate(key, \"CN=mydomain.com,O=My Game Company,C=IT\");\n\n// Save key and certificate in the user folder.\nkey.Save(\"user://generated.key\");\ncert.Save(\"user://generated.crt\");\n\n// Encryption\nstring data = \"Some data\";\nbyte[] encrypted = crypto.Encrypt(key, data.ToUtf8Buffer());\n\n// Decryption\nbyte[] decrypted = crypto.Decrypt(key, encrypted);\n\n// Signing\nbyte[] signature = crypto.Sign(HashingContext.HashType.Sha256, Data.Sha256Buffer(), key);\n\n// Verifying\nbool verified = crypto.Verify(HashingContext.HashType.Sha256, Data.Sha256Buffer(), signature, key);\n\n// Checks\nDebug.Assert(verified);\nDebug.Assert(data.ToUtf8Buffer() == decrypted);\n[/csharp]\n[/codeblocks]"
 		},
 		{
 			"name": "CryptoKey",
@@ -79168,7 +79750,7 @@
 					"description": "Loads a key from the given [param string_key]. If [param public_only] is [code]true[/code], only the public key will be loaded."
 				}
 			],
-			"brief_description": "A cryptographic key (RSA).",
+			"brief_description": "A cryptographic key (RSA or elliptic-curve).",
 			"description": "The CryptoKey class represents a cryptographic key. Keys can be loaded and saved like any other [Resource].\nThey can be used to generate a self-signed [X509Certificate] via [method Crypto.generate_self_signed_certificate] and as private key in [method StreamPeerTLS.accept_stream] along with the appropriate certificate."
 		},
 		{
@@ -83438,7 +84020,7 @@
 						{
 							"name": "WINDOW_FLAG_TRANSPARENT",
 							"value": 3,
-							"description": "The window background can be transparent.\n[b]Note:[/b] This flag has no effect if [member ProjectSettings.display/window/per_pixel_transparency/allowed] is set to [code]false[/code].\n[b]Note:[/b] Transparency support is implemented on Linux (X11/Wayland), macOS, and Windows, but availability might vary depending on GPU driver, display manager, and compositor capabilities."
+							"description": "The window background can be transparent.\n[b]Note:[/b] This flag has no effect if [method is_window_transparency_available] returns [code]false[/code].\n[b]Note:[/b] Transparency support is implemented on Linux (X11/Wayland), macOS, and Windows, but availability might vary depending on GPU driver, display manager, and compositor capabilities."
 						},
 						{
 							"name": "WINDOW_FLAG_NO_FOCUS",
@@ -83663,7 +84245,7 @@
 							"type": "Callable"
 						}
 					],
-					"description": "Registers callables to emit when the menu is respectively about to show or closed."
+					"description": "Registers callables to emit when the menu is respectively about to show or closed. Callback methods should have zero arguments."
 				},
 				{
 					"name": "global_menu_add_submenu_item",
@@ -85561,7 +86143,7 @@
 							"default_value": "-1"
 						}
 					],
-					"description": "Returns the scale factor of the specified screen by index.\n[b]Note:[/b] On macOS returned value is [code]2.0[/code] for hiDPI (Retina) screen, and [code]1.0[/code] for all other cases.\n[b]Note:[/b] This method is implemented only on macOS."
+					"description": "Returns the scale factor of the specified screen by index.\n[b]Note:[/b] On macOS, the returned value is [code]2.0[/code] for hiDPI (Retina) screens, and [code]1.0[/code] for all other cases.\n[b]Note:[/b] On Linux (Wayland), the returned value is accurate only when [param screen] is [constant SCREEN_OF_MAIN_WINDOW]. Due to API limitations, passing a direct index will return a rounded-up integer, if the screen has a fractional scale (e.g. [code]1.25[/code] would get rounded up to [code]2.0[/code]).\n[b]Note:[/b] This method is implemented only on macOS and Linux (Wayland)."
 				},
 				{
 					"name": "is_touchscreen_available",
@@ -86176,7 +86758,7 @@
 							"default_value": "0"
 						}
 					],
-					"description": "Sets the [param callback] that should be called when files are dropped from the operating system's file manager to the window specified by [param window_id].\n[b]Warning:[/b] Advanced users only! Adding such a callback to a [Window] node will override its default implementation, which can introduce bugs.\n[b]Note:[/b] This method is implemented on Windows, macOS, Linux (X11/Wayland), and Web."
+					"description": "Sets the [param callback] that should be called when files are dropped from the operating system's file manager to the window specified by [param window_id]. [param callback] should take one [PackedStringArray] argument, which is the list of dropped files.\n[b]Warning:[/b] Advanced users only! Adding such a callback to a [Window] node will override its default implementation, which can introduce bugs.\n[b]Note:[/b] This method is implemented on Windows, macOS, Linux (X11/Wayland), and Web."
 				},
 				{
 					"name": "window_get_attached_instance_id",
@@ -87217,7 +87799,7 @@
 							"type": "Callable"
 						}
 					],
-					"description": "Creates a new application status indicator with the specified icon, tooltip, and activation callback."
+					"description": "Creates a new application status indicator with the specified icon, tooltip, and activation callback.\n[param callback] should take two arguments: the pressed mouse button (one of the [enum MouseButton] constants) and the click position in screen coordinates (a [Vector2i])."
 				},
 				{
 					"name": "status_indicator_set_icon",
@@ -87297,7 +87879,7 @@
 							"type": "Callable"
 						}
 					],
-					"description": "Sets the application status indicator activation callback.\n[b]Note:[/b] This method is implemented on macOS and Windows."
+					"description": "Sets the application status indicator activation callback. [param callback] should take two arguments: [int] mouse button index (one of [enum MouseButton] values) and [Vector2i] click position in screen coordinates.\n[b]Note:[/b] This method is implemented on macOS and Windows."
 				},
 				{
 					"name": "status_indicator_get_rect",
@@ -87392,6 +87974,18 @@
 						}
 					],
 					"description": "Set active tablet driver name.\nSupported drivers:\n- [code]winink[/code]: Windows Ink API, default (Windows 8.1+ required).\n- [code]wintab[/code]: Wacom Wintab API (compatible device driver required).\n- [code]dummy[/code]: Dummy driver, tablet input is disabled.\n[b]Note:[/b] This method is implemented only on Windows."
+				},
+				{
+					"name": "is_window_transparency_available",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 36873697,
+					"return_value": {
+						"type": "bool"
+					},
+					"description": "Returns [code]true[/code] if the window background can be made transparent. This method returns [code]false[/code] if [member ProjectSettings.display/window/per_pixel_transparency/allowed] is set to [code]false[/code], or if transparency is not supported by the renderer or OS compositor."
 				}
 			],
 			"brief_description": "A server interface for low-level window management.",
@@ -87875,7 +88469,7 @@
 							"type": "PackedByteArray"
 						}
 					],
-					"description": "Sends a [param packet] toward a destination from the address and port currently bound by this ENetConnection instance. \nThis is useful as it serves to establish entries in NAT routing tables on all devices between this bound instance and the public facing internet, allowing a prospective client's connection packets to be routed backward through the NAT device(s) between the public internet and this host.\nThis requires forward knowledge of a prospective client's address and communication port as seen by the public internet - after any NAT devices have handled their connection request. This information can be obtained by a [url=https://en.wikipedia.org/wiki/STUN]STUN[/url] service, and must be handed off to your host by an entity that is not the prospective client. This will never work for a client behind a Symmetric NAT due to the nature of the Symmetric NAT routing algorithm, as their IP and Port cannot be known beforehand."
+					"description": "Sends a [param packet] toward a destination from the address and port currently bound by this ENetConnection instance.\nThis is useful as it serves to establish entries in NAT routing tables on all devices between this bound instance and the public facing internet, allowing a prospective client's connection packets to be routed backward through the NAT device(s) between the public internet and this host.\nThis requires forward knowledge of a prospective client's address and communication port as seen by the public internet - after any NAT devices have handled their connection request. This information can be obtained by a [url=https://en.wikipedia.org/wiki/STUN]STUN[/url] service, and must be handed off to your host by an entity that is not the prospective client. This will never work for a client behind a Symmetric NAT due to the nature of the Symmetric NAT routing algorithm, as their IP and Port cannot be known beforehand."
 				}
 			],
 			"brief_description": "A wrapper class for an [url=http://enet.bespin.org/group__host.html]ENetHost[/url].",
@@ -89491,7 +90085,7 @@
 					"is_static": false,
 					"is_virtual": false,
 					"hash": 3218959716,
-					"description": "To be called inside [method _export_file]. Skips the current file, so it's not included in the export."
+					"description": "To be called inside [method _export_file], [method _customize_resource], or [method _customize_scene]. Skips the current file, so it's not included in the export."
 				},
 				{
 					"name": "get_option",
@@ -90348,6 +90942,15 @@
 						}
 					],
 					"description": "Adds the given [param menu] to the side of the file dialog with the given [param title] text on top. Only one side menu is allowed."
+				},
+				{
+					"name": "popup_file_dialog",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 3218959716,
+					"description": "Shows the [EditorFileDialog] at the default size and position for file dialogs in the editor, and selects the file name if there is a current file."
 				},
 				{
 					"name": "invalidate",
@@ -91454,7 +92057,10 @@
 					"is_vararg": false,
 					"is_static": false,
 					"is_virtual": false,
-					"hash": 3406284123,
+					"hash": 2042698479,
+					"hash_compatibility": [
+						3406284123
+					],
 					"arguments": [
 						{
 							"name": "property",
@@ -91468,9 +92074,14 @@
 							"name": "add_to_end",
 							"type": "bool",
 							"default_value": "false"
+						},
+						{
+							"name": "label",
+							"type": "String",
+							"default_value": "\"\""
 						}
 					],
-					"description": "Adds a property editor for an individual property. The [param editor] control must extend [EditorProperty]."
+					"description": "Adds a property editor for an individual property. The [param editor] control must extend [EditorProperty].\nThere can be multiple property editors for a property. If [param add_to_end] is [code]true[/code], this newly added editor will be displayed after all the other editors of the property whose [param add_to_end] is [code]false[/code]. For example, the editor uses this parameter to add an \"Edit Region\" button for [member Sprite2D.region_rect] below the regular [Rect2] editor.\n[param label] can be used to choose a custom label for the property editor in the inspector. If left empty, the label is computed from the name of the property instead."
 				},
 				{
 					"name": "add_property_editor_for_multiple_properties",
@@ -94052,6 +94663,25 @@
 					"description": "Removes the control from the specified container. You have to manually [method Node.queue_free] the control."
 				},
 				{
+					"name": "set_dock_tab_icon",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 3450529724,
+					"arguments": [
+						{
+							"name": "control",
+							"type": "Control"
+						},
+						{
+							"name": "icon",
+							"type": "Texture2D"
+						}
+					],
+					"description": "Sets the tab icon for the given control in a dock slot. Setting to [code]null[/code] removes the icon."
+				},
+				{
 					"name": "add_tool_menu_item",
 					"is_const": false,
 					"is_vararg": false,
@@ -95914,7 +96544,7 @@
 			"inherits": "EditorSceneFormatImporter",
 			"api_type": "editor",
 			"brief_description": "Importer for the [code].fbx[/code] scene file format.",
-			"description": "Imports Autodesk FBX 3D scenes by way of converting them to glTF 2.0 using the FBX2glTF command line tool.\nThe location of the FBX2glTF binary is set via the [member EditorSettings.filesystem/import/fbx2gltf/fbx2gltf_path] editor setting.\nThis importer is only used if [member ProjectSettings.filesystem/import/fbx2gltf/enabled] is set to [code]true[/code]."
+			"description": "Imports Autodesk FBX 3D scenes by way of converting them to glTF 2.0 using the FBX2glTF command line tool.\nThe location of the FBX2glTF binary is set via the [member EditorSettings.filesystem/import/fbx/fbx2gltf_path] editor setting.\nThis importer is only used if [member ProjectSettings.filesystem/import/fbx2gltf/enabled] is set to [code]true[/code]."
 		},
 		{
 			"name": "EditorSceneFormatImporterGLTF",
@@ -103129,7 +103759,7 @@
 						{
 							"name": "WRITE",
 							"value": 2,
-							"description": "Opens the file for write operations. The file is created if it does not exist, and truncated if it does.\n[b]Note:[/b] When creating a file it must be in an already existing directory. To recursively create directories for a file path, see [method DirAccess.make_dir_recursive])."
+							"description": "Opens the file for write operations. The file is created if it does not exist, and truncated if it does.\n[b]Note:[/b] When creating a file it must be in an already existing directory. To recursively create directories for a file path, see [method DirAccess.make_dir_recursive]."
 						},
 						{
 							"name": "READ_WRITE",
@@ -103139,7 +103769,7 @@
 						{
 							"name": "WRITE_READ",
 							"value": 7,
-							"description": "Opens the file for read and write operations. The file is created if it does not exist, and truncated if it does. The cursor is positioned at the beginning of the file.\n[b]Note:[/b] When creating a file it must be in an already existing directory. To recursively create directories for a file path, see [method DirAccess.make_dir_recursive])."
+							"description": "Opens the file for read and write operations. The file is created if it does not exist, and truncated if it does. The cursor is positioned at the beginning of the file.\n[b]Note:[/b] When creating a file it must be in an already existing directory. To recursively create directories for a file path, see [method DirAccess.make_dir_recursive]."
 						}
 					]
 				},
@@ -105040,6 +105670,32 @@
 							"description": "The child controls will be arranged at the end of the container, i.e. bottom if orientation is vertical, right if orientation is horizontal (left for RTL layout)."
 						}
 					]
+				},
+				{
+					"name": "LastWrapAlignmentMode",
+					"is_bitfield": false,
+					"values": [
+						{
+							"name": "LAST_WRAP_ALIGNMENT_INHERIT",
+							"value": 0,
+							"description": "The last partially filled row or column will wrap aligned to the previous row or column in accordance with [member alignment]."
+						},
+						{
+							"name": "LAST_WRAP_ALIGNMENT_BEGIN",
+							"value": 1,
+							"description": "The last partially filled row or column will wrap aligned to the beginning of the previous row or column."
+						},
+						{
+							"name": "LAST_WRAP_ALIGNMENT_CENTER",
+							"value": 2,
+							"description": "The last partially filled row or column will wrap aligned to the center of the previous row or column."
+						},
+						{
+							"name": "LAST_WRAP_ALIGNMENT_END",
+							"value": 3,
+							"description": "The last partially filled row or column will wrap aligned to the end of the previous row or column."
+						}
+					]
 				}
 			],
 			"methods": [
@@ -105079,6 +105735,31 @@
 					"hash": 3749743559,
 					"return_value": {
 						"type": "enum::FlowContainer.AlignmentMode"
+					}
+				},
+				{
+					"name": "set_last_wrap_alignment",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 2899697495,
+					"arguments": [
+						{
+							"name": "last_wrap_alignment",
+							"type": "enum::FlowContainer.LastWrapAlignmentMode"
+						}
+					]
+				},
+				{
+					"name": "get_last_wrap_alignment",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 3743456014,
+					"return_value": {
+						"type": "enum::FlowContainer.LastWrapAlignmentMode"
 					}
 				},
 				{
@@ -105139,6 +105820,13 @@
 					"setter": "set_alignment",
 					"getter": "get_alignment",
 					"description": "The alignment of the container's children (must be one of [constant ALIGNMENT_BEGIN], [constant ALIGNMENT_CENTER], or [constant ALIGNMENT_END])."
+				},
+				{
+					"type": "int",
+					"name": "last_wrap_alignment",
+					"setter": "set_last_wrap_alignment",
+					"getter": "get_last_wrap_alignment",
+					"description": "The wrap behavior of the last, partially filled row or column (must be one of [constant LAST_WRAP_ALIGNMENT_INHERIT], [constant LAST_WRAP_ALIGNMENT_BEGIN], [constant LAST_WRAP_ALIGNMENT_CENTER], or [constant LAST_WRAP_ALIGNMENT_END])."
 				},
 				{
 					"type": "bool",
@@ -109053,7 +109741,7 @@
 							"type": "String"
 						}
 					],
-					"description": "Reloads the extension at the given file path. The [param path] needs to point to a valid [GDExtension], otherwise this method may return either [constant LOAD_STATUS_NOT_LOADED] or [constant LOAD_STATUS_FAILED]. \n[b]Note:[/b] You can only reload extensions in the editor. In release builds, this method always fails and returns [constant LOAD_STATUS_FAILED]."
+					"description": "Reloads the extension at the given file path. The [param path] needs to point to a valid [GDExtension], otherwise this method may return either [constant LOAD_STATUS_NOT_LOADED] or [constant LOAD_STATUS_FAILED].\n[b]Note:[/b] You can only reload extensions in the editor. In release builds, this method always fails and returns [constant LOAD_STATUS_FAILED]."
 				},
 				{
 					"name": "unload_extension",
@@ -109289,6 +109977,33 @@
 					"arguments": [
 						{
 							"name": "count",
+							"type": "int",
+							"meta": "int32"
+						}
+					]
+				},
+				{
+					"name": "get_accessor_type",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 2455072627,
+					"return_value": {
+						"type": "int",
+						"meta": "int32"
+					}
+				},
+				{
+					"name": "set_accessor_type",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 1286410249,
+					"arguments": [
+						{
+							"name": "accessor_type",
 							"type": "int",
 							"meta": "int32"
 						}
@@ -109547,91 +110262,98 @@
 					"name": "byte_offset",
 					"setter": "set_byte_offset",
 					"getter": "get_byte_offset",
-					"description": ""
+					"description": "The offset relative to the start of the buffer view in bytes."
 				},
 				{
 					"type": "int",
 					"name": "component_type",
 					"setter": "set_component_type",
 					"getter": "get_component_type",
-					"description": ""
+					"description": "The GLTF component type as an enum. Possible values are 5120 for \"BYTE\", 5121 for \"UNSIGNED_BYTE\", 5122 for \"SHORT\", 5123 for \"UNSIGNED_SHORT\", 5125 for \"UNSIGNED_INT\", and 5126 for \"FLOAT\". A value of 5125 or \"UNSIGNED_INT\" must not be used for any accessor that is not referenced by mesh.primitive.indices."
 				},
 				{
 					"type": "bool",
 					"name": "normalized",
 					"setter": "set_normalized",
 					"getter": "get_normalized",
-					"description": ""
+					"description": "Specifies whether integer data values are normalized before usage."
 				},
 				{
 					"type": "int",
 					"name": "count",
 					"setter": "set_count",
 					"getter": "get_count",
-					"description": ""
+					"description": "The number of elements referenced by this accessor."
+				},
+				{
+					"type": "int",
+					"name": "accessor_type",
+					"setter": "set_accessor_type",
+					"getter": "get_accessor_type",
+					"description": "The GLTF accessor type as an enum. Possible values are 0 for \"SCALAR\", 1 for \"VEC2\", 2 for \"VEC3\", 3 for \"VEC4\", 4 for \"MAT2\", 5 for \"MAT3\", and 6 for \"MAT4\"."
 				},
 				{
 					"type": "int",
 					"name": "type",
 					"setter": "set_type",
 					"getter": "get_type",
-					"description": ""
+					"description": "The GLTF accessor type as an enum. Use [member accessor_type] instead."
 				},
 				{
 					"type": "PackedFloat64Array",
 					"name": "min",
 					"setter": "set_min",
 					"getter": "get_min",
-					"description": ""
+					"description": "Minimum value of each component in this accessor."
 				},
 				{
 					"type": "PackedFloat64Array",
 					"name": "max",
 					"setter": "set_max",
 					"getter": "get_max",
-					"description": ""
+					"description": "Maximum value of each component in this accessor."
 				},
 				{
 					"type": "int",
 					"name": "sparse_count",
 					"setter": "set_sparse_count",
 					"getter": "get_sparse_count",
-					"description": ""
+					"description": "Number of deviating accessor values stored in the sparse array."
 				},
 				{
 					"type": "int",
 					"name": "sparse_indices_buffer_view",
 					"setter": "set_sparse_indices_buffer_view",
 					"getter": "get_sparse_indices_buffer_view",
-					"description": ""
+					"description": "The index of the buffer view with sparse indices. The referenced buffer view MUST NOT have its target or byteStride properties defined. The buffer view and the optional byteOffset MUST be aligned to the componentType byte length."
 				},
 				{
 					"type": "int",
 					"name": "sparse_indices_byte_offset",
 					"setter": "set_sparse_indices_byte_offset",
 					"getter": "get_sparse_indices_byte_offset",
-					"description": ""
+					"description": "The offset relative to the start of the buffer view in bytes."
 				},
 				{
 					"type": "int",
 					"name": "sparse_indices_component_type",
 					"setter": "set_sparse_indices_component_type",
 					"getter": "get_sparse_indices_component_type",
-					"description": ""
+					"description": "The indices component data type as an enum. Possible values are 5121 for \"UNSIGNED_BYTE\", 5123 for \"UNSIGNED_SHORT\", and 5125 for \"UNSIGNED_INT\"."
 				},
 				{
 					"type": "int",
 					"name": "sparse_values_buffer_view",
 					"setter": "set_sparse_values_buffer_view",
 					"getter": "get_sparse_values_buffer_view",
-					"description": ""
+					"description": "The index of the bufferView with sparse values. The referenced buffer view MUST NOT have its target or byteStride properties defined."
 				},
 				{
 					"type": "int",
 					"name": "sparse_values_byte_offset",
 					"setter": "set_sparse_values_byte_offset",
 					"getter": "get_sparse_values_byte_offset",
-					"description": ""
+					"description": "The offset relative to the start of the bufferView in bytes."
 				}
 			],
 			"brief_description": "Represents a GLTF accessor.",
@@ -110482,7 +111204,7 @@
 							"default_value": "true"
 						}
 					],
-					"description": "Takes a [GLTFState] object through the [param state] parameter and returns a Godot Engine scene node."
+					"description": "Takes a [GLTFState] object through the [param state] parameter and returns a Godot Engine scene node.\nThe [param bake_fps] parameter overrides the bake_fps in [param state]."
 				},
 				{
 					"name": "generate_buffer",
@@ -114329,6 +115051,33 @@
 						}
 					],
 					"description": ""
+				},
+				{
+					"name": "set_bake_fps",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 373806689,
+					"arguments": [
+						{
+							"name": "value",
+							"type": "float",
+							"meta": "double"
+						}
+					]
+				},
+				{
+					"name": "get_bake_fps",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 1740695150,
+					"return_value": {
+						"type": "float",
+						"meta": "double"
+					}
 				}
 			],
 			"properties": [
@@ -114518,6 +115267,13 @@
 					"name": "handle_binary_image",
 					"setter": "set_handle_binary_image",
 					"getter": "get_handle_binary_image"
+				},
+				{
+					"type": "float",
+					"name": "bake_fps",
+					"setter": "set_bake_fps",
+					"getter": "get_bake_fps",
+					"description": "The baking fps of the animation for either import or export."
 				}
 			],
 			"brief_description": "Represents all data of a GLTF file.",
@@ -118383,7 +119139,7 @@
 							"type": "PackedVector2Array"
 						}
 					],
-					"description": "Returns [code]true[/code] if [param polygon]'s vertices are ordered in clockwise order, otherwise returns [code]false[/code]."
+					"description": "Returns [code]true[/code] if [param polygon]'s vertices are ordered in clockwise order, otherwise returns [code]false[/code].\n[b]Note:[/b] Assumes a Cartesian coordinate system where [code]+x[/code] is right and [code]+y[/code] is up. If using screen coordinates ([code]+y[/code] is down), the result will need to be flipped (i.e. a [code]true[/code] result will indicate counter-clockwise)."
 				},
 				{
 					"name": "is_point_in_polygon",
@@ -119232,12 +119988,12 @@
 						{
 							"name": "VISIBILITY_RANGE_FADE_SELF",
 							"value": 1,
-							"description": "Will fade-out itself when reaching the limits of its own visibility range. This is slower than [constant VISIBILITY_RANGE_FADE_DISABLED], but it can provide smoother transitions. The fading range is determined by [member visibility_range_begin_margin] and [member visibility_range_end_margin]."
+							"description": "Will fade-out itself when reaching the limits of its own visibility range. This is slower than [constant VISIBILITY_RANGE_FADE_DISABLED], but it can provide smoother transitions. The fading range is determined by [member visibility_range_begin_margin] and [member visibility_range_end_margin].\n[b]Note:[/b] Only supported when using the Forward+ rendering method. When using the Mobile or Compatibility rendering method, this mode acts like [constant VISIBILITY_RANGE_FADE_DISABLED] but with hysteresis disabled."
 						},
 						{
 							"name": "VISIBILITY_RANGE_FADE_DEPENDENCIES",
 							"value": 2,
-							"description": "Will fade-in its visibility dependencies (see [member Node3D.visibility_parent]) when reaching the limits of its own visibility range. This is slower than [constant VISIBILITY_RANGE_FADE_DISABLED], but it can provide smoother transitions. The fading range is determined by [member visibility_range_begin_margin] and [member visibility_range_end_margin]."
+							"description": "Will fade-in its visibility dependencies (see [member Node3D.visibility_parent]) when reaching the limits of its own visibility range. This is slower than [constant VISIBILITY_RANGE_FADE_DISABLED], but it can provide smoother transitions. The fading range is determined by [member visibility_range_begin_margin] and [member visibility_range_end_margin].\n[b]Note:[/b] Only supported when using the Forward+ rendering method. When using the Mobile or Compatibility rendering method, this mode acts like [constant VISIBILITY_RANGE_FADE_DISABLED] but with hysteresis disabled."
 						}
 					]
 				}
@@ -119690,7 +120446,7 @@
 					"name": "transparency",
 					"setter": "set_transparency",
 					"getter": "get_transparency",
-					"description": "The transparency applied to the whole geometry (as a multiplier of the materials' existing transparency). [code]0.0[/code] is fully opaque, while [code]1.0[/code] is fully transparent. Values greater than [code]0.0[/code] (exclusive) will force the geometry's materials to go through the transparent pipeline, which is slower to render and can exhibit rendering issues due to incorrect transparency sorting. However, unlike using a transparent material, setting [member transparency] to a value greater than [code]0.0[/code] (exclusive) will [i]not[/i] disable shadow rendering.\nIn spatial shaders, [code]1.0 - transparency[/code] is set as the default value of the [code]ALPHA[/code] built-in.\n[b]Note:[/b] [member transparency] is clamped between [code]0.0[/code] and [code]1.0[/code], so this property cannot be used to make transparent materials more opaque than they originally are."
+					"description": "The transparency applied to the whole geometry (as a multiplier of the materials' existing transparency). [code]0.0[/code] is fully opaque, while [code]1.0[/code] is fully transparent. Values greater than [code]0.0[/code] (exclusive) will force the geometry's materials to go through the transparent pipeline, which is slower to render and can exhibit rendering issues due to incorrect transparency sorting. However, unlike using a transparent material, setting [member transparency] to a value greater than [code]0.0[/code] (exclusive) will [i]not[/i] disable shadow rendering.\nIn spatial shaders, [code]1.0 - transparency[/code] is set as the default value of the [code]ALPHA[/code] built-in.\n[b]Note:[/b] [member transparency] is clamped between [code]0.0[/code] and [code]1.0[/code], so this property cannot be used to make transparent materials more opaque than they originally are.\n[b]Note:[/b] Only supported when using the Forward+ rendering method. When using the Mobile or Compatibility rendering method, [member transparency] is ignored and is considered as always being [code]0.0[/code]."
 				},
 				{
 					"type": "int",
@@ -123047,6 +123803,31 @@
 					"description": "Toggles the background [StyleBox] of the slot with the given [param slot_index]."
 				},
 				{
+					"name": "set_ignore_invalid_connection_type",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 2586408642,
+					"arguments": [
+						{
+							"name": "ignore",
+							"type": "bool"
+						}
+					]
+				},
+				{
+					"name": "is_ignoring_valid_connection_type",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 36873697,
+					"return_value": {
+						"type": "bool"
+					}
+				},
+				{
 					"name": "get_input_port_count",
 					"is_const": false,
 					"is_vararg": false,
@@ -123248,6 +124029,13 @@
 					"setter": "set_title",
 					"getter": "get_title",
 					"description": "The text displayed in the GraphNode's title bar."
+				},
+				{
+					"type": "bool",
+					"name": "ignore_invalid_connection_type",
+					"setter": "set_ignore_invalid_connection_type",
+					"getter": "is_ignoring_valid_connection_type",
+					"description": "If [code]true[/code], you can connect ports with different types, even if the connection was not explicitly allowed in the parent [GraphEdit]."
 				}
 			],
 			"brief_description": "A container with connection ports, representing a node in a [GraphEdit].",
@@ -123811,7 +124599,7 @@
 							"type": "Vector3i"
 						}
 					],
-					"description": "Returns the position of a grid cell in the GridMap's local coordinate space. To convert the returned value into global coordinates, use [method Node3D.to_global]. See also [method map_to_local]."
+					"description": "Returns the position of a grid cell in the GridMap's local coordinate space. To convert the returned value into global coordinates, use [method Node3D.to_global]. See also [method local_to_map]."
 				},
 				{
 					"name": "resource_changed",
@@ -130750,6 +131538,33 @@
 						"type": "float",
 						"meta": "float"
 					}
+				},
+				{
+					"name": "set_event_index",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 1286410249,
+					"arguments": [
+						{
+							"name": "index",
+							"type": "int",
+							"meta": "int32"
+						}
+					]
+				},
+				{
+					"name": "get_event_index",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 3905245786,
+					"return_value": {
+						"type": "int",
+						"meta": "int32"
+					}
 				}
 			],
 			"properties": [
@@ -130773,6 +131588,13 @@
 					"setter": "set_strength",
 					"getter": "get_strength",
 					"description": "The action's strength between 0 and 1. This value is considered as equal to 0 if pressed is [code]false[/code]. The event strength allows faking analog joypad motion events, by specifying how strongly the joypad axis is bent or pressed."
+				},
+				{
+					"type": "int",
+					"name": "event_index",
+					"setter": "set_event_index",
+					"getter": "get_event_index",
+					"description": "The real event index in action this event corresponds to (from events defined for this action in the [InputMap]). If [code]-1[/code], a unique ID will be used and actions pressed with this ID will need to be released with another [InputEventAction]."
 				}
 			],
 			"brief_description": "An input event type for actions.",
@@ -135343,7 +136165,7 @@
 					"return_value": {
 						"type": "RID"
 					},
-					"description": "Returns the joint's [RID]."
+					"description": "Returns the joint's internal [RID] from the [PhysicsServer2D]."
 				}
 			],
 			"properties": [
@@ -135352,14 +136174,14 @@
 					"name": "node_a",
 					"setter": "set_node_a",
 					"getter": "get_node_a",
-					"description": "The first body attached to the joint. Must derive from [PhysicsBody2D]."
+					"description": "Path to the first body (A) attached to the joint. The node must inherit [PhysicsBody2D]."
 				},
 				{
 					"type": "NodePath",
 					"name": "node_b",
 					"setter": "set_node_b",
 					"getter": "get_node_b",
-					"description": "The second body attached to the joint. Must derive from [PhysicsBody2D]."
+					"description": "Path to the second body (B) attached to the joint. The node must inherit [PhysicsBody2D]."
 				},
 				{
 					"type": "float",
@@ -135373,11 +136195,11 @@
 					"name": "disable_collision",
 					"setter": "set_exclude_nodes_from_collision",
 					"getter": "get_exclude_nodes_from_collision",
-					"description": "If [code]true[/code], [member node_a] and [member node_b] can not collide."
+					"description": "If [code]true[/code], the two bodies bound together do not collide with each other."
 				}
 			],
 			"brief_description": "Abstract base class for all 2D physics joints.",
-			"description": "Abstract base class for all joints in 2D physics. 2D joints bind together two physics bodies and apply a constraint."
+			"description": "Abstract base class for all joints in 2D physics. 2D joints bind together two physics bodies ([member node_a] and [member node_b]) and apply a constraint."
 		},
 		{
 			"name": "Joint3D",
@@ -135498,7 +136320,7 @@
 					"return_value": {
 						"type": "RID"
 					},
-					"description": "Returns the joint's [RID]."
+					"description": "Returns the joint's internal [RID] from the [PhysicsServer3D]."
 				}
 			],
 			"properties": [
@@ -135507,14 +136329,14 @@
 					"name": "node_a",
 					"setter": "set_node_a",
 					"getter": "get_node_a",
-					"description": "The node attached to the first side (A) of the joint."
+					"description": "Path to the first node (A) attached to the joint. The node must inherit [PhysicsBody3D].\nIf left empty and [member node_b] is set, the body is attached to a fixed [StaticBody3D] without collision shapes."
 				},
 				{
 					"type": "NodePath",
 					"name": "node_b",
 					"setter": "set_node_b",
 					"getter": "get_node_b",
-					"description": "The node attached to the second side (B) of the joint."
+					"description": "Path to the second node (B) attached to the joint. The node must inherit [PhysicsBody3D].\nIf left empty and [member node_a] is set, the body is attached to a fixed [StaticBody3D] without collision shapes."
 				},
 				{
 					"type": "int",
@@ -135528,11 +136350,11 @@
 					"name": "exclude_nodes_from_collision",
 					"setter": "set_exclude_nodes_from_collision",
 					"getter": "get_exclude_nodes_from_collision",
-					"description": "If [code]true[/code], the two bodies of the nodes are not able to collide with each other."
+					"description": "If [code]true[/code], the two bodies bound together do not collide with each other."
 				}
 			],
 			"brief_description": "Abstract base class for all 3D physics joints.",
-			"description": "Abstract base class for all joints in 3D physics. 3D joints bind together two physics bodies and apply a constraint."
+			"description": "Abstract base class for all joints in 3D physics. 3D joints bind together two physics bodies ([member node_a] and [member node_b]) and apply a constraint. If only one body is defined, it is attached to a fixed [StaticBody3D] without collision shapes."
 		},
 		{
 			"name": "KinematicCollision2D",
@@ -138811,7 +139633,7 @@
 						{
 							"name": "BAKE_DISABLED",
 							"value": 0,
-							"description": "Light is ignored when baking. This is the fastest mode, but the light will be taken into account when baking global illumination. This mode should generally be used for dynamic lights that change quickly, as the effect of global illumination is less noticeable on those lights.\n[b]Note:[/b] Hiding a light does [i]not[/i] affect baking [LightmapGI]. Hiding a light will still affect baking [VoxelGI] and SDFGI (see [member Environment.sdfgi_enabled)."
+							"description": "Light is ignored when baking. This is the fastest mode, but the light will be taken into account when baking global illumination. This mode should generally be used for dynamic lights that change quickly, as the effect of global illumination is less noticeable on those lights.\n[b]Note:[/b] Hiding a light does [i]not[/i] affect baking [LightmapGI]. Hiding a light will still affect baking [VoxelGI] and SDFGI (see [member Environment.sdfgi_enabled])."
 						},
 						{
 							"name": "BAKE_STATIC",
@@ -140038,6 +140860,33 @@
 					}
 				},
 				{
+					"name": "set_denoiser_range",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 1286410249,
+					"arguments": [
+						{
+							"name": "denoiser_range",
+							"type": "int",
+							"meta": "int32"
+						}
+					]
+				},
+				{
+					"name": "get_denoiser_range",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 3905245786,
+					"return_value": {
+						"type": "int",
+						"meta": "int32"
+					}
+				},
+				{
 					"name": "set_interior",
 					"is_const": false,
 					"is_vararg": false,
@@ -140194,6 +141043,13 @@
 					"setter": "set_denoiser_strength",
 					"getter": "get_denoiser_strength",
 					"description": "The strength of denoising step applied to the generated lightmaps. Only effective if [member use_denoiser] is [code]true[/code] and [member ProjectSettings.rendering/lightmapping/denoising/denoiser] is set to JNLM."
+				},
+				{
+					"type": "int",
+					"name": "denoiser_range",
+					"setter": "set_denoiser_range",
+					"getter": "get_denoiser_range",
+					"description": "The distance in pixels from which the denoiser samples. Lower values preserve more details, but may give blotchy results if the lightmap quality is not high enough. Only effective if [member use_denoiser] is [code]true[/code] and [member ProjectSettings.rendering/lightmapping/denoising/denoiser] is set to JNLM."
 				},
 				{
 					"type": "float",
@@ -143311,7 +144167,7 @@
 					"name": "render_priority",
 					"setter": "set_render_priority",
 					"getter": "get_render_priority",
-					"description": "Sets the render priority for objects in 3D scenes. Higher priority objects will be sorted in front of lower priority objects. In other words, all objects with [member render_priority] [code]1[/code] will render before all objects with [member render_priority] [code]0[/code]).\n[b]Note:[/b] This only applies to [StandardMaterial3D]s and [ShaderMaterial]s with type \"Spatial\".\n[b]Note:[/b] This will not impact how transparent objects are sorted relative to opaque objects or how dynamic meshes will be sorted relative to other opaque meshes. This is because all transparent objects are drawn after all opaque objects and all dynamic opaque meshes are drawn before other opaque meshes."
+					"description": "Sets the render priority for objects in 3D scenes. Higher priority objects will be sorted in front of lower priority objects. In other words, all objects with [member render_priority] [code]1[/code] will render before all objects with [member render_priority] [code]0[/code].\n[b]Note:[/b] This only applies to [StandardMaterial3D]s and [ShaderMaterial]s with type \"Spatial\".\n[b]Note:[/b] This will not impact how transparent objects are sorted relative to opaque objects or how dynamic meshes will be sorted relative to other opaque meshes. This is because all transparent objects are drawn after all opaque objects and all dynamic opaque meshes are drawn before other opaque meshes."
 				},
 				{
 					"type": "Material",
@@ -144659,7 +145515,7 @@
 				}
 			],
 			"brief_description": "A [Resource] that contains vertex array-based geometry.",
-			"description": "Mesh is a type of [Resource] that contains vertex array-based geometry, divided in [i]surfaces[/i]. Each surface contains a completely separate array and a material used to draw it. Design wise, a mesh with multiple surfaces is preferred to a single surface, because objects created in 3D editing software commonly contain multiple materials."
+			"description": "Mesh is a type of [Resource] that contains vertex array-based geometry, divided in [i]surfaces[/i]. Each surface contains a completely separate array and a material used to draw it. Design wise, a mesh with multiple surfaces is preferred to a single surface, because objects created in 3D editing software commonly contain multiple materials. The maximum number of surfaces per mesh is [constant RenderingServer.MAX_MESH_SURFACES]."
 		},
 		{
 			"name": "MeshConvexDecompositionSettings",
@@ -146647,7 +147503,7 @@
 							"type": "String"
 						}
 					],
-					"description": "Returns the first item with the given name."
+					"description": "Returns the first item with the given name, or [code]-1[/code] if no item is found."
 				},
 				{
 					"name": "clear",
@@ -147268,6 +148124,60 @@
 						"type": "float",
 						"meta": "double"
 					}
+				},
+				{
+					"name": "get_vrs_min_radius",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 1740695150,
+					"return_value": {
+						"type": "float",
+						"meta": "float"
+					}
+				},
+				{
+					"name": "set_vrs_min_radius",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 373806689,
+					"arguments": [
+						{
+							"name": "radius",
+							"type": "float",
+							"meta": "float"
+						}
+					]
+				},
+				{
+					"name": "get_vrs_strength",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 1740695150,
+					"return_value": {
+						"type": "float",
+						"meta": "float"
+					}
+				},
+				{
+					"name": "set_vrs_strength",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 373806689,
+					"arguments": [
+						{
+							"name": "strength",
+							"type": "float",
+							"meta": "float"
+						}
+					]
 				}
 			],
 			"properties": [
@@ -147326,6 +148236,20 @@
 					"setter": "set_k2",
 					"getter": "get_k2",
 					"description": "The k2 lens factor, see k1."
+				},
+				{
+					"type": "float",
+					"name": "vrs_min_radius",
+					"setter": "set_vrs_min_radius",
+					"getter": "get_vrs_min_radius",
+					"description": "The minimum radius around the focal point where full quality is guaranteed if VRS is used as a percentage of screen size.\n[b]Note:[/b] Mobile and Forward+ renderers only. Requires [member Viewport.vrs_mode] to be set to [constant Viewport.VRS_XR]."
+				},
+				{
+					"type": "float",
+					"name": "vrs_strength",
+					"setter": "set_vrs_strength",
+					"getter": "get_vrs_strength",
+					"description": "The strength used to calculate the VRS density map. The greater this value, the more noticeable VRS is. This improves performance at the cost of quality.\n[b]Note:[/b] Mobile and Forward+ renderers only. Requires [member Viewport.vrs_mode] to be set to [constant Viewport.VRS_XR]."
 				}
 			],
 			"brief_description": "Generic mobile VR implementation.",
@@ -152476,7 +153400,7 @@
 							"type": "Vector2"
 						}
 					],
-					"description": "Notifies when the collision avoidance velocity is calculated. Emitted when [member velocity] is set. Only emitted when [member avoidance_enabled] is true."
+					"description": "Notifies when the collision avoidance velocity is calculated. Emitted every update as long as [member avoidance_enabled] is [code]true[/code] and the agent has a navigation map."
 				}
 			],
 			"properties": [
@@ -153755,7 +154679,7 @@
 							"type": "Vector3"
 						}
 					],
-					"description": "Notifies when the collision avoidance velocity is calculated. Emitted when [member velocity] is set. Only emitted when [member avoidance_enabled] is true."
+					"description": "Notifies when the collision avoidance velocity is calculated. Emitted every update as long as [member avoidance_enabled] is [code]true[/code] and the agent has a navigation map."
 				}
 			],
 			"properties": [
@@ -167285,7 +168209,7 @@
 					"name": "owner",
 					"setter": "set_owner",
 					"getter": "get_owner",
-					"description": "The owner of this node. The owner must be an ancestor of this node. When packing the owner node in a [PackedScene], all the nodes it owns are also saved with it. \n[b]Note:[/b] In the editor, nodes not owned by the scene root are usually not displayed in the Scene dock, and will [b]not[/b] be saved. To prevent this, remember to set the owner after calling [method add_child]. See also (see [member unique_name_in_owner])"
+					"description": "The owner of this node. The owner must be an ancestor of this node. When packing the owner node in a [PackedScene], all the nodes it owns are also saved with it.\n[b]Note:[/b] In the editor, nodes not owned by the scene root are usually not displayed in the Scene dock, and will [b]not[/b] be saved. To prevent this, remember to set the owner after calling [method add_child]. See also (see [member unique_name_in_owner])"
 				},
 				{
 					"type": "MultiplayerAPI",
@@ -167333,7 +168257,7 @@
 					"name": "process_thread_messages",
 					"setter": "set_process_thread_messages",
 					"getter": "get_process_thread_messages",
-					"description": "Set whether the current thread group will process messages (calls to [method call_deferred_thread_group] on threads, and whether it wants to receive them during regular process or physics process callbacks."
+					"description": "Set whether the current thread group will process messages (calls to [method call_deferred_thread_group] on threads), and whether it wants to receive them during regular process or physics process callbacks."
 				},
 				{
 					"type": "int",
@@ -172097,7 +173021,7 @@
 							"default_value": "&\"\""
 						}
 					],
-					"description": "Translates a [param message], using the translation catalogs configured in the Project Settings. Further [param context] can be specified to help with the translation. Note that most [Control] nodes automatically translate their strings, so this method is mostly useful for formatted strings or custom drawn text.\nIf [method can_translate_messages] is [code]false[/code], or no translation is available, this method returns the [param message] without changes. See [method set_message_translation].\nFor detailed examples, see [url=$DOCS_URL/tutorials/i18n/internationalizing_games.html]Internationalizing games[/url]."
+					"description": "Translates a [param message], using the translation catalogs configured in the Project Settings. Further [param context] can be specified to help with the translation. Note that most [Control] nodes automatically translate their strings, so this method is mostly useful for formatted strings or custom drawn text.\nIf [method can_translate_messages] is [code]false[/code], or no translation is available, this method returns the [param message] without changes. See [method set_message_translation].\nFor detailed examples, see [url=$DOCS_URL/tutorials/i18n/internationalizing_games.html]Internationalizing games[/url].\n[b]Note:[/b] This method can't be used without an [Object] instance, as it requires the [method can_translate_messages] method. To translate strings in a static context, use [method TranslationServer.translate]."
 				},
 				{
 					"name": "tr_n",
@@ -172133,7 +173057,7 @@
 							"default_value": "&\"\""
 						}
 					],
-					"description": "Translates a [param message] or [param plural_message], using the translation catalogs configured in the Project Settings. Further [param context] can be specified to help with the translation.\nIf [method can_translate_messages] is [code]false[/code], or no translation is available, this method returns [param message] or [param plural_message], without changes. See [method set_message_translation].\nThe [param n] is the number, or amount, of the message's subject. It is used by the translation system to fetch the correct plural form for the current language.\nFor detailed examples, see [url=$DOCS_URL/tutorials/i18n/localization_using_gettext.html]Localization using gettext[/url].\n[b]Note:[/b] Negative and [float] numbers may not properly apply to some countable subjects. It's recommended to handle these cases with [method tr]."
+					"description": "Translates a [param message] or [param plural_message], using the translation catalogs configured in the Project Settings. Further [param context] can be specified to help with the translation.\nIf [method can_translate_messages] is [code]false[/code], or no translation is available, this method returns [param message] or [param plural_message], without changes. See [method set_message_translation].\nThe [param n] is the number, or amount, of the message's subject. It is used by the translation system to fetch the correct plural form for the current language.\nFor detailed examples, see [url=$DOCS_URL/tutorials/i18n/localization_using_gettext.html]Localization using gettext[/url].\n[b]Note:[/b] Negative and [float] numbers may not properly apply to some countable subjects. It's recommended to handle these cases with [method tr].\n[b]Note:[/b] This method can't be used without an [Object] instance, as it requires the [method can_translate_messages] method. To translate strings in a static context, use [method TranslationServer.translate_plural]."
 				},
 				{
 					"name": "is_queued_for_deletion",
@@ -173625,6 +174549,31 @@
 					}
 				},
 				{
+					"name": "set_enable_hole_punch",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 2586408642,
+					"arguments": [
+						{
+							"name": "enable",
+							"type": "bool"
+						}
+					]
+				},
+				{
+					"name": "get_enable_hole_punch",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 36873697,
+					"return_value": {
+						"type": "bool"
+					}
+				},
+				{
 					"name": "set_sort_order",
 					"is_const": false,
 					"is_vararg": false,
@@ -173732,6 +174681,13 @@
 					"setter": "set_alpha_blend",
 					"getter": "get_alpha_blend",
 					"description": "Enables the blending the layer using its alpha channel.\nCan be combined with [member Viewport.transparent_bg] to give the layer a transparent background."
+				},
+				{
+					"type": "bool",
+					"name": "enable_hole_punch",
+					"setter": "set_enable_hole_punch",
+					"getter": "get_enable_hole_punch",
+					"description": "Enables a technique called \"hole punching\", which allows putting the composition layer behind the main projection layer (i.e. setting [member sort_order] to a negative value) while \"punching a hole\" through everything rendered by Godot so that the layer is still visible.\nThis can be used to create the illusion that the composition layer exists in the same 3D space as everything rendered by Godot, allowing objects to appear to pass both behind or in front of the composition layer."
 				}
 			],
 			"brief_description": "The parent class of all OpenXR composition layer nodes.",
@@ -174357,6 +175313,14 @@
 					"is_vararg": false,
 					"is_virtual": true,
 					"description": "Called right before the XR viewports begin their rendering step."
+				},
+				{
+					"name": "_on_main_swapchains_created",
+					"is_const": false,
+					"is_static": false,
+					"is_vararg": false,
+					"is_virtual": true,
+					"description": "Called right after the main swapchains are (re)created."
 				},
 				{
 					"name": "_on_session_destroyed",
@@ -175812,6 +176776,60 @@
 						"type": "bool"
 					},
 					"description": "Returns the capabilities of the eye gaze interaction extension.\n[b]Note:[/b] This only returns a valid value after OpenXR has been initialized."
+				},
+				{
+					"name": "get_vrs_min_radius",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 1740695150,
+					"return_value": {
+						"type": "float",
+						"meta": "float"
+					}
+				},
+				{
+					"name": "set_vrs_min_radius",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 373806689,
+					"arguments": [
+						{
+							"name": "radius",
+							"type": "float",
+							"meta": "float"
+						}
+					]
+				},
+				{
+					"name": "get_vrs_strength",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 1740695150,
+					"return_value": {
+						"type": "float",
+						"meta": "float"
+					}
+				},
+				{
+					"name": "set_vrs_strength",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 373806689,
+					"arguments": [
+						{
+							"name": "strength",
+							"type": "float",
+							"meta": "float"
+						}
+					]
 				}
 			],
 			"signals": [
@@ -175882,6 +176900,20 @@
 					"setter": "set_foveation_dynamic",
 					"getter": "get_foveation_dynamic",
 					"description": "Enable dynamic foveation adjustment, the interface must be initialized before this is accessible. If enabled foveation will automatically adjusted between low and [member foveation_level].\n[b]Note:[/b] Only works on compatibility renderer."
+				},
+				{
+					"type": "float",
+					"name": "vrs_min_radius",
+					"setter": "set_vrs_min_radius",
+					"getter": "get_vrs_min_radius",
+					"description": "The minimum radius around the focal point where full quality is guaranteed if VRS is used as a percentage of screen size.\n[b]Note:[/b] Mobile and Forward+ renderers only. Requires [member Viewport.vrs_mode] to be set to [constant Viewport.VRS_XR]."
+				},
+				{
+					"type": "float",
+					"name": "vrs_strength",
+					"setter": "set_vrs_strength",
+					"getter": "get_vrs_strength",
+					"description": "The strength used to calculate the VRS density map. The greater this value, the more noticeable VRS is. This improves performance at the cost of quality.\n[b]Note:[/b] Mobile and Forward+ renderers only. Requires [member Viewport.vrs_mode] to be set to [constant Viewport.VRS_XR]."
 				}
 			],
 			"brief_description": "Our OpenXR interface.",
@@ -187285,7 +188317,7 @@
 					"name": "bounce",
 					"setter": "set_bounce",
 					"getter": "get_bounce",
-					"description": "The body's bounciness. Values range from [code]0[/code] (no bounce) to [code]1[/code] (full bounciness).\n[b]Note:[/b] Even with [member bounce] set to [code]1.0[/code], some energy will be lost over time due to linear and angular damping. To have a [PhysicsBody3D] that preserves all its energy over time, set [member bounce] to [code]1.0[/code], the body's linear damp mode to [b]Replace[/b] (if applicable), its linear damp to [code]0.0[/code], its angular damp mode to [b]Replace[/b] (if applicable), and its angular damp to [code]0.0[/code]."
+					"description": "The body's bounciness. Values range from [code]0[/code] (no bounce) to [code]1[/code] (full bounciness).\n[b]Note:[/b] Even with [member bounce] set to [code]1.0[/code], some energy will be lost over time due to linear and angular damping. To have a physics body that preserves all its energy over time, set [member bounce] to [code]1.0[/code], the body's linear damp mode to [b]Replace[/b] (if applicable), its linear damp to [code]0.0[/code], its angular damp mode to [b]Replace[/b] (if applicable), and its angular damp to [code]0.0[/code]."
 				},
 				{
 					"type": "bool",
@@ -189039,7 +190071,7 @@
 					"return_value": {
 						"type": "RID"
 					},
-					"description": "Creates a 2D area object in the physics server, and returns the [RID] that identifies it. Use [method area_add_shape] to add shapes to it, use [method area_set_transform] to set its transform, and use [method area_set_space] to add the area to a space."
+					"description": "Creates a 2D area object in the physics server, and returns the [RID] that identifies it. The default settings for the created area include a collision layer and mask set to [code]1[/code], and [code]monitorable[/code] set to [code]false[/code].\nUse [method area_add_shape] to add shapes to it, use [method area_set_transform] to set its transform, and use [method area_set_space] to add the area to a space. If you want the area to be detectable use [method area_set_monitorable]."
 				},
 				{
 					"name": "area_set_space",
@@ -189587,7 +190619,7 @@
 					"return_value": {
 						"type": "RID"
 					},
-					"description": "Creates a 2D body object in the physics server, and returns the [RID] that identifies it. Use [method body_add_shape] to add shapes to it, use [method body_set_state] to set its transform, and use [method body_set_space] to add the body to a space."
+					"description": "Creates a 2D body object in the physics server, and returns the [RID] that identifies it. The default settings for the created area include a collision layer and mask set to [code]1[/code], and body mode set to [constant BODY_MODE_RIGID].\nUse [method body_add_shape] to add shapes to it, use [method body_set_state] to set its transform, and use [method body_set_space] to add the body to a space."
 				},
 				{
 					"name": "body_set_space",
@@ -194829,6 +195861,26 @@
 					"description": "Sets the shape data that defines its shape and size. The data to be passed depends on the kind of shape created [method shape_get_type]."
 				},
 				{
+					"name": "shape_set_margin",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 1794382983,
+					"arguments": [
+						{
+							"name": "shape",
+							"type": "RID"
+						},
+						{
+							"name": "margin",
+							"type": "float",
+							"meta": "float"
+						}
+					],
+					"description": "Sets the collision margin for the shape.\n[b]Note:[/b] This is not used in Godot Physics."
+				},
+				{
 					"name": "shape_get_type",
 					"is_const": true,
 					"is_vararg": false,
@@ -194863,6 +195915,25 @@
 						}
 					],
 					"description": "Returns the shape data."
+				},
+				{
+					"name": "shape_get_margin",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 866169185,
+					"return_value": {
+						"type": "float",
+						"meta": "float"
+					},
+					"arguments": [
+						{
+							"name": "shape",
+							"type": "RID"
+						}
+					],
+					"description": "Returns the collision margin for the shape.\n[b]Note:[/b] This is not used in Godot Physics, so will always return [code]0[/code]."
 				},
 				{
 					"name": "space_create",
@@ -194988,7 +196059,7 @@
 					"return_value": {
 						"type": "RID"
 					},
-					"description": "Creates an [Area3D]."
+					"description": "Creates a 3D area object in the physics server, and returns the [RID] that identifies it. The default settings for the created area include a collision layer and mask set to [code]1[/code], and [code]monitorable[/code] set to [code]false[/code].\nUse [method area_add_shape] to add shapes to it, use [method area_set_transform] to set its transform, and use [method area_set_space] to add the area to a space. If you want the area to be detectable use [method area_set_monitorable]."
 				},
 				{
 					"name": "area_set_space",
@@ -195516,7 +196587,7 @@
 					"return_value": {
 						"type": "RID"
 					},
-					"description": ""
+					"description": "Creates a 3D body object in the physics server, and returns the [RID] that identifies it. The default settings for the created area include a collision layer and mask set to [code]1[/code], and body mode set to [constant BODY_MODE_RIGID].\nUse [method body_add_shape] to add shapes to it, use [method body_set_state] to set its transform, and use [method body_set_space] to add the body to a space."
 				},
 				{
 					"name": "body_set_space",
@@ -221861,6 +222932,11 @@
 					"description": "The maximum number of directional lights that can be rendered at a given time in 2D."
 				},
 				{
+					"name": "MAX_MESH_SURFACES",
+					"value": 256,
+					"description": "The maximum number of surfaces a mesh can have."
+				},
+				{
 					"name": "MATERIAL_RENDER_PRIORITY_MIN",
 					"value": -128,
 					"description": "The minimum renderpriority of all materials."
@@ -223404,12 +224480,38 @@
 						{
 							"name": "VIEWPORT_VRS_XR",
 							"value": 2,
-							"description": "Variable rate shading texture is supplied by the primary [XRInterface]."
+							"description": "Variable rate shading texture is supplied by the primary [XRInterface]. Note that this may override the update mode."
 						},
 						{
 							"name": "VIEWPORT_VRS_MAX",
 							"value": 3,
 							"description": "Represents the size of the [enum ViewportVRSMode] enum."
+						}
+					]
+				},
+				{
+					"name": "ViewportVRSUpdateMode",
+					"is_bitfield": false,
+					"values": [
+						{
+							"name": "VIEWPORT_VRS_UPDATE_DISABLED",
+							"value": 0,
+							"description": "The input texture for variable rate shading will not be processed."
+						},
+						{
+							"name": "VIEWPORT_VRS_UPDATE_ONCE",
+							"value": 1,
+							"description": "The input texture for variable rate shading will be processed once."
+						},
+						{
+							"name": "VIEWPORT_VRS_UPDATE_ALWAYS",
+							"value": 2,
+							"description": "The input texture for variable rate shading will be processed each frame."
+						},
+						{
+							"name": "VIEWPORT_VRS_UPDATE_MAX",
+							"value": 3,
+							"description": "Represents the size of the [enum ViewportVRSUpdateMode] enum."
 						}
 					]
 				},
@@ -230211,6 +231313,25 @@
 					"description": "Sets the Variable Rate Shading (VRS) mode for the viewport. If the GPU does not support VRS, this property is ignored. Equivalent to [member ProjectSettings.rendering/vrs/mode]."
 				},
 				{
+					"name": "viewport_set_vrs_update_mode",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 2696154815,
+					"arguments": [
+						{
+							"name": "viewport",
+							"type": "RID"
+						},
+						{
+							"name": "mode",
+							"type": "enum::RenderingServer.ViewportVRSUpdateMode"
+						}
+					],
+					"description": "Sets the update mode for Variable Rate Shading (VRS) for the viewport. VRS requires the input texture to be converted to the format usable by the VRS method supported by the hardware. The update mode defines how often this happens. If the GPU does not support VRS, or VRS is not enabled, this property is ignored.\nIf set to [constant RenderingServer.VIEWPORT_VRS_UPDATE_ONCE], the input texture is copied once and the mode is changed to [constant RenderingServer.VIEWPORT_VRS_UPDATE_DISABLED]."
+				},
+				{
 					"name": "viewport_set_vrs_texture",
 					"is_const": false,
 					"is_vararg": false,
@@ -232809,7 +233930,7 @@
 							"type": "Transform2D"
 						}
 					],
-					"description": "Transforms both the current and previous stored transform for a canvas item.\nThis allows transforming a canvas item without creating a \"glitch\" in the interpolation, which is particularly useful for large worlds utilising a shifting origin."
+					"description": "Transforms both the current and previous stored transform for a canvas item.\nThis allows transforming a canvas item without creating a \"glitch\" in the interpolation, which is particularly useful for large worlds utilizing a shifting origin."
 				},
 				{
 					"name": "canvas_item_add_line",
@@ -232895,8 +234016,9 @@
 					"is_vararg": false,
 					"is_static": false,
 					"is_virtual": false,
-					"hash": 2088642721,
+					"hash": 3098767073,
 					"hash_compatibility": [
+						2088642721,
 						3176074788
 					],
 					"arguments": [
@@ -232917,6 +234039,11 @@
 							"type": "float",
 							"meta": "float",
 							"default_value": "-1.0"
+						},
+						{
+							"name": "antialiased",
+							"type": "bool",
+							"default_value": "false"
 						}
 					],
 					"description": "Draws a 2D multiline on the [CanvasItem] pointed to by the [param item] [RID]. See also [method CanvasItem.draw_multiline] and [method CanvasItem.draw_multiline_colors]."
@@ -232927,7 +234054,10 @@
 					"is_vararg": false,
 					"is_static": false,
 					"is_virtual": false,
-					"hash": 934531857,
+					"hash": 3523446176,
+					"hash_compatibility": [
+						934531857
+					],
 					"arguments": [
 						{
 							"name": "item",
@@ -232940,6 +234070,11 @@
 						{
 							"name": "color",
 							"type": "Color"
+						},
+						{
+							"name": "antialiased",
+							"type": "bool",
+							"default_value": "false"
 						}
 					],
 					"description": "Draws a rectangle on the [CanvasItem] pointed to by the [param item] [RID]. See also [method CanvasItem.draw_rect]."
@@ -232950,7 +234085,10 @@
 					"is_vararg": false,
 					"is_static": false,
 					"is_virtual": false,
-					"hash": 2439351960,
+					"hash": 333077949,
+					"hash_compatibility": [
+						2439351960
+					],
 					"arguments": [
 						{
 							"name": "item",
@@ -232968,6 +234106,11 @@
 						{
 							"name": "color",
 							"type": "Color"
+						},
+						{
+							"name": "antialiased",
+							"type": "bool",
+							"default_value": "false"
 						}
 					],
 					"description": "Draws a circle on the [CanvasItem] pointed to by the [param item] [RID]. See also [method CanvasItem.draw_circle]."
@@ -234176,7 +235319,7 @@
 							"type": "Transform2D"
 						}
 					],
-					"description": "Transforms both the current and previous stored transform for a canvas light.\nThis allows transforming a light without creating a \"glitch\" in the interpolation, which is is particularly useful for large worlds utilising a shifting origin."
+					"description": "Transforms both the current and previous stored transform for a canvas light.\nThis allows transforming a light without creating a \"glitch\" in the interpolation, which is is particularly useful for large worlds utilizing a shifting origin."
 				},
 				{
 					"name": "canvas_light_occluder_create",
@@ -234356,7 +235499,7 @@
 							"type": "Transform2D"
 						}
 					],
-					"description": "Transforms both the current and previous stored transform for a light occluder.\nThis allows transforming an occluder without creating a \"glitch\" in the interpolation, which is particularly useful for large worlds utilising a shifting origin."
+					"description": "Transforms both the current and previous stored transform for a light occluder.\nThis allows transforming an occluder without creating a \"glitch\" in the interpolation, which is particularly useful for large worlds utilizing a shifting origin."
 				},
 				{
 					"name": "canvas_occluder_polygon_create",
@@ -235965,7 +237108,7 @@
 							"default_value": "1"
 						}
 					],
-					"description": "Loads a resource at the given [param path], caching the result for further access.\nThe registered [ResourceFormatLoader]s are queried sequentially to find the first one which can handle the file's extension, and then attempt loading. If loading fails, the remaining ResourceFormatLoaders are also attempted.\nAn optional [param type_hint] can be used to further specify the [Resource] type that should be handled by the [ResourceFormatLoader]. Anything that inherits from [Resource] can be used as a type hint, for example [Image].\nThe [param cache_mode] property defines whether and how the cache should be used or updated when loading the resource. See [enum CacheMode] for details.\nReturns an empty resource if no [ResourceFormatLoader] could handle the file.\nGDScript has a simplified [method @GDScript.load] built-in method which can be used in most situations, leaving the use of [ResourceLoader] for more advanced scenarios.\n[b]Note:[/b] If [member ProjectSettings.editor/export/convert_text_resources_to_binary] is [code]true[/code], [method @GDScript.load] will not be able to read converted files in an exported project. If you rely on run-time loading of files present within the PCK, set [member ProjectSettings.editor/export/convert_text_resources_to_binary] to [code]false[/code].\n[b]Note:[/b] Relative paths will be prefixed with [code]\"res://\"[/code] before loading, to avoid unexpected results make sure your paths are absolute."
+					"description": "Loads a resource at the given [param path], caching the result for further access.\nThe registered [ResourceFormatLoader]s are queried sequentially to find the first one which can handle the file's extension, and then attempt loading. If loading fails, the remaining ResourceFormatLoaders are also attempted.\nAn optional [param type_hint] can be used to further specify the [Resource] type that should be handled by the [ResourceFormatLoader]. Anything that inherits from [Resource] can be used as a type hint, for example [Image].\nThe [param cache_mode] property defines whether and how the cache should be used or updated when loading the resource. See [enum CacheMode] for details.\nReturns an empty resource if no [ResourceFormatLoader] could handle the file, and prints an error if no file is found at the specified path.\nGDScript has a simplified [method @GDScript.load] built-in method which can be used in most situations, leaving the use of [ResourceLoader] for more advanced scenarios.\n[b]Note:[/b] If [member ProjectSettings.editor/export/convert_text_resources_to_binary] is [code]true[/code], [method @GDScript.load] will not be able to read converted files in an exported project. If you rely on run-time loading of files present within the PCK, set [member ProjectSettings.editor/export/convert_text_resources_to_binary] to [code]false[/code].\n[b]Note:[/b] Relative paths will be prefixed with [code]\"res://\"[/code] before loading, to avoid unexpected results make sure your paths are absolute."
 				},
 				{
 					"name": "get_recognized_extensions_for_type",
@@ -237477,7 +238620,7 @@
 							"default_value": "-1"
 						}
 					],
-					"description": "Adds a [code skip-lint][table=columns,inline_align][/code] tag to the tag stack."
+					"description": "Adds a [code skip-lint][table=columns,inline_align][/code] tag to the tag stack. Use [method set_table_column_expand] to set column expansion ratio. Use [method push_cell] to add cells."
 				},
 				{
 					"name": "push_dropcap",
@@ -237632,7 +238775,7 @@
 					"is_static": false,
 					"is_virtual": false,
 					"hash": 3218959716,
-					"description": "Adds a [code skip-lint][cell][/code] tag to the tag stack. Must be inside a [code skip-lint][table][/code] tag. See [method push_table] for details."
+					"description": "Adds a [code skip-lint][cell][/code] tag to the tag stack. Must be inside a [code skip-lint][table][/code] tag. See [method push_table] for details. Use [method set_table_column_expand] to set column expansion ratio, [method set_cell_border_color] to set cell border, [method set_cell_row_background_color] to set cell background, [method set_cell_size_override] to override cell size, and [method set_cell_padding] to set padding."
 				},
 				{
 					"name": "push_fgcolor",
@@ -248382,7 +249525,7 @@
 							"type": "String"
 						}
 					],
-					"description": "Returns the bone index that matches [param name] as its name."
+					"description": "Returns the bone index that matches [param name] as its name. Returns [code]-1[/code] if no bone with this name exists."
 				},
 				{
 					"name": "get_bone_name",
@@ -252003,10 +253146,18 @@
 		{
 			"name": "SkeletonModifier3D",
 			"is_refcounted": false,
-			"is_instantiable": false,
+			"is_instantiable": true,
 			"inherits": "Node3D",
 			"api_type": "core",
 			"methods": [
+				{
+					"name": "_process_modification",
+					"is_const": false,
+					"is_static": false,
+					"is_vararg": false,
+					"is_virtual": true,
+					"description": "Override this virtual method to implement a custom skeleton modifier. You should do things like get the [Skeleton3D]'s current pose and apply the pose here.\n[method _process_modification] must not apply [member influence] to bone poses because the [Skeleton3D] automatically applies influence to all bone poses set by the modifier."
+				},
 				{
 					"name": "set_active",
 					"is_const": false,
@@ -252083,7 +253234,7 @@
 				}
 			],
 			"brief_description": "A Node that may modify Skeleton3D's bone.",
-			"description": "[SkeletonModifier3D] retrieves a target [Skeleton3D] by having a [Skeleton3D] parent.\nIf there is [AnimationMixer], modification always performs after playback process of the [AnimationMixer]."
+			"description": "[SkeletonModifier3D] retrieves a target [Skeleton3D] by having a [Skeleton3D] parent.\nIf there is [AnimationMixer], modification always performs after playback process of the [AnimationMixer].\nThis node should be used to implement custom IK solvers, constraints, or skeleton physics"
 		},
 		{
 			"name": "SkeletonProfile",
@@ -266048,7 +267199,7 @@
 							"default_value": "0"
 						}
 					],
-					"description": "Sets the selection origin line to the [param line] for the given [param caret_index]. If the selection origin is moved to the caret position, the selection will deselect. \nIf [param can_be_hidden] is [code]false[/code], The line will be set to the nearest unhidden line below or above.\nIf [param wrap_index] is [code]-1[/code], the selection origin column will be clamped to the [param line]'s length. If [param wrap_index] is greater than [code]-1[/code], the column will be moved to attempt to match the visual x position on the line's [param wrap_index] to the position from the last time [method set_selection_origin_column] or [method select] was called."
+					"description": "Sets the selection origin line to the [param line] for the given [param caret_index]. If the selection origin is moved to the caret position, the selection will deselect.\nIf [param can_be_hidden] is [code]false[/code], The line will be set to the nearest unhidden line below or above.\nIf [param wrap_index] is [code]-1[/code], the selection origin column will be clamped to the [param line]'s length. If [param wrap_index] is greater than [code]-1[/code], the column will be moved to attempt to match the visual x position on the line's [param wrap_index] to the position from the last time [method set_selection_origin_column] or [method select] was called."
 				},
 				{
 					"name": "set_selection_origin_column",
@@ -267906,7 +269057,7 @@
 					"name": "minimap_draw",
 					"setter": "set_draw_minimap",
 					"getter": "is_drawing_minimap",
-					"description": "If [code]true[/code], a minimap is shown, providing an outline of your source code."
+					"description": "If [code]true[/code], a minimap is shown, providing an outline of your source code. The minimap uses a fixed-width text size."
 				},
 				{
 					"type": "int",
@@ -275704,6 +276855,24 @@
 					"description": "Returns [code]true[/code] if [param string] is a valid identifier.\nIf the text server supports the [constant FEATURE_UNICODE_IDENTIFIERS] feature, a valid identifier must:\n- Conform to normalization form C.\n- Begin with a Unicode character of class XID_Start or [code]\"_\"[/code].\n- May contain Unicode characters of class XID_Continue in the other positions.\n- Use UAX #31 recommended scripts only (mixed scripts are allowed).\nIf the [constant FEATURE_UNICODE_IDENTIFIERS] feature is not supported, a valid identifier must:\n- Begin with a Unicode character of class XID_Start or [code]\"_\"[/code].\n- May contain Unicode characters of class XID_Continue in the other positions."
 				},
 				{
+					"name": "is_valid_letter",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 1116898809,
+					"return_value": {
+						"type": "bool"
+					},
+					"arguments": [
+						{
+							"name": "unicode",
+							"type": "int"
+						}
+					],
+					"description": "Returns [code]true[/code] if the given code point is a valid letter, i.e. it belongs to the Unicode category \"L\"."
+				},
+				{
 					"name": "string_to_upper",
 					"is_const": true,
 					"is_vararg": false,
@@ -275806,7 +276975,7 @@
 				}
 			],
 			"brief_description": "A server interface for font management and text rendering.",
-			"description": "[TextServer] is the API backend for managing fonts and rendering text."
+			"description": "[TextServer] is the API backend for managing fonts and rendering text.\n[b]Note:[/b] This is a low-level API, consider using [TextLine], [TextParagraph], and [Font] classes instead.\nThis is an abstract class, so to get the currently active [TextServer] instance, use the following code:\n[codeblocks]\n[gdscript]\nvar ts = TextServerManager.get_primary_interface()\n[/gdscript]\n[csharp]\nvar ts = TextServerManager.GetPrimaryInterface();\n[/csharp]\n[/codeblocks]"
 		},
 		{
 			"name": "TextServerAdvanced",
@@ -280105,6 +281274,23 @@
 						}
 					],
 					"description": "[b]Optional.[/b]\nReturns [code]true[/code] if [param string] is a valid identifier."
+				},
+				{
+					"name": "_is_valid_letter",
+					"is_const": true,
+					"is_static": false,
+					"is_vararg": false,
+					"is_virtual": true,
+					"return_value": {
+						"type": "bool"
+					},
+					"arguments": [
+						{
+							"name": "unicode",
+							"type": "int"
+						}
+					],
+					"description": ""
 				},
 				{
 					"name": "_string_get_word_breaks",
@@ -287168,7 +288354,7 @@
 					"return_value": {
 						"type": "RID"
 					},
-					"description": "Returns the [RID] of the [NavigationServer2D] navigation used by this [TileMapLayer]. \nBy default this returns the default [World2D] navigation map, unless a custom map was provided using [method set_navigation_map]."
+					"description": "Returns the [RID] of the [NavigationServer2D] navigation used by this [TileMapLayer].\nBy default this returns the default [World2D] navigation map, unless a custom map was provided using [method set_navigation_map]."
 				},
 				{
 					"name": "set_navigation_visibility_mode",
@@ -291011,7 +292197,7 @@
 					"return_value": {
 						"type": "Dictionary"
 					},
-					"description": "Returns the current time zone as a dictionary of keys: [code]bias[/code] and [code]name[/code]. \n- [code]bias[/code] is the offset from UTC in minutes, since not all time zones are multiples of an hour from UTC.\n- [code]name[/code] is the localized name of the time zone, according to the OS locale settings of the current user."
+					"description": "Returns the current time zone as a dictionary of keys: [code]bias[/code] and [code]name[/code].\n- [code]bias[/code] is the offset from UTC in minutes, since not all time zones are multiples of an hour from UTC.\n- [code]name[/code] is the localized name of the time zone, according to the OS locale settings of the current user."
 				},
 				{
 					"name": "get_unix_time_from_system",
@@ -293738,27 +294924,27 @@
 						{
 							"name": "CELL_MODE_STRING",
 							"value": 0,
-							"description": "Cell contains a string."
+							"description": "Cell shows a string label. When editable, the text can be edited using a [LineEdit], or a [TextEdit] popup if [method set_edit_multiline] is used."
 						},
 						{
 							"name": "CELL_MODE_CHECK",
 							"value": 1,
-							"description": "Cell contains a checkbox."
+							"description": "Cell shows a checkbox, optionally with text. The checkbox can be pressed, released, or indeterminate (via [method set_indeterminate]). The checkbox can't be clicked unless the cell is editable."
 						},
 						{
 							"name": "CELL_MODE_RANGE",
 							"value": 2,
-							"description": "Cell contains a range."
+							"description": "Cell shows a numeric range. When editable, it can be edited using a range slider. Use [method set_range] to set the value and [method set_range_config] to configure the range.\nThis cell can also be used in a text dropdown mode when you assign a text with [method set_text]. Separate options with a comma, e.g. [code]\"Option1,Option2,Option3\"[/code]."
 						},
 						{
 							"name": "CELL_MODE_ICON",
 							"value": 3,
-							"description": "Cell contains an icon."
+							"description": "Cell shows an icon. It can't be edited nor display text."
 						},
 						{
 							"name": "CELL_MODE_CUSTOM",
 							"value": 4,
-							"description": ""
+							"description": "Cell shows as a clickable button. It will display an arrow similar to [OptionButton], but doesn't feature a dropdown (for that you can use [constant CELL_MODE_RANGE]). Clicking the button emits the [signal Tree.item_edited] signal. The button is flat by default, you can use [method set_custom_as_button] to display it with a [StyleBox].\nThis mode also supports custom drawing using [method set_custom_draw_callback]."
 						}
 					]
 				}
@@ -293782,7 +294968,7 @@
 							"type": "enum::TreeItem.TreeCellMode"
 						}
 					],
-					"description": "Sets the given column's cell mode to [param mode]. See [enum TreeCellMode] constants."
+					"description": "Sets the given column's cell mode to [param mode]. This determines how the cell is displayed and edited. See [enum TreeCellMode] constants for details."
 				},
 				{
 					"name": "get_cell_mode",
@@ -294118,7 +295304,7 @@
 							"type": "enum::TextServer.StructuredTextParser"
 						}
 					],
-					"description": ""
+					"description": "Set BiDi algorithm override for the structured text. Has effect for cells that display text."
 				},
 				{
 					"name": "get_structured_text_bidi_override",
@@ -294137,7 +295323,7 @@
 							"meta": "int32"
 						}
 					],
-					"description": ""
+					"description": "Returns the BiDi algorithm override set for this cell."
 				},
 				{
 					"name": "set_structured_text_bidi_override_options",
@@ -294157,7 +295343,7 @@
 							"type": "Array"
 						}
 					],
-					"description": ""
+					"description": "Set additional options for BiDi override. Has effect for cells that display text."
 				},
 				{
 					"name": "get_structured_text_bidi_override_options",
@@ -294176,7 +295362,7 @@
 							"meta": "int32"
 						}
 					],
-					"description": ""
+					"description": "Returns the additional BiDi options set for this cell."
 				},
 				{
 					"name": "set_language",
@@ -294274,7 +295460,7 @@
 							"type": "Texture2D"
 						}
 					],
-					"description": "Sets the given column's icon [Texture2D]."
+					"description": "Sets the given cell's icon [Texture2D]. The cell has to be in [constant CELL_MODE_ICON] mode."
 				},
 				{
 					"name": "get_icon",
@@ -294591,7 +295777,7 @@
 							"type": "Callable"
 						}
 					],
-					"description": "Sets the given column's custom draw callback. Use an empty [Callable] ([code skip-lint]Callable()[/code]) to clear the custom callback.\nThe [param callback] should accept two arguments: the [TreeItem] that is drawn and its position and size as a [Rect2]."
+					"description": "Sets the given column's custom draw callback. Use an empty [Callable] ([code skip-lint]Callable()[/code]) to clear the custom callback. The cell has to be in [constant CELL_MODE_CUSTOM] to use this feature.\nThe [param callback] should accept two arguments: the [TreeItem] that is drawn and its position and size as a [Rect2]."
 				},
 				{
 					"name": "get_custom_draw_callback",
@@ -295086,7 +296272,7 @@
 							"type": "bool"
 						}
 					],
-					"description": ""
+					"description": "Makes a cell with [constant CELL_MODE_CUSTOM] display as a non-flat button with a [StyleBox]."
 				},
 				{
 					"name": "is_custom_set_as_button",
@@ -295105,7 +296291,7 @@
 							"meta": "int32"
 						}
 					],
-					"description": ""
+					"description": "Returns [code]true[/code] if the cell was made into a button with [method set_custom_as_button]."
 				},
 				{
 					"name": "add_button",
@@ -300082,6 +301268,32 @@
 							"description": "Represents the size of the [enum VRSMode] enum."
 						}
 					]
+				},
+				{
+					"name": "VRSUpdateMode",
+					"is_bitfield": false,
+					"values": [
+						{
+							"name": "VRS_UPDATE_DISABLED",
+							"value": 0,
+							"description": "The input texture for variable rate shading will not be processed."
+						},
+						{
+							"name": "VRS_UPDATE_ONCE",
+							"value": 1,
+							"description": "The input texture for variable rate shading will be processed once."
+						},
+						{
+							"name": "VRS_UPDATE_ALWAYS",
+							"value": 2,
+							"description": "The input texture for variable rate shading will be processed each frame."
+						},
+						{
+							"name": "VRS_UPDATE_MAX",
+							"value": 3,
+							"description": "Represents the size of the [enum VRSUpdateMode] enum."
+						}
+					]
 				}
 			],
 			"methods": [
@@ -301500,6 +302712,31 @@
 					}
 				},
 				{
+					"name": "set_vrs_update_mode",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 3182412319,
+					"arguments": [
+						{
+							"name": "mode",
+							"type": "enum::Viewport.VRSUpdateMode"
+						}
+					]
+				},
+				{
+					"name": "get_vrs_update_mode",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 2255951583,
+					"return_value": {
+						"type": "enum::Viewport.VRSUpdateMode"
+					}
+				},
+				{
 					"name": "set_vrs_texture",
 					"is_const": false,
 					"is_vararg": false,
@@ -301702,6 +302939,13 @@
 					"setter": "set_vrs_mode",
 					"getter": "get_vrs_mode",
 					"description": "The Variable Rate Shading (VRS) mode that is used for this viewport. Note, if hardware does not support VRS this property is ignored."
+				},
+				{
+					"type": "int",
+					"name": "vrs_update_mode",
+					"setter": "set_vrs_update_mode",
+					"getter": "get_vrs_update_mode",
+					"description": "Sets the update mode for Variable Rate Shading (VRS) for the viewport. VRS requires the input texture to be converted to the format usable by the VRS method supported by the hardware. The update mode defines how often this happens. If the GPU does not support VRS, or VRS is not enabled, this property is ignored."
 				},
 				{
 					"type": "Texture2D",
@@ -306039,7 +307283,7 @@
 				}
 			],
 			"brief_description": "A frame other visual shader nodes can be attached to for better organization.",
-			"description": "A rectangular frame that can be used to group visual shader nodes together to improve organization. \nNodes attached to the frame will move with it when it is dragged and it can automatically resize to enclose all attached nodes.\nIts title, description and color can be customized."
+			"description": "A rectangular frame that can be used to group visual shader nodes together to improve organization.\nNodes attached to the frame will move with it when it is dragged and it can automatically resize to enclose all attached nodes.\nIts title, description and color can be customized."
 		},
 		{
 			"name": "VisualShaderNodeFresnel",
@@ -307893,6 +309137,37 @@
 			"api_type": "core",
 			"brief_description": "A visual shader node for remap function.",
 			"description": "Remap will transform the input range into output range, e.g. you can change a [code]0..1[/code] value to [code]-2..2[/code] etc. See [method @GlobalScope.remap] for more details."
+		},
+		{
+			"name": "VisualShaderNodeReroute",
+			"is_refcounted": true,
+			"is_instantiable": true,
+			"inherits": "VisualShaderNode",
+			"api_type": "core",
+			"methods": [
+				{
+					"name": "get_port_type",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 1287173294,
+					"return_value": {
+						"type": "enum::VisualShaderNode.PortType"
+					},
+					"description": "Returns the port type of the reroute node."
+				}
+			],
+			"properties": [
+				{
+					"type": "int",
+					"name": "port_type",
+					"setter": "_set_port_type",
+					"getter": "get_port_type"
+				}
+			],
+			"brief_description": "A node that allows rerouting a connection within the visual shader graph.",
+			"description": "Automatically adapts its port type to the type of the incoming connection and ensures valid connections."
 		},
 		{
 			"name": "VisualShaderNodeResizableBase",
@@ -314128,7 +315403,7 @@
 					"return_value": {
 						"type": "Vector2i"
 					},
-					"description": "Returns the window's position including its border."
+					"description": "Returns the window's position including its border.\n[b]Note:[/b] If [member visible] is [code]false[/code], this method returns the same value as [member position]."
 				},
 				{
 					"name": "get_size_with_decorations",
@@ -314140,7 +315415,7 @@
 					"return_value": {
 						"type": "Vector2i"
 					},
-					"description": "Returns the window's size including its border."
+					"description": "Returns the window's size including its border.\n[b]Note:[/b] If [member visible] is [code]false[/code], this method returns the same value as [member size]."
 				},
 				{
 					"name": "set_max_size",
@@ -321894,6 +323169,10 @@
 			],
 			"signals": [
 				{
+					"name": "reference_frame_changed",
+					"description": "Emitted when the reference frame transform changes."
+				},
+				{
 					"name": "interface_added",
 					"arguments": [
 						{
@@ -322090,6 +323369,109 @@
 			],
 			"brief_description": "A tracked object.",
 			"description": "This object is the base of all XR trackers."
+		},
+		{
+			"name": "XRVRS",
+			"is_refcounted": false,
+			"is_instantiable": true,
+			"inherits": "Object",
+			"api_type": "core",
+			"methods": [
+				{
+					"name": "get_vrs_min_radius",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 1740695150,
+					"return_value": {
+						"type": "float",
+						"meta": "float"
+					}
+				},
+				{
+					"name": "set_vrs_min_radius",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 373806689,
+					"arguments": [
+						{
+							"name": "radius",
+							"type": "float",
+							"meta": "float"
+						}
+					]
+				},
+				{
+					"name": "get_vrs_strength",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 1740695150,
+					"return_value": {
+						"type": "float",
+						"meta": "float"
+					}
+				},
+				{
+					"name": "set_vrs_strength",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 373806689,
+					"arguments": [
+						{
+							"name": "strength",
+							"type": "float",
+							"meta": "float"
+						}
+					]
+				},
+				{
+					"name": "make_vrs_texture",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 3647044786,
+					"return_value": {
+						"type": "RID"
+					},
+					"arguments": [
+						{
+							"name": "target_size",
+							"type": "Vector2"
+						},
+						{
+							"name": "eye_foci",
+							"type": "PackedVector2Array"
+						}
+					],
+					"description": "Generates the VRS texture based on a render [param target_size] adjusted by our VRS tile size. For each eyes focal point passed in [param eye_foci] a layer is created. Focal point should be in NDC.\nThe result will be cached, requesting a VRS texture with unchanged parameters and settings will return the cached RID."
+				}
+			],
+			"properties": [
+				{
+					"type": "float",
+					"name": "vrs_min_radius",
+					"setter": "set_vrs_min_radius",
+					"getter": "get_vrs_min_radius",
+					"description": "The minimum radius around the focal point where full quality is guaranteed if VRS is used as a percentage of screen size."
+				},
+				{
+					"type": "float",
+					"name": "vrs_strength",
+					"setter": "set_vrs_strength",
+					"getter": "get_vrs_strength",
+					"description": "The strength used to calculate the VRS density map. The greater this value, the more noticeable VRS is."
+				}
+			],
+			"brief_description": "Helper class for XR interfaces that generates VRS images.",
+			"description": "This class is used by various XR interfaces to generate VRS textures that can be used to speed up rendering."
 		},
 		{
 			"name": "ZIPPacker",
