@@ -10063,7 +10063,7 @@
 					"is_const": true,
 					"is_static": false,
 					"hash": 2428350749,
-					"description": "Returns the result of scaling the vector to unit length. Equivalent to [code]v / v.length()[/code]. See also [method is_normalized].\n[b]Note:[/b] This function may return incorrect values if the input vector length is near zero."
+					"description": "Returns the result of scaling the vector to unit length. Equivalent to [code]v / v.length()[/code]. Returns [code](0, 0)[/code] if [code]v.length() == 0[/code]. See also [method is_normalized].\n[b]Note:[/b] This function may return incorrect values if the input vector length is near zero."
 				},
 				{
 					"name": "is_normalized",
@@ -10420,7 +10420,7 @@
 							"type": "Vector2"
 						}
 					],
-					"description": "Returns the dot product of this vector and [param with]. This can be used to compare the angle between two vectors. For example, this can be used to determine whether an enemy is facing the player.\nThe dot product will be [code]0[/code] for a straight angle (90 degrees), greater than 0 for angles narrower than 90 degrees and lower than 0 for angles wider than 90 degrees.\nWhen using unit (normalized) vectors, the result will always be between [code]-1.0[/code] (180 degree angle) when the vectors are facing opposite directions, and [code]1.0[/code] (0 degree angle) when the vectors are aligned.\n[b]Note:[/b] [code]a.dot(b)[/code] is equivalent to [code]b.dot(a)[/code]."
+					"description": "Returns the dot product of this vector and [param with]. This can be used to compare the angle between two vectors. For example, this can be used to determine whether an enemy is facing the player.\nThe dot product will be [code]0[/code] for a right angle (90 degrees), greater than 0 for angles narrower than 90 degrees and lower than 0 for angles wider than 90 degrees.\nWhen using unit (normalized) vectors, the result will always be between [code]-1.0[/code] (180 degree angle) when the vectors are facing opposite directions, and [code]1.0[/code] (0 degree angle) when the vectors are aligned.\n[b]Note:[/b] [code]a.dot(b)[/code] is equivalent to [code]b.dot(a)[/code]."
 				},
 				{
 					"name": "slide",
@@ -12278,7 +12278,7 @@
 					"is_const": true,
 					"is_static": false,
 					"hash": 1776574132,
-					"description": "Returns the result of scaling the vector to unit length. Equivalent to [code]v / v.length()[/code]. See also [method is_normalized].\n[b]Note:[/b] This function may return incorrect values if the input vector length is near zero."
+					"description": "Returns the result of scaling the vector to unit length. Equivalent to [code]v / v.length()[/code]. Returns [code](0, 0, 0)[/code] if [code]v.length() == 0[/code]. See also [method is_normalized].\n[b]Note:[/b] This function may return incorrect values if the input vector length is near zero."
 				},
 				{
 					"name": "is_normalized",
@@ -12608,7 +12608,7 @@
 							"type": "Vector3"
 						}
 					],
-					"description": "Returns the dot product of this vector and [param with]. This can be used to compare the angle between two vectors. For example, this can be used to determine whether an enemy is facing the player.\nThe dot product will be [code]0[/code] for a straight angle (90 degrees), greater than 0 for angles narrower than 90 degrees and lower than 0 for angles wider than 90 degrees.\nWhen using unit (normalized) vectors, the result will always be between [code]-1.0[/code] (180 degree angle) when the vectors are facing opposite directions, and [code]1.0[/code] (0 degree angle) when the vectors are aligned.\n[b]Note:[/b] [code]a.dot(b)[/code] is equivalent to [code]b.dot(a)[/code]."
+					"description": "Returns the dot product of this vector and [param with]. This can be used to compare the angle between two vectors. For example, this can be used to determine whether an enemy is facing the player.\nThe dot product will be [code]0[/code] for a right angle (90 degrees), greater than 0 for angles narrower than 90 degrees and lower than 0 for angles wider than 90 degrees.\nWhen using unit (normalized) vectors, the result will always be between [code]-1.0[/code] (180 degree angle) when the vectors are facing opposite directions, and [code]1.0[/code] (0 degree angle) when the vectors are aligned.\n[b]Note:[/b] [code]a.dot(b)[/code] is equivalent to [code]b.dot(a)[/code]."
 				},
 				{
 					"name": "cross",
@@ -14388,7 +14388,7 @@
 					"is_const": true,
 					"is_static": false,
 					"hash": 80860099,
-					"description": "Returns the result of scaling the vector to unit length. Equivalent to [code]v / v.length()[/code]. See also [method is_normalized].\n[b]Note:[/b] This function may return incorrect values if the input vector length is near zero."
+					"description": "Returns the result of scaling the vector to unit length. Equivalent to [code]v / v.length()[/code]. Returns [code](0, 0, 0, 0)[/code] if [code]v.length() == 0[/code]. See also [method is_normalized].\n[b]Note:[/b] This function may return incorrect values if the input vector length is near zero."
 				},
 				{
 					"name": "is_normalized",
@@ -16466,7 +16466,7 @@
 					"name": "*",
 					"right_type": "Vector3",
 					"return_type": "Vector3",
-					"description": "Transforms (multiplies) the [param right] vector by this basis, returning a [Vector3].\n[codeblocks]\n[gdscript]\nvar my_basis = Basis(Vector3(1, 1, 1), Vector3(1, 1, 1), Vector3(0, 2, 5))\nprint(my_basis * Vector3(1, 2, 3)) # Prints (7, 3, 16)\n[/gdscript]\n[csharp]\nvar myBasis = new Basis(new Vector3(1, 1, 1), new Vector3(1, 1, 1), new Vector3(0, 2, 5));\nGD.Print(my_basis * new Vector3(1, 2, 3)); // Prints (7, 3, 16)\n[/csharp]\n[/codeblocks]"
+					"description": "Transforms (multiplies) the [param right] vector by this basis, returning a [Vector3].\n[codeblocks]\n[gdscript]\n# Basis that swaps the X/Z axes and doubles the scale.\nvar my_basis = Basis(Vector3(0, 2, 0), Vector3(2, 0, 0), Vector3(0, 0, 2))\nprint(my_basis * Vector3(1, 2, 3)) # Prints (4, 2, 6)\n[/gdscript]\n[csharp]\n// Basis that swaps the X/Z axes and doubles the scale.\nvar myBasis = new Basis(new Vector3(0, 2, 0), new Vector3(2, 0, 0), new Vector3(0, 0, 2));\nGD.Print(myBasis * new Vector3(1, 2, 3)); // Prints (4, 2, 6)\n[/csharp]\n[/codeblocks]"
 				},
 				{
 					"name": "==",
@@ -18978,7 +18978,7 @@
 					"is_const": true,
 					"is_static": false,
 					"hash": 3173160232,
-					"description": "Returns the color converted to a 32-bit integer in RGBA format (each component is 8 bits). RGBA is Godot's default format.\n[codeblocks]\n[gdscript]\nvar color = Color(1, 0.5, 0.2)\nprint(color.to_rgba32()) # Prints 4286526463\n[/gdscript]\n[csharp]\nvar color = new Color(1, 0.5f, 0.2f);\nGD.Print(color.ToRgba32()); // Prints 4286526463\n[/csharp]\n[/codeblocks]"
+					"description": "Returns the color converted to a 32-bit integer in RGBA format (each component is 8 bits). RGBA is Godot's default format. This method is the inverse of [method hex].\n[codeblocks]\n[gdscript]\nvar color = Color(1, 0.5, 0.2)\nprint(color.to_rgba32()) # Prints 4286526463\n[/gdscript]\n[csharp]\nvar color = new Color(1, 0.5f, 0.2f);\nGD.Print(color.ToRgba32()); // Prints 4286526463\n[/csharp]\n[/codeblocks]"
 				},
 				{
 					"name": "to_argb64",
@@ -19005,7 +19005,7 @@
 					"is_const": true,
 					"is_static": false,
 					"hash": 3173160232,
-					"description": "Returns the color converted to a 64-bit integer in RGBA format (each component is 16 bits). RGBA is Godot's default format.\n[codeblocks]\n[gdscript]\nvar color = Color(1, 0.5, 0.2)\nprint(color.to_rgba64()) # Prints -140736629309441\n[/gdscript]\n[csharp]\nvar color = new Color(1, 0.5f, 0.2f);\nGD.Print(color.ToRgba64()); // Prints -140736629309441\n[/csharp]\n[/codeblocks]"
+					"description": "Returns the color converted to a 64-bit integer in RGBA format (each component is 16 bits). RGBA is Godot's default format. This method is the inverse of [method hex64].\n[codeblocks]\n[gdscript]\nvar color = Color(1, 0.5, 0.2)\nprint(color.to_rgba64()) # Prints -140736629309441\n[/gdscript]\n[csharp]\nvar color = new Color(1, 0.5f, 0.2f);\nGD.Print(color.ToRgba64()); // Prints -140736629309441\n[/csharp]\n[/codeblocks]"
 				},
 				{
 					"name": "to_html",
@@ -19172,7 +19172,7 @@
 							"type": "int"
 						}
 					],
-					"description": "Returns the [Color] associated with the provided [param hex] integer in 32-bit RGBA format (8 bits per channel).\nIn GDScript and C#, the [int] is best visualized with hexadecimal notation ([code]\"0x\"[/code] prefix, making it [code]\"0xRRGGBBAA\"[/code]).\n[codeblocks]\n[gdscript]\nvar red = Color.hex(0xff0000ff)\nvar dark_cyan = Color.hex(0x008b8bff)\nvar my_color = Color.hex(0xbbefd2a4)\n[/gdscript]\n[csharp]\nvar red = new Color(0xff0000ff);\nvar dark_cyan = new Color(0x008b8bff);\nvar my_color = new Color(0xbbefd2a4);\n[/csharp]\n[/codeblocks]"
+					"description": "Returns the [Color] associated with the provided [param hex] integer in 32-bit RGBA format (8 bits per channel). This method is the inverse of [method to_rgba32].\nIn GDScript and C#, the [int] is best visualized with hexadecimal notation ([code]\"0x\"[/code] prefix, making it [code]\"0xRRGGBBAA\"[/code]).\n[codeblocks]\n[gdscript]\nvar red = Color.hex(0xff0000ff)\nvar dark_cyan = Color.hex(0x008b8bff)\nvar my_color = Color.hex(0xbbefd2a4)\n[/gdscript]\n[csharp]\nvar red = new Color(0xff0000ff);\nvar dark_cyan = new Color(0x008b8bff);\nvar my_color = new Color(0xbbefd2a4);\n[/csharp]\n[/codeblocks]"
 				},
 				{
 					"name": "hex64",
@@ -19187,7 +19187,7 @@
 							"type": "int"
 						}
 					],
-					"description": "Returns the [Color] associated with the provided [param hex] integer in 64-bit RGBA format (16 bits per channel).\nIn GDScript and C#, the [int] is best visualized with hexadecimal notation ([code]\"0x\"[/code] prefix, making it [code]\"0xRRRRGGGGBBBBAAAA\"[/code])."
+					"description": "Returns the [Color] associated with the provided [param hex] integer in 64-bit RGBA format (16 bits per channel). This method is the inverse of [method to_rgba64].\nIn GDScript and C#, the [int] is best visualized with hexadecimal notation ([code]\"0x\"[/code] prefix, making it [code]\"0xRRRRGGGGBBBBAAAA\"[/code])."
 				},
 				{
 					"name": "html",
@@ -21363,7 +21363,7 @@
 			],
 			"has_destructor": false,
 			"brief_description": "A handle for a [Resource]'s unique identifier.",
-			"description": "The RID [Variant] type is used to access a low-level resource by its unique ID. RIDs are opaque, which means they do not grant access to the resource by themselves. They are used by the low-level server classes, such as [DisplayServer], [RenderingServer], [TextServer], etc.\nA low-level resource may correspond to a high-level [Resource], such as [Texture] or [Mesh]."
+			"description": "The RID [Variant] type is used to access a low-level resource by its unique ID. RIDs are opaque, which means they do not grant access to the resource by themselves. They are used by the low-level server classes, such as [DisplayServer], [RenderingServer], [TextServer], etc.\nA low-level resource may correspond to a high-level [Resource], such as [Texture] or [Mesh].\n[b]Note:[/b] RIDs are only useful during the current session. It won't correspond to a similar resource if sent over a network, or loaded from a file at a later time."
 		},
 		{
 			"name": "Callable",
@@ -22099,6 +22099,25 @@
 					"is_static": false,
 					"hash": 3918633141,
 					"description": "Returns [code]true[/code] if the dictionary is read-only. See [method make_read_only]. Dictionaries are automatically read-only if declared with [code]const[/code] keyword."
+				},
+				{
+					"name": "recursive_equal",
+					"return_type": "bool",
+					"is_vararg": false,
+					"is_const": true,
+					"is_static": false,
+					"hash": 1404404751,
+					"arguments": [
+						{
+							"name": "dictionary",
+							"type": "Dictionary"
+						},
+						{
+							"name": "recursion_count",
+							"type": "int"
+						}
+					],
+					"description": "Returns [code]true[/code] if the two dictionaries contain the same keys and values, inner [Dictionary] and [Array] keys and values are compared recursively."
 				}
 			],
 			"constructors": [
@@ -31609,7 +31628,7 @@
 					"is_vararg": false,
 					"is_static": false,
 					"is_virtual": false,
-					"hash": 189695464,
+					"hash": 4230953007,
 					"hash_compatibility": [
 						3245197284,
 						3898229885
@@ -31638,9 +31657,14 @@
 							"name": "limit",
 							"type": "bool",
 							"default_value": "false"
+						},
+						{
+							"name": "backward",
+							"type": "bool",
+							"default_value": "false"
 						}
 					],
-					"description": "Finds the key index by time in a given track. Optionally, only find it if the approx/exact time is given.\nIf [param limit] is [code]true[/code], it does not return keys outside the animation range."
+					"description": "Finds the key index by time in a given track. Optionally, only find it if the approx/exact time is given.\nIf [param limit] is [code]true[/code], it does not return keys outside the animation range.\nIf [param backward] is [code]true[/code], the direction is reversed in methods that rely on one directional processing.\nFor example, in case [param find_mode] is [constant FIND_MODE_NEAREST], if there is no key in the current position just after seeked, the first key found is retrieved by searching before the position, but if [param backward] is [code]true[/code], the first key found is retrieved after the position."
 				},
 				{
 					"name": "track_set_interpolation_type",
@@ -31808,7 +31832,7 @@
 							"default_value": "false"
 						}
 					],
-					"description": "Returns the interpolated value at the given time (in seconds). The [param track_idx] must be the index of a value track."
+					"description": "Returns the interpolated value at the given time (in seconds). The [param track_idx] must be the index of a value track.\nA [param backward] mainly affects the direction of key retrieval of the track with [constant UPDATE_DISCRETE] converted by [constant AnimationMixer.ANIMATION_CALLBACK_MODE_DISCRETE_FORCE_CONTINUOUS] to match the result with [method track_find_key]."
 				},
 				{
 					"name": "method_track_get_name",
@@ -43878,7 +43902,7 @@
 				}
 			],
 			"brief_description": "Audio effect that can be used for real-time audio visualizations.",
-			"description": "This audio effect does not affect sound output, but can be used for real-time audio visualizations.\nSee also [AudioStreamGenerator] for procedurally generating sounds."
+			"description": "This audio effect does not affect sound output, but can be used for real-time audio visualizations.\nThis resource configures an [AudioEffectSpectrumAnalyzerInstance], which performs the actual analysis at runtime. An instance can be acquired with [method AudioServer.get_bus_effect_instance].\nSee also [AudioStreamGenerator] for procedurally generating sounds."
 		},
 		{
 			"name": "AudioEffectSpectrumAnalyzerInstance",
@@ -43894,12 +43918,12 @@
 						{
 							"name": "MAGNITUDE_AVERAGE",
 							"value": 0,
-							"description": "Use the average value as magnitude."
+							"description": "Use the average value across the frequency range as magnitude."
 						},
 						{
 							"name": "MAGNITUDE_MAX",
 							"value": 1,
-							"description": "Use the maximum value as magnitude."
+							"description": "Use the maximum value of the frequency range as magnitude."
 						}
 					]
 				}
@@ -43935,11 +43959,11 @@
 							"default_value": "1"
 						}
 					],
-					"description": ""
+					"description": "Returns the magnitude of the frequencies from [param from_hz] to [param to_hz] in linear energy as a Vector2. The [code]x[/code] component of the return value represents the left stereo channel, and [code]y[/code] represents the right channel.\n[param mode] determines how the frequency range will be processed. See [enum MagnitudeMode]."
 				}
 			],
-			"brief_description": "",
-			"description": ""
+			"brief_description": "Queryable instance of an [AudioEffectSpectrumAnalyzer].",
+			"description": "The runtime part of an [AudioEffectSpectrumAnalyzer], which can be used to query the magnitude of a frequency range on its host bus.\nAn instance of this class can be acquired with [method AudioServer.get_bus_effect_instance]."
 		},
 		{
 			"name": "AudioEffectStereoEnhance",
@@ -44151,6 +44175,24 @@
 			"description": "Once added to the scene tree and enabled using [method make_current], this node will override the location sounds are heard from. This can be used to listen from a location different from the [Camera3D]."
 		},
 		{
+			"name": "AudioSample",
+			"is_refcounted": true,
+			"is_instantiable": true,
+			"inherits": "RefCounted",
+			"api_type": "core",
+			"brief_description": "Base class for audio samples.",
+			"description": "Base class for audio samples."
+		},
+		{
+			"name": "AudioSamplePlayback",
+			"is_refcounted": true,
+			"is_instantiable": true,
+			"inherits": "RefCounted",
+			"api_type": "core",
+			"brief_description": "Meta class for playing back audio samples.",
+			"description": "Meta class for playing back audio samples."
+		},
+		{
 			"name": "AudioServer",
 			"is_refcounted": false,
 			"is_instantiable": true,
@@ -44180,6 +44222,32 @@
 							"name": "SPEAKER_SURROUND_71",
 							"value": 3,
 							"description": "A 7.1 channel surround setup was detected."
+						}
+					]
+				},
+				{
+					"name": "PlaybackType",
+					"is_bitfield": false,
+					"values": [
+						{
+							"name": "PLAYBACK_TYPE_DEFAULT",
+							"value": 0,
+							"description": "The playback will be considered of the type declared at [member ProjectSettings.audio/general/default_playback_type]."
+						},
+						{
+							"name": "PLAYBACK_TYPE_STREAM",
+							"value": 1,
+							"description": "Force the playback to be considered as a stream."
+						},
+						{
+							"name": "PLAYBACK_TYPE_SAMPLE",
+							"value": 2,
+							"description": "Force the playback to be considered as a sample. This can provide lower latency and more stable playback (with less risk of audio crackling), at the cost of having less flexibility.\n[b]Note:[/b] Only currently supported on the web platform.\n[b]Note:[/b] [AudioEffect]s are not supported when playback is considered as a sample."
+						},
+						{
+							"name": "PLAYBACK_TYPE_MAX",
+							"value": 3,
+							"description": "Represents the size of the [enum PlaybackType] enum."
 						}
 					]
 				}
@@ -45017,6 +45085,39 @@
 						}
 					],
 					"description": "If set to [code]true[/code], all instances of [AudioStreamPlayback] will call [method AudioStreamPlayback._tag_used_streams] every mix step.\n[b]Note:[/b] This is enabled by default in the editor, as it is used by editor plugins for the audio stream previews."
+				},
+				{
+					"name": "is_stream_registered_as_sample",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 500225754,
+					"return_value": {
+						"type": "bool"
+					},
+					"arguments": [
+						{
+							"name": "stream",
+							"type": "AudioStream"
+						}
+					],
+					"description": "If [code]true[/code], the stream is registered as a sample. The engine will not have to register it before playing the sample.\nIf [code]false[/code], the stream will have to be registered before playing it. To prevent lag spikes, register the stream as sample with [method register_stream_as_sample]."
+				},
+				{
+					"name": "register_stream_as_sample",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 2210767741,
+					"arguments": [
+						{
+							"name": "stream",
+							"type": "AudioStream"
+						}
+					],
+					"description": "Forces the registration of a stream as a sample.\n[b]Note:[/b] Lag spikes may occur when calling this method, especially on single-threaded builds. It is suggested to call this method while loading assets, where the lag spike could be masked, instead of registering the sample right before it needs to be played."
 				}
 			],
 			"signals": [
@@ -45199,6 +45300,42 @@
 						"type": "AudioStreamPlayback"
 					},
 					"description": "Returns a newly created [AudioStreamPlayback] intended to play this audio stream. Useful for when you want to extend [method _instantiate_playback] but call [method instantiate_playback] from an internally held AudioStream subresource. An example of this can be found in the source code for [code]AudioStreamRandomPitch::instantiate_playback[/code]."
+				},
+				{
+					"name": "can_be_sampled",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 36873697,
+					"return_value": {
+						"type": "bool"
+					},
+					"description": "Returns if the current [AudioStream] can be used as a sample. Only static streams can be sampled."
+				},
+				{
+					"name": "generate_sample",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 2646048999,
+					"return_value": {
+						"type": "AudioSample"
+					},
+					"description": "Generates an [AudioSample] based on the current stream."
+				},
+				{
+					"name": "is_meta_stream",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 36873697,
+					"return_value": {
+						"type": "bool"
+					},
+					"description": "Returns [code]true[/code] if the stream is a collection of other streams, [code]false[/code] otherwise."
 				}
 			],
 			"signals": [
@@ -46636,6 +46773,33 @@
 						}
 					],
 					"description": "Return the current value of a playback parameter by name (see [method AudioStream._get_parameter_list])."
+				},
+				{
+					"name": "set_sample_playback",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 3195455091,
+					"arguments": [
+						{
+							"name": "playback_sample",
+							"type": "AudioSamplePlayback"
+						}
+					],
+					"description": "Associates [AudioSamplePlayback] to this [AudioStreamPlayback] for playing back the audio sample of this stream."
+				},
+				{
+					"name": "get_sample_playback",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 3482738536,
+					"return_value": {
+						"type": "AudioSamplePlayback"
+					},
+					"description": "Returns the [AudioSamplePlayback] associated with this [AudioStreamPlayback] for playing back the audio sample of this stream."
 				}
 			],
 			"brief_description": "Meta class for playing back audio.",
@@ -46721,8 +46885,9 @@
 					"is_vararg": false,
 					"is_static": false,
 					"is_virtual": false,
-					"hash": 604492179,
+					"hash": 1846744803,
 					"hash_compatibility": [
+						604492179,
 						3792189967
 					],
 					"return_value": {
@@ -46751,9 +46916,19 @@
 							"type": "float",
 							"meta": "float",
 							"default_value": "1.0"
+						},
+						{
+							"name": "playback_type",
+							"type": "enum::AudioServer.PlaybackType",
+							"default_value": "0"
+						},
+						{
+							"name": "bus",
+							"type": "StringName",
+							"default_value": "&\"Master\""
 						}
 					],
-					"description": "Play an [AudioStream] at a given offset, volume and pitch scale. Playback starts immediately.\nThe return value is a unique integer ID that is associated to this playback stream and which can be used to control it.\nThis ID becomes invalid when the stream ends (if it does not loop), when the [AudioStreamPlaybackPolyphonic] is stopped, or when [method stop_stream] is called.\nThis function returns [constant INVALID_ID] if the amount of streams currently playing equals [member AudioStreamPolyphonic.polyphony]. If you need a higher amount of maximum polyphony, raise this value."
+					"description": "Play an [AudioStream] at a given offset, volume, pitch scale, playback type, and bus. Playback starts immediately.\nThe return value is a unique integer ID that is associated to this playback stream and which can be used to control it.\nThis ID becomes invalid when the stream ends (if it does not loop), when the [AudioStreamPlaybackPolyphonic] is stopped, or when [method stop_stream] is called.\nThis function returns [constant INVALID_ID] if the amount of streams currently playing equals [member AudioStreamPolyphonic.polyphony]. If you need a higher amount of maximum polyphony, raise this value."
 				},
 				{
 					"name": "set_stream_volume",
@@ -47228,6 +47403,31 @@
 						"type": "AudioStreamPlayback"
 					},
 					"description": "Returns the latest [AudioStreamPlayback] of this node, usually the most recently created by [method play]. If no sounds are playing, this method fails and returns an empty playback."
+				},
+				{
+					"name": "set_playback_type",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 725473817,
+					"arguments": [
+						{
+							"name": "playback_type",
+							"type": "enum::AudioServer.PlaybackType"
+						}
+					]
+				},
+				{
+					"name": "get_playback_type",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 4011264623,
+					"return_value": {
+						"type": "enum::AudioServer.PlaybackType"
+					}
 				}
 			],
 			"signals": [
@@ -47299,6 +47499,13 @@
 					"setter": "set_bus",
 					"getter": "get_bus",
 					"description": "The target bus name. All sounds from this node will be playing on this bus.\n[b]Note:[/b] At runtime, if no bus with the given name exists, all sounds will fall back on [code]\"Master\"[/code]. See also [method AudioServer.get_bus_name]."
+				},
+				{
+					"type": "int",
+					"name": "playback_type",
+					"setter": "set_playback_type",
+					"getter": "get_playback_type",
+					"description": "The playback type of the stream player. If set other than to the default value, it will force that playback type."
 				}
 			],
 			"brief_description": "A node for audio playback.",
@@ -47692,6 +47899,31 @@
 						"type": "AudioStreamPlayback"
 					},
 					"description": "Returns the [AudioStreamPlayback] object associated with this [AudioStreamPlayer2D]."
+				},
+				{
+					"name": "set_playback_type",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 725473817,
+					"arguments": [
+						{
+							"name": "playback_type",
+							"type": "enum::AudioServer.PlaybackType"
+						}
+					]
+				},
+				{
+					"name": "get_playback_type",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 4011264623,
+					"return_value": {
+						"type": "enum::AudioServer.PlaybackType"
+					}
 				}
 			],
 			"signals": [
@@ -47784,6 +48016,13 @@
 					"setter": "set_area_mask",
 					"getter": "get_area_mask",
 					"description": "Determines which [Area2D] layers affect the sound for reverb and audio bus effects. Areas can be used to redirect [AudioStream]s so that they play in a certain audio bus. An example of how you might use this is making a \"water\" area so that sounds played in the water are redirected through an audio bus to make them sound like they are being played underwater."
+				},
+				{
+					"type": "int",
+					"name": "playback_type",
+					"setter": "set_playback_type",
+					"getter": "get_playback_type",
+					"description": "The playback type of the stream player. If set other than to the default value, it will force that playback type."
 				}
 			],
 			"brief_description": "Plays positional sound in 2D space.",
@@ -48436,6 +48675,31 @@
 						"type": "AudioStreamPlayback"
 					},
 					"description": "Returns the [AudioStreamPlayback] object associated with this [AudioStreamPlayer3D]."
+				},
+				{
+					"name": "set_playback_type",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 725473817,
+					"arguments": [
+						{
+							"name": "playback_type",
+							"type": "enum::AudioServer.PlaybackType"
+						}
+					]
+				},
+				{
+					"name": "get_playback_type",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 4011264623,
+					"return_value": {
+						"type": "enum::AudioServer.PlaybackType"
+					}
 				}
 			],
 			"signals": [
@@ -48544,6 +48808,13 @@
 					"description": "Determines which [Area3D] layers affect the sound for reverb and audio bus effects. Areas can be used to redirect [AudioStream]s so that they play in a certain audio bus. An example of how you might use this is making a \"water\" area so that sounds played in the water are redirected through an audio bus to make them sound like they are being played underwater."
 				},
 				{
+					"type": "int",
+					"name": "playback_type",
+					"setter": "set_playback_type",
+					"getter": "get_playback_type",
+					"description": "The playback type of the stream player. If set other than to the default value, it will force that playback type."
+				},
+				{
 					"type": "bool",
 					"name": "emission_angle_enabled",
 					"setter": "set_emission_angle_enabled",
@@ -48641,7 +48912,7 @@
 						"type": "float",
 						"meta": "double"
 					},
-					"description": "Return the bpm of the playlist, which can vary depending on the clip being played."
+					"description": "Returns the BPM of the playlist, which can vary depending on the clip being played."
 				},
 				{
 					"name": "set_list_stream",
@@ -48661,7 +48932,7 @@
 							"type": "AudioStream"
 						}
 					],
-					"description": "Set the stream at playback position index."
+					"description": "Sets the stream at playback position index."
 				},
 				{
 					"name": "get_list_stream",
@@ -48680,7 +48951,7 @@
 							"meta": "int32"
 						}
 					],
-					"description": "Get the stream at playback position index."
+					"description": "Returns the stream at playback position index."
 				},
 				{
 					"name": "set_shuffle",
@@ -48766,14 +49037,14 @@
 					"name": "shuffle",
 					"setter": "set_shuffle",
 					"getter": "get_shuffle",
-					"description": "Shuffle the playlist. Streams are played in random order."
+					"description": "If [code]true[/code], the playlist will shuffle each time playback starts and each time it loops."
 				},
 				{
 					"type": "bool",
 					"name": "loop",
 					"setter": "set_loop",
 					"getter": "has_loop",
-					"description": "If true, the playlist will loop, otherwise the playlist when end when the last stream is played."
+					"description": "If [code]true[/code], the playlist will loop, otherwise the playlist will end when the last stream is finished."
 				},
 				{
 					"type": "float",
@@ -49238,7 +49509,7 @@
 					"index": 63
 				}
 			],
-			"brief_description": "[AudioStream] that includes sub-streams and plays them back like a playslit.",
+			"brief_description": "[AudioStream] that includes sub-streams and plays them back like a playlist.",
 			"description": ""
 		},
 		{
@@ -50026,14 +50297,14 @@
 					"name": "loop_begin",
 					"setter": "set_loop_begin",
 					"getter": "get_loop_begin",
-					"description": "The loop start point (in number of samples, relative to the beginning of the sample). This information will be imported automatically from the WAV file if present."
+					"description": "The loop start point (in number of samples, relative to the beginning of the stream). This information will be imported automatically from the WAV file if present."
 				},
 				{
 					"type": "int",
 					"name": "loop_end",
 					"setter": "set_loop_end",
 					"getter": "get_loop_end",
-					"description": "The loop end point (in number of samples, relative to the beginning of the sample). This information will be imported automatically from the WAV file if present."
+					"description": "The loop end point (in number of samples, relative to the beginning of the stream). This information will be imported automatically from the WAV file if present."
 				},
 				{
 					"type": "int",
@@ -60280,7 +60551,7 @@
 					"name": "snap",
 					"setter": "set_snap",
 					"getter": "get_snap",
-					"description": "Snap makes the mesh vertices snap to a given distance so that the faces of two meshes can be perfectly aligned. A lower value results in greater precision but may be harder to adjust."
+					"description": "Snap makes the mesh vertices snap to a given distance so that the faces of two meshes can be perfectly aligned. A lower value results in greater precision but may be harder to adjust. The top-level CSG shape's snap value is used for the entire CSG tree."
 				},
 				{
 					"type": "bool",
@@ -89218,6 +89489,56 @@
 					"description": "Override this method to process incoming messages. The [param session_id] is the ID of the [EditorDebuggerSession] that received the message (which you can retrieve via [method get_session])."
 				},
 				{
+					"name": "_goto_script_line",
+					"is_const": false,
+					"is_static": false,
+					"is_vararg": false,
+					"is_virtual": true,
+					"arguments": [
+						{
+							"name": "script",
+							"type": "Script"
+						},
+						{
+							"name": "line",
+							"type": "int",
+							"meta": "int32"
+						}
+					],
+					"description": "Override this method to be notified when a breakpoint line has been clicked in the debugger breakpoint panel."
+				},
+				{
+					"name": "_breakpoints_cleared_in_tree",
+					"is_const": false,
+					"is_static": false,
+					"is_vararg": false,
+					"is_virtual": true,
+					"description": "Override this method to be notified when all breakpoints are cleared in the editor."
+				},
+				{
+					"name": "_breakpoint_set_in_tree",
+					"is_const": false,
+					"is_static": false,
+					"is_vararg": false,
+					"is_virtual": true,
+					"arguments": [
+						{
+							"name": "script",
+							"type": "Script"
+						},
+						{
+							"name": "line",
+							"type": "int",
+							"meta": "int32"
+						},
+						{
+							"name": "enabled",
+							"type": "bool"
+						}
+					],
+					"description": "Override this method to be notified when a breakpoint is set in the editor."
+				},
+				{
 					"name": "get_session",
 					"is_const": false,
 					"is_vararg": false,
@@ -89374,6 +89695,30 @@
 						}
 					],
 					"description": "Removes the given [param control] from the debug session UI in the debugger bottom panel."
+				},
+				{
+					"name": "set_breakpoint",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 4108344793,
+					"arguments": [
+						{
+							"name": "path",
+							"type": "String"
+						},
+						{
+							"name": "line",
+							"type": "int",
+							"meta": "int32"
+						},
+						{
+							"name": "enabled",
+							"type": "bool"
+						}
+					],
+					"description": "Enables or disables a specific breakpoint based on [param enabled], updating the Editor Breakpoint Panel accordingly."
 				}
 			],
 			"signals": [
@@ -96927,7 +97272,7 @@
 							"type": "Node"
 						}
 					],
-					"description": "Adds [param node] as a child of the root node in the editor context.\n[b]Warning:[/b] The implementation of this method is currently disabled."
+					"description": "Makes [param node] root of the currently opened scene. Only works if the scene is empty. If the [param node] is a scene instance, an inheriting scene will be created."
 				},
 				{
 					"name": "get_scene",
@@ -96939,7 +97284,7 @@
 					"return_value": {
 						"type": "Node"
 					},
-					"description": "Returns the Editor's currently active scene."
+					"description": "Returns the edited (current) scene's root [Node]. Equivalent of [method EditorInterface.get_edited_scene_root]."
 				},
 				{
 					"name": "get_editor_interface",
@@ -97740,6 +98085,15 @@
 						"type": "bool"
 					},
 					"description": "Returns [code]true[/code] if the [EditorUndoRedoManager] is currently committing the action, i.e. running its \"do\" method or property change (see [method commit_action])."
+				},
+				{
+					"name": "force_fixed_history",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 3218959716,
+					"description": "Forces the next operation (e.g. [method add_do_method]) to use the action's history rather than guessing it from the object. This is sometimes needed when a history can't be correctly determined, like for a nested resource that doesn't have a path yet.\nThis method should only be used when absolutely necessary, otherwise it might cause invalid history state. For most of complex cases, the [code]custom_context[/code] parameter of [method create_action] is sufficient."
 				},
 				{
 					"name": "add_do_method",
@@ -99336,6 +99690,15 @@
 					"description": "Returns [code]true[/code] if a capture with the given name is present otherwise [code]false[/code]."
 				},
 				{
+					"name": "line_poll",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 3218959716,
+					"description": "Forces a processing loop of debugger events. The purpose of this method is just processing events every now and then when the script might get too busy, so that bugs like infinite loops can be caught"
+				},
+				{
 					"name": "send_message",
 					"is_const": false,
 					"is_vararg": false,
@@ -99353,6 +99716,194 @@
 						}
 					],
 					"description": "Sends a message with given [param message] and [param data] array."
+				},
+				{
+					"name": "debug",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 2751962654,
+					"arguments": [
+						{
+							"name": "can_continue",
+							"type": "bool",
+							"default_value": "true"
+						},
+						{
+							"name": "is_error_breakpoint",
+							"type": "bool",
+							"default_value": "false"
+						}
+					],
+					"description": "Starts a debug break in script execution, optionally specifying whether the program can continue based on [param can_continue] and whether the break was due to a breakpoint."
+				},
+				{
+					"name": "script_debug",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 2442343672,
+					"arguments": [
+						{
+							"name": "language",
+							"type": "ScriptLanguage"
+						},
+						{
+							"name": "can_continue",
+							"type": "bool",
+							"default_value": "true"
+						},
+						{
+							"name": "is_error_breakpoint",
+							"type": "bool",
+							"default_value": "false"
+						}
+					],
+					"description": "Starts a debug break in script execution, optionally specifying whether the program can continue based on [param can_continue] and whether the break was due to a breakpoint."
+				},
+				{
+					"name": "set_lines_left",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 1286410249,
+					"arguments": [
+						{
+							"name": "lines",
+							"type": "int",
+							"meta": "int32"
+						}
+					],
+					"description": "Sets the current debugging lines that remain."
+				},
+				{
+					"name": "get_lines_left",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 3905245786,
+					"return_value": {
+						"type": "int",
+						"meta": "int32"
+					},
+					"description": "Returns the number of lines that remain."
+				},
+				{
+					"name": "set_depth",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 1286410249,
+					"arguments": [
+						{
+							"name": "depth",
+							"type": "int",
+							"meta": "int32"
+						}
+					],
+					"description": "Sets the current debugging depth."
+				},
+				{
+					"name": "get_depth",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 3905245786,
+					"return_value": {
+						"type": "int",
+						"meta": "int32"
+					},
+					"description": "Returns the current debug depth."
+				},
+				{
+					"name": "is_breakpoint",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 921227809,
+					"return_value": {
+						"type": "bool"
+					},
+					"arguments": [
+						{
+							"name": "line",
+							"type": "int",
+							"meta": "int32"
+						},
+						{
+							"name": "source",
+							"type": "StringName"
+						}
+					],
+					"description": "Returns [code]true[/code] if the given [param source] and [param line] represent an existing breakpoint."
+				},
+				{
+					"name": "is_skipping_breakpoints",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 36873697,
+					"return_value": {
+						"type": "bool"
+					},
+					"description": "Returns [code]true[/code] if the debugger is skipping breakpoints otherwise [code]false[/code]."
+				},
+				{
+					"name": "insert_breakpoint",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 3780747571,
+					"arguments": [
+						{
+							"name": "line",
+							"type": "int",
+							"meta": "int32"
+						},
+						{
+							"name": "source",
+							"type": "StringName"
+						}
+					],
+					"description": "Inserts a new breakpoint with the given [param source] and [param line]."
+				},
+				{
+					"name": "remove_breakpoint",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 3780747571,
+					"arguments": [
+						{
+							"name": "line",
+							"type": "int",
+							"meta": "int32"
+						},
+						{
+							"name": "source",
+							"type": "StringName"
+						}
+					],
+					"description": "Removes a breakpoint with the given [param source] and [param line]."
+				},
+				{
+					"name": "clear_breakpoints",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 3218959716,
+					"description": "Clears all breakpoints."
 				}
 			],
 			"brief_description": "Exposes the internal debugger.",
@@ -102673,7 +103224,7 @@
 					"name": "adjustment_enabled",
 					"setter": "set_adjustment_enabled",
 					"getter": "is_adjustment_enabled",
-					"description": "If [code]true[/code], enables the [code]adjustment_*[/code] properties provided by this resource. If [code]false[/code], modifications to the [code]adjustment_*[/code] properties will have no effect on the rendered scene.\n[b]Note:[/b] Adjustments are only supported in the Forward+ and Mobile rendering methods, not Compatibility."
+					"description": "If [code]true[/code], enables the [code]adjustment_*[/code] properties provided by this resource. If [code]false[/code], modifications to the [code]adjustment_*[/code] properties will have no effect on the rendered scene."
 				},
 				{
 					"type": "float",
@@ -126519,7 +127070,7 @@
 				}
 			],
 			"brief_description": "Provides functionality for computing cryptographic hashes chunk by chunk.",
-			"description": "The HashingContext class provides an interface for computing cryptographic hashes over multiple iterations. Useful for computing hashes of big files (so you don't have to load them all in memory), network streams, and data streams in general (so you don't have to hold buffers).\nThe [enum HashType] enum shows the supported hashing algorithms.\n[codeblocks]\n[gdscript]\nconst CHUNK_SIZE = 1024\n\nfunc hash_file(path):\n    # Check that file exists.\n    if not FileAccess.file_exists(path):\n        return\n    # Start an SHA-256 context.\n    var ctx = HashingContext.new()\n    ctx.start(HashingContext.HASH_SHA256)\n    # Open the file to hash.\n    var file = FileAccess.open(path, FileAccess.READ)\n    # Update the context after reading each chunk.\n    while not file.eof_reached():\n        ctx.update(file.get_buffer(CHUNK_SIZE))\n    # Get the computed hash.\n    var res = ctx.finish()\n    # Print the result as hex string and array.\n    printt(res.hex_encode(), Array(res))\n[/gdscript]\n[csharp]\npublic const int ChunkSize = 1024;\n\npublic void HashFile(string path)\n{\n    // Check that file exists.\n    if (!FileAccess.FileExists(path))\n    {\n        return;\n    }\n    // Start an SHA-256 context.\n    var ctx = new HashingContext();\n    ctx.Start(HashingContext.HashType.Sha256);\n    // Open the file to hash.\n    using var file = FileAccess.Open(path, FileAccess.ModeFlags.Read);\n    // Update the context after reading each chunk.\n    while (!file.EofReached())\n    {\n        ctx.Update(file.GetBuffer(ChunkSize));\n    }\n    // Get the computed hash.\n    byte[] res = ctx.Finish();\n    // Print the result as hex string and array.\n    GD.PrintT(res.HexEncode(), (Variant)res);\n}\n[/csharp]\n[/codeblocks]"
+			"description": "The HashingContext class provides an interface for computing cryptographic hashes over multiple iterations. Useful for computing hashes of big files (so you don't have to load them all in memory), network streams, and data streams in general (so you don't have to hold buffers).\nThe [enum HashType] enum shows the supported hashing algorithms.\n[codeblocks]\n[gdscript]\nconst CHUNK_SIZE = 1024\n\nfunc hash_file(path):\n    # Check that file exists.\n    if not FileAccess.file_exists(path):\n        return\n    # Start an SHA-256 context.\n    var ctx = HashingContext.new()\n    ctx.start(HashingContext.HASH_SHA256)\n    # Open the file to hash.\n    var file = FileAccess.open(path, FileAccess.READ)\n    # Update the context after reading each chunk.\n    while file.get_position() < file.get_length():\n        var remaining = file.get_length() - file.get_position()\n        ctx.update(file.get_buffer(min(remaining, CHUNK_SIZE)))\n    # Get the computed hash.\n    var res = ctx.finish()\n    # Print the result as hex string and array.\n    printt(res.hex_encode(), Array(res))\n[/gdscript]\n[csharp]\npublic const int ChunkSize = 1024;\n\npublic void HashFile(string path)\n{\n    // Check that file exists.\n    if (!FileAccess.FileExists(path))\n    {\n        return;\n    }\n    // Start an SHA-256 context.\n    var ctx = new HashingContext();\n    ctx.Start(HashingContext.HashType.Sha256);\n    // Open the file to hash.\n    using var file = FileAccess.Open(path, FileAccess.ModeFlags.Read);\n    // Update the context after reading each chunk.\n    while (file.GetPosition() < file.GetLength())\n    {\n        int remaining = (int)(file.GetLength() - file.GetPosition());\n        ctx.Update(file.GetBuffer(Mathf.Min(remaining, ChunkSize)));\n    }\n    // Get the computed hash.\n    byte[] res = ctx.Finish();\n    // Print the result as hex string and array.\n    GD.PrintT(res.HexEncode(), (Variant)res);\n}\n[/csharp]\n[/codeblocks]"
 		},
 		{
 			"name": "HeightMapShape3D",
@@ -127578,6 +128129,19 @@
 					"description": "Returns a copy of the image's raw data."
 				},
 				{
+					"name": "get_data_size",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 3905245786,
+					"return_value": {
+						"type": "int",
+						"meta": "int64"
+					},
+					"description": "Returns size (in bytes) of the image's raw data."
+				},
+				{
 					"name": "convert",
 					"is_const": false,
 					"is_vararg": false,
@@ -127753,6 +128317,38 @@
 				},
 				{
 					"name": "create",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": true,
+					"is_virtual": false,
+					"hash": 986942177,
+					"return_value": {
+						"type": "Image"
+					},
+					"arguments": [
+						{
+							"name": "width",
+							"type": "int",
+							"meta": "int32"
+						},
+						{
+							"name": "height",
+							"type": "int",
+							"meta": "int32"
+						},
+						{
+							"name": "use_mipmaps",
+							"type": "bool"
+						},
+						{
+							"name": "format",
+							"type": "enum::Image.Format"
+						}
+					],
+					"description": "Creates an empty image of given size and format. See [enum Format] constants. If [param use_mipmaps] is [code]true[/code], then generate mipmaps for this image. See the [method generate_mipmaps]."
+				},
+				{
+					"name": "create_empty",
 					"is_const": false,
 					"is_vararg": false,
 					"is_static": true,
@@ -130742,7 +131338,7 @@
 							"default_value": "-1.0"
 						}
 					],
-					"description": "[b]Note:[/b] While [code skip-lint]amplitude[/code] expects a value between 0 and 1, -1 does the default amplitude for the device.\nVibrate the handheld device for the specified duration in milliseconds.\n[b]Note:[/b] This method is implemented on Android, iOS, and Web. It has no effect on other platforms.\n[b]Note:[/b] For Android, [method vibrate_handheld] requires enabling the [code]VIBRATE[/code] permission in the export preset. Otherwise, [method vibrate_handheld] will have no effect.\n[b]Note:[/b] For iOS, specifying the duration is only supported in iOS 13 and later.\n[b]Note:[/b] For Web, the amplitude cannot be changed.\n[b]Note:[/b] Some web browsers such as Safari and Firefox for Android do not support [method vibrate_handheld]."
+					"description": "Vibrate the handheld device for the specified duration in milliseconds.\n[param amplitude] is the strength of the vibration, as a value between [code]0.0[/code] and [code]1.0[/code]. If set to [code]-1.0[/code], the default vibration strength of the device is used.\n[b]Note:[/b] This method is implemented on Android, iOS, and Web. It has no effect on other platforms.\n[b]Note:[/b] For Android, [method vibrate_handheld] requires enabling the [code]VIBRATE[/code] permission in the export preset. Otherwise, [method vibrate_handheld] will have no effect.\n[b]Note:[/b] For iOS, specifying the duration is only supported in iOS 13 and later.\n[b]Note:[/b] For Web, the amplitude cannot be changed.\n[b]Note:[/b] Some web browsers such as Safari and Firefox for Android do not support [method vibrate_handheld]."
 				},
 				{
 					"name": "get_gravity",
@@ -131357,7 +131953,7 @@
 					"return_value": {
 						"type": "bool"
 					},
-					"description": "Returns [code]true[/code] if this input event is an echo event (only for events of type [InputEventKey]). Any other event type returns [code]false[/code]."
+					"description": "Returns [code]true[/code] if this input event is an echo event (only for events of type [InputEventKey]). An echo event is a repeated key event sent when the user is holding down the key. Any other event type returns [code]false[/code].\n[b]Note:[/b] The rate at which echo events are sent is typically around 20 events per second (after holding down the key for roughly half a second). However, the key repeat delay/speed can be changed by the user or disabled entirely in the operating system settings. To ensure your project works correctly on all configurations, do not assume the user has a specific key repeat configuration in your project's behavior."
 				},
 				{
 					"name": "as_text",
@@ -132164,7 +132760,7 @@
 					"name": "echo",
 					"setter": "set_echo",
 					"getter": "is_echo",
-					"description": "If [code]true[/code], the key was already pressed before this event. It means the user is holding the key down."
+					"description": "If [code]true[/code], the key was already pressed before this event. An echo event is a repeated key event sent when the user is holding down the key.\n[b]Note:[/b] The rate at which echo events are sent is typically around 20 events per second (after holding down the key for roughly half a second). However, the key repeat delay/speed can be changed by the user or disabled entirely in the operating system settings. To ensure your project works correctly on all configurations, do not assume the user has a specific key repeat configuration in your project's behavior."
 				}
 			],
 			"brief_description": "Represents a key on a keyboard being pressed or released.",
@@ -141330,7 +141926,7 @@
 			"inherits": "Node3D",
 			"api_type": "core",
 			"brief_description": "Represents a single manually placed probe for dynamic object lighting with [LightmapGI].",
-			"description": "[LightmapProbe] represents the position of a single manually placed probe for dynamic object lighting with [LightmapGI].\nTypically, [LightmapGI] probes are placed automatically by setting [member LightmapGI.generate_probes_subdiv] to a value other than [constant LightmapGI.GENERATE_PROBES_DISABLED]. By creating [LightmapProbe] nodes before baking lightmaps, you can add more probes in specific areas for greater detail, or disable automatic generation and rely only on manually placed probes instead."
+			"description": "[LightmapProbe] represents the position of a single manually placed probe for dynamic object lighting with [LightmapGI]. Lightmap probes affect the lighting of [GeometryInstance3D]-derived nodes that have their [member GeometryInstance3D.gi_mode] set to [constant GeometryInstance3D.GI_MODE_DYNAMIC].\nTypically, [LightmapGI] probes are placed automatically by setting [member LightmapGI.generate_probes_subdiv] to a value other than [constant LightmapGI.GENERATE_PROBES_DISABLED]. By creating [LightmapProbe] nodes before baking lightmaps, you can add more probes in specific areas for greater detail, or disable automatic generation and rely only on manually placed probes instead.\n[b]Note:[/b] [LightmapProbe] nodes that are placed after baking lightmaps are ignored by dynamic objects. You must bake lightmaps again after creating or modifying [LightmapProbe]s for the probes to be effective."
 		},
 		{
 			"name": "Lightmapper",
@@ -150937,7 +151533,7 @@
 							"type": "Callable"
 						}
 					],
-					"description": "Registers callable to emit when the menu is about to closed.\n[b]Note:[/b] This method is implemented only on macOS."
+					"description": "Registers callable to emit after the menu is closed.\n[b]Note:[/b] This method is implemented only on macOS."
 				},
 				{
 					"name": "get_popup_open_callback",
@@ -150974,7 +151570,7 @@
 							"type": "Callable"
 						}
 					],
-					"description": "Registers callable to emit when the menu is about to show.\n[b]Note:[/b] This method is implemented only on macOS."
+					"description": "Registers callable to emit when the menu is about to show.\n[b]Note:[/b] The OS can simulate menu opening to track menu item changes and global shortcuts, in which case the corresponding close callback is not triggered. Use [method is_opened] to check if the menu is currently opened.\n[b]Note:[/b] This method is implemented only on macOS."
 				},
 				{
 					"name": "get_popup_close_callback",
@@ -151032,6 +151628,24 @@
 						}
 					],
 					"description": "Returns global menu minimum width.\n[b]Note:[/b] This method is implemented only on macOS."
+				},
+				{
+					"name": "is_opened",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 4155700596,
+					"return_value": {
+						"type": "bool"
+					},
+					"arguments": [
+						{
+							"name": "rid",
+							"type": "RID"
+						}
+					],
+					"description": "Returns [code]true[/code] if the menu is currently opened.\n[b]Note:[/b] This method is implemented only on macOS."
 				},
 				{
 					"name": "add_submenu_item",
@@ -171062,6 +171676,37 @@
 			],
 			"methods": [
 				{
+					"name": "get_entropy",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 47165747,
+					"return_value": {
+						"type": "PackedByteArray"
+					},
+					"arguments": [
+						{
+							"name": "size",
+							"type": "int",
+							"meta": "int32"
+						}
+					],
+					"description": "Generates a [PackedByteArray] of cryptographically secure random bytes with given [param size].\n[b]Note:[/b] Generating large quantities of bytes using this method can result in locking and entropy of lower quality on most platforms. Using [method Crypto.generate_random_bytes] is preferred in most cases."
+				},
+				{
+					"name": "get_system_ca_certificates",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 2841200299,
+					"return_value": {
+						"type": "String"
+					},
+					"description": "Returns the list of certification authorities trusted by the operating system as a string of concatenated certificates in PEM format."
+				},
+				{
 					"name": "get_connected_midi_inputs",
 					"is_const": false,
 					"is_vararg": false,
@@ -172497,7 +173142,7 @@
 						"type": "int",
 						"meta": "uint64"
 					},
-					"description": "Returns the object's unique instance ID. This ID can be saved in [EncodedObjectAsID], and can be used to retrieve this object instance with [method @GlobalScope.instance_from_id]."
+					"description": "Returns the object's unique instance ID. This ID can be saved in [EncodedObjectAsID], and can be used to retrieve this object instance with [method @GlobalScope.instance_from_id].\n[b]Note:[/b] This ID is only useful during the current session. It won't correspond to a similar object if the ID is sent over a network, or loaded from a file at a later time."
 				},
 				{
 					"name": "set_script",
@@ -173133,7 +173778,7 @@
 			"name": "OccluderInstance3D",
 			"is_refcounted": false,
 			"is_instantiable": true,
-			"inherits": "Node3D",
+			"inherits": "VisualInstance3D",
 			"api_type": "core",
 			"methods": [
 				{
@@ -173621,7 +174266,7 @@
 					"setter": "set_param",
 					"getter": "get_param",
 					"index": 6,
-					"description": "Controls the distance attenuation function for omnilights.\nA value of [code]0.0[/code] smoothly attenuates light at the edge of the range. A value of [code]1.0[/code] approaches a physical lighting model. A value of [code]0.5[/code] approximates linear attenuation.\n[b]Note:[/b] Setting it to [code]1.0[/code] may result in distant objects receiving minimal light, even within range. For example, with a range of [code]4096[/code], an object at [code]100[/code] units receives less than [code]0.1[/code] energy.\n[b]Note:[/b] Using negative or values higher than [code]10.0[/code] may lead to unexpected results."
+					"description": "Controls the distance attenuation function for omnilights.\nA value of [code]0.0[/code] will maintain a constant brightness through most of the range, but smoothly attenuate the light at the edge of the range. Use a value of [code]2.0[/code] for physically accurate lights as it results in the proper inverse square attenutation.\n[b]Note:[/b] Setting attenuation to [code]2.0[/code] or higher may result in distant objects receiving minimal light, even within range. For example, with a range of [code]4096[/code], an object at [code]100[/code] units is attenuated by a factor of [code]0.0001[/code]. With a default brightness of [code]1[/code], the light would not be visible at that distance.\n[b]Note:[/b] Using negative or values higher than [code]10.0[/code] may lead to unexpected results."
 				},
 				{
 					"type": "int",
@@ -183504,7 +184149,7 @@
 				}
 			],
 			"brief_description": "A physics body used to make bones in a [Skeleton3D] react to physics.",
-			"description": "The [PhysicalBone3D] node is a physics body that can be used to make bones in a [Skeleton3D] react to physics."
+			"description": "The [PhysicalBone3D] node is a physics body that can be used to make bones in a [Skeleton3D] react to physics.\n[b]Note:[/b] In order to detect physical bones with raycasts, the [member SkeletonModifier3D.active] property of the parent [PhysicalBoneSimulator3D] must be [code]true[/code] and the [Skeleton3D]'s bone must be assigned to [PhysicalBone3D] correctly; it means that [method get_bone_id] should return a valid id ([code]>= 0[/code])."
 		},
 		{
 			"name": "PhysicalBoneSimulator3D",
@@ -183959,7 +184604,7 @@
 				}
 			],
 			"brief_description": "A material that defines a sky for a [Sky] resource by a set of physical properties.",
-			"description": "The [PhysicalSkyMaterial] uses the Preetham analytic daylight model to draw a sky based on physical properties. This results in a substantially more realistic sky than the [ProceduralSkyMaterial], but it is slightly slower and less flexible.\nThe [PhysicalSkyMaterial] only supports one sun. The color, energy, and direction of the sun are taken from the first [DirectionalLight3D] in the scene tree.\nAs it is based on a daylight model, the sky fades to black as the sunset ends. If you want a full day/night cycle, you will have to add a night sky by converting this to a [ShaderMaterial] and adding a night sky directly into the resulting shader."
+			"description": "The [PhysicalSkyMaterial] uses the Preetham analytic daylight model to draw a sky based on physical properties. This results in a substantially more realistic sky than the [ProceduralSkyMaterial], but it is slightly slower and less flexible.\nThe [PhysicalSkyMaterial] only supports one sun. The color, energy, and direction of the sun are taken from the first [DirectionalLight3D] in the scene tree."
 		},
 		{
 			"name": "PhysicsBody2D",
@@ -236811,8 +237456,8 @@
 			"is_instantiable": true,
 			"inherits": "ResourceImporter",
 			"api_type": "editor",
-			"brief_description": "Imports a fixed-width bitmap font where all glyphs have the same width and height.",
-			"description": "This image-based workflow can be easier to use than [ResourceImporterBMFont], but it requires all glyphs to have the same width and height. This makes [ResourceImporterImageFont] most suited to fixed-width fonts.\nSee also [ResourceImporterDynamicFont]."
+			"brief_description": "Imports a bitmap font where all glyphs have the same width and height.",
+			"description": "This image-based workflow can be easier to use than [ResourceImporterBMFont], but it requires all glyphs to have the same width and height, glyph advances and drawing offsets can be customized. This makes [ResourceImporterImageFont] most suited to fixed-width fonts.\nSee also [ResourceImporterDynamicFont]."
 		},
 		{
 			"name": "ResourceImporterLayeredTexture",
@@ -237059,7 +237704,7 @@
 							"default_value": "[]"
 						}
 					],
-					"description": "Returns the status of a threaded loading operation started with [method load_threaded_request] for the resource at [param path]. See [enum ThreadLoadStatus] for possible return values.\nAn array variable can optionally be passed via [param progress], and will return a one-element array containing the percentage of completion of the threaded loading."
+					"description": "Returns the status of a threaded loading operation started with [method load_threaded_request] for the resource at [param path]. See [enum ThreadLoadStatus] for possible return values.\nAn array variable can optionally be passed via [param progress], and will return a one-element array containing the percentage of completion of the threaded loading.\n[b]Note:[/b] The recommended way of using this method is to call it during different frames (e.g., in [method Node._process], instead of a loop)."
 				},
 				{
 					"name": "load_threaded_get",
@@ -237077,7 +237722,7 @@
 							"type": "String"
 						}
 					],
-					"description": "Returns the resource loaded by [method load_threaded_request].\nIf this is called before the loading thread is done (i.e. [method load_threaded_get_status] is not [constant THREAD_LOAD_LOADED]), the calling thread will be blocked until the resource has finished loading."
+					"description": "Returns the resource loaded by [method load_threaded_request].\nIf this is called before the loading thread is done (i.e. [method load_threaded_get_status] is not [constant THREAD_LOAD_LOADED]), the calling thread will be blocked until the resource has finished loading. However, it's recommended to use [method load_threaded_get_status] to known when the load has actually completed."
 				},
 				{
 					"name": "load",
@@ -246393,6 +247038,24 @@
 					"description": ""
 				},
 				{
+					"name": "_debug_get_stack_level_source",
+					"is_const": true,
+					"is_static": false,
+					"is_vararg": false,
+					"is_virtual": true,
+					"return_value": {
+						"type": "String"
+					},
+					"arguments": [
+						{
+							"name": "level",
+							"type": "int",
+							"meta": "int32"
+						}
+					],
+					"description": "Returns the source associated with a given debug stack position."
+				},
+				{
 					"name": "_debug_get_stack_level_locals",
 					"is_const": false,
 					"is_static": false,
@@ -249567,6 +250230,18 @@
 					"description": "Sets the bone name, [param name], for the bone at [param bone_idx]."
 				},
 				{
+					"name": "get_concatenated_bone_names",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 2002593661,
+					"return_value": {
+						"type": "StringName"
+					},
+					"description": "Returns all bone names concatenated with commas ([code],[/code]) as a single [StringName].\nIt is useful to set it as a hint for the enum property."
+				},
+				{
 					"name": "get_bone_parent",
 					"is_const": true,
 					"is_vararg": false,
@@ -250241,7 +250916,7 @@
 							"type": "bool"
 						}
 					],
-					"description": ""
+					"description": "This method exists for compatibility with old structures in which the [Skeleton3D] does not have a [PhysicalBoneSimulator3D] as a child, but directly has [PhysicalBone3D]s as children.\nIn case you need to raycast to it without running [method physical_bones_start_simulation], call this method with [code]enabled == true[/code]."
 				},
 				{
 					"name": "get_animate_physical_bones",
@@ -253159,6 +253834,18 @@
 					"description": "Override this virtual method to implement a custom skeleton modifier. You should do things like get the [Skeleton3D]'s current pose and apply the pose here.\n[method _process_modification] must not apply [member influence] to bone poses because the [Skeleton3D] automatically applies influence to all bone poses set by the modifier."
 				},
 				{
+					"name": "get_skeleton",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 1488626673,
+					"return_value": {
+						"type": "Skeleton3D"
+					},
+					"description": "Get parent [Skeleton3D] node if found."
+				},
+				{
 					"name": "set_active",
 					"is_const": false,
 					"is_vararg": false,
@@ -255922,7 +256609,7 @@
 					"setter": "set_param",
 					"getter": "get_param",
 					"index": 6,
-					"description": "Controls the distance attenuation function for spotlights.\nA value of [code]0.0[/code] smoothly attenuates light at the edge of the range. A value of [code]1.0[/code] approaches a physical lighting model. A value of [code]0.5[/code] approximates linear attenuation.\n[b]Note:[/b] Setting it to [code]1.0[/code] may result in distant objects receiving minimal light, even within range. For example, with a range of [code]4096[/code], an object at [code]100[/code] units receives less than [code]0.1[/code] energy.\n[b]Note:[/b] Using negative or values higher than [code]10.0[/code] may lead to unexpected results."
+					"description": "Controls the distance attenuation function for spotlights.\nA value of [code]0.0[/code] will maintain a constant brightness through most of the range, but smoothly attenuate the light at the edge of the range. Use a value of [code]2.0[/code] for physically accurate lights as it results in the proper inverse square attenutation.\n[b]Note:[/b] Setting attenuation to [code]2.0[/code] or higher may result in distant objects receiving minimal light, even within range. For example, with a range of [code]4096[/code], an object at [code]100[/code] units is attenuated by a factor of [code]0.0001[/code]. With a default brightness of [code]1[/code], the light would not be visible at that distance.\n[b]Note:[/b] Using negative or values higher than [code]10.0[/code] may lead to unexpected results."
 				},
 				{
 					"type": "float",
@@ -257704,7 +258391,7 @@
 							"default_value": "-1"
 						}
 					],
-					"description": "Adds a frame to the [param anim] animation. If [param at_position] is [code]-1[/code], the frame will be added to the end of the animation."
+					"description": "Adds a frame to the [param anim] animation. If [param at_position] is [code]-1[/code], the frame will be added to the end of the animation. [param duration] specifies the relative duration, see [method get_frame_duration] for details."
 				},
 				{
 					"name": "set_frame",
@@ -257737,7 +258424,7 @@
 							"default_value": "1.0"
 						}
 					],
-					"description": "Sets the [param texture] and the [param duration] of the frame [param idx] in the [param anim] animation."
+					"description": "Sets the [param texture] and the [param duration] of the frame [param idx] in the [param anim] animation. [param duration] specifies the relative duration, see [method get_frame_duration] for details."
 				},
 				{
 					"name": "remove_frame",
@@ -262626,6 +263313,78 @@
 						}
 					],
 					"description": "Creates a TLS server configuration using the provided [param key] and [param certificate].\n[b]Note:[/b] The [param certificate] should include the full certificate chain up to the signing CA (certificates file can be concatenated using a general purpose text editor)."
+				},
+				{
+					"name": "is_server",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 36873697,
+					"return_value": {
+						"type": "bool"
+					},
+					"description": "Returns [code]true[/code] if created with [method TLSOptions.server], [code]false[/code] otherwise."
+				},
+				{
+					"name": "is_unsafe_client",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 36873697,
+					"return_value": {
+						"type": "bool"
+					},
+					"description": "Returns [code]true[/code] if created with [method TLSOptions.client_unsafe], [code]false[/code] otherwise."
+				},
+				{
+					"name": "get_common_name_override",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 201670096,
+					"return_value": {
+						"type": "String"
+					},
+					"description": "Returns the common name (domain name) override specified when creating with [method TLSOptions.client]."
+				},
+				{
+					"name": "get_trusted_ca_chain",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 1120709175,
+					"return_value": {
+						"type": "X509Certificate"
+					},
+					"description": "Returns the CA [X509Certificate] chain specified when creating with [method TLSOptions.client] or [method TLSOptions.client_unsafe]."
+				},
+				{
+					"name": "get_private_key",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 2119971811,
+					"return_value": {
+						"type": "CryptoKey"
+					},
+					"description": "Returns the [CryptoKey] specified when creating with [method TLSOptions.server]."
+				},
+				{
+					"name": "get_own_certificate",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 1120709175,
+					"return_value": {
+						"type": "X509Certificate"
+					},
+					"description": "Returns the [X509Certificate] specified when creating with [method TLSOptions.server]."
 				}
 			],
 			"brief_description": "TLS configuration for clients and servers.",
@@ -266838,6 +267597,81 @@
 					"description": "Returns a [String] text with the word under the caret's location."
 				},
 				{
+					"name": "set_use_default_word_separators",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 2586408642,
+					"arguments": [
+						{
+							"name": "enabled",
+							"type": "bool"
+						}
+					]
+				},
+				{
+					"name": "is_default_word_separators_enabled",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 36873697,
+					"return_value": {
+						"type": "bool"
+					}
+				},
+				{
+					"name": "set_use_custom_word_separators",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 2586408642,
+					"arguments": [
+						{
+							"name": "enabled",
+							"type": "bool"
+						}
+					]
+				},
+				{
+					"name": "is_custom_word_separators_enabled",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 36873697,
+					"return_value": {
+						"type": "bool"
+					}
+				},
+				{
+					"name": "set_custom_word_separators",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 83702148,
+					"arguments": [
+						{
+							"name": "custom_word_separators",
+							"type": "String"
+						}
+					]
+				},
+				{
+					"name": "get_custom_word_separators",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 201670096,
+					"return_value": {
+						"type": "String"
+					}
+				},
+				{
 					"name": "set_selecting_enabled",
 					"is_const": false,
 					"is_vararg": false,
@@ -269114,6 +269948,27 @@
 					"setter": "set_multiple_carets_enabled",
 					"getter": "is_multiple_carets_enabled",
 					"description": "Sets if multiple carets are allowed."
+				},
+				{
+					"type": "bool",
+					"name": "use_default_word_separators",
+					"setter": "set_use_default_word_separators",
+					"getter": "is_default_word_separators_enabled",
+					"description": "If [code]false[/code], using [kbd]Ctrl + Left[/kbd] or [kbd]Ctrl + Right[/kbd] ([kbd]Cmd + Left[/kbd] or [kbd]Cmd + Right[/kbd] on macOS) bindings will stop moving caret only if a space or punctuation is detected. If [code]true[/code], it will also stop the caret if a character is part of [code]!\"#$%&'()*+,-./:;<=>?@[\\]^`{|}~[/code], the Unicode General Punctuation table, or the Unicode CJK Punctuation table. Useful for subword moving. This behavior also will be applied to the behavior of text selection."
+				},
+				{
+					"type": "bool",
+					"name": "use_custom_word_separators",
+					"setter": "set_use_custom_word_separators",
+					"getter": "is_custom_word_separators_enabled",
+					"description": "If [code]false[/code], using [kbd]Ctrl + Left[/kbd] or [kbd]Ctrl + Right[/kbd] ([kbd]Cmd + Left[/kbd] or [kbd]Cmd + Right[/kbd] on macOS) bindings will use the behavior of [member use_default_word_separators]. If [code]true[/code], it will also stop the caret if a character within [member custom_word_separators] is detected. Useful for subword moving. This behavior also will be applied to the behavior of text selection."
+				},
+				{
+					"type": "String",
+					"name": "custom_word_separators",
+					"setter": "set_custom_word_separators",
+					"getter": "get_custom_word_separators",
+					"description": "The characters to consider as word delimiters if [member use_custom_word_separators] is [code]true[/code]. The characters should be defined without separation, for example [code]#_![/code]."
 				},
 				{
 					"type": "SyntaxHighlighter",
@@ -273290,7 +274145,7 @@
 						{
 							"name": "baseline_offset",
 							"type": "float",
-							"meta": "float"
+							"meta": "double"
 						}
 					],
 					"description": "Sets extra baseline offset (as a fraction of font height)."
@@ -273304,7 +274159,7 @@
 					"hash": 866169185,
 					"return_value": {
 						"type": "float",
-						"meta": "float"
+						"meta": "double"
 					},
 					"arguments": [
 						{
@@ -276749,7 +277604,7 @@
 							"default_value": "0"
 						}
 					],
-					"description": "Returns an array of the word break boundaries. Elements in the returned array are the offsets of the start and end of words. Therefore the length of the array is always even.\nWhen [param chars_per_line] is greater than zero, line break boundaries are returned instead.\n[codeblock]\nvar ts = TextServerManager.get_primary_interface()\nprint(ts.string_get_word_breaks(\"Godot Engine\")) # Prints [0, 5, 6, 12]\nprint(ts.string_get_word_breaks(\"Godot Engine\", \"en\", 5)) # Prints [0, 5, 6, 11, 11, 12]\n[/codeblock]"
+					"description": "Returns an array of the word break boundaries. Elements in the returned array are the offsets of the start and end of words. Therefore the length of the array is always even.\nWhen [param chars_per_line] is greater than zero, line break boundaries are returned instead.\n[codeblock]\nvar ts = TextServerManager.get_primary_interface()\nprint(ts.string_get_word_breaks(\"The Godot Engine, 4\")) # Prints [0, 3, 4, 9, 10, 16, 18, 19], which corresponds to the following substrings: \"The\", \"Godot\", \"Engine\", \"4\"\nprint(ts.string_get_word_breaks(\"The Godot Engine, 4\", \"en\", 5)) # Prints [0, 3, 4, 9, 10, 15, 15, 19], which corresponds to the following substrings: \"The\", \"Godot\", \"Engin\", \"e, 4\"\nprint(ts.string_get_word_breaks(\"The Godot Engine, 4\", \"en\", 10)) # Prints [0, 9, 10, 19], which corresponds to the following substrings: \"The Godot\", \"Engine, 4\"\n[/codeblock]"
 				},
 				{
 					"name": "string_get_character_breaks",
@@ -276867,7 +277722,8 @@
 					"arguments": [
 						{
 							"name": "unicode",
-							"type": "int"
+							"type": "int",
+							"meta": "uint64"
 						}
 					],
 					"description": "Returns [code]true[/code] if the given code point is a valid letter, i.e. it belongs to the Unicode category \"L\"."
@@ -278024,7 +278880,7 @@
 						{
 							"name": "baseline_offset",
 							"type": "float",
-							"meta": "float"
+							"meta": "double"
 						}
 					],
 					"description": "[b]Optional.[/b]\nSets extra baseline offset (as a fraction of font height)."
@@ -278037,7 +278893,7 @@
 					"is_virtual": true,
 					"return_value": {
 						"type": "float",
-						"meta": "float"
+						"meta": "double"
 					},
 					"arguments": [
 						{
@@ -281287,7 +282143,8 @@
 					"arguments": [
 						{
 							"name": "unicode",
-							"type": "int"
+							"type": "int",
+							"meta": "uint64"
 						}
 					],
 					"description": ""
@@ -287561,7 +288418,7 @@
 					"name": "rendering_quadrant_size",
 					"setter": "set_rendering_quadrant_size",
 					"getter": "get_rendering_quadrant_size",
-					"description": "The TileMap's quadrant size. A quadrant is a group of tiles to be drawn together on a single canvas item, for optimization purposes. [member rendering_quadrant_size] defines the length of a square's side, in the map's coordinate system, that forms the quadrant. Thus, the default quandrant size groups together [code]16 * 16 = 256[/code] tiles.\nThe quadrant size does not apply on Y-sorted layers, as tiles are be grouped by Y position instead in that case.\n[b]Note:[/b] As quadrants are created according to the map's coordinate system, the quadrant's \"square shape\" might not look like square in the TileMap's local coordinate system."
+					"description": "The TileMap's quadrant size. A quadrant is a group of tiles to be drawn together on a single canvas item, for optimization purposes. [member rendering_quadrant_size] defines the length of a square's side, in the map's coordinate system, that forms the quadrant. Thus, the default quadrant size groups together [code]16 * 16 = 256[/code] tiles.\nThe quadrant size does not apply on Y-sorted layers, as tiles are grouped by Y position instead in that case.\n[b]Note:[/b] As quadrants are created according to the map's coordinate system, the quadrant's \"square shape\" might not look like square in the TileMap's local coordinate system."
 				},
 				{
 					"type": "bool",
@@ -288203,6 +289060,31 @@
 					}
 				},
 				{
+					"name": "set_x_draw_order_reversed",
+					"is_const": false,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 2586408642,
+					"arguments": [
+						{
+							"name": "x_draw_order_reversed",
+							"type": "bool"
+						}
+					]
+				},
+				{
+					"name": "is_x_draw_order_reversed",
+					"is_const": true,
+					"is_vararg": false,
+					"is_static": false,
+					"is_virtual": false,
+					"hash": 36873697,
+					"return_value": {
+						"type": "bool"
+					}
+				},
+				{
 					"name": "set_rendering_quadrant_size",
 					"is_const": false,
 					"is_vararg": false,
@@ -288418,11 +289300,18 @@
 					"description": "This Y-sort origin value is added to each tile's Y-sort origin value. This allows, for example, to fake a different height level. This can be useful for top-down view games."
 				},
 				{
+					"type": "bool",
+					"name": "x_draw_order_reversed",
+					"setter": "set_x_draw_order_reversed",
+					"getter": "is_x_draw_order_reversed",
+					"description": "If [member CanvasItem.y_sort_enabled] is enabled, setting this to [code]true[/code] will reverse the order the tiles are drawn on the X-axis."
+				},
+				{
 					"type": "int",
 					"name": "rendering_quadrant_size",
 					"setter": "set_rendering_quadrant_size",
 					"getter": "get_rendering_quadrant_size",
-					"description": "The [TileMapLayer]'s quadrant size. A quadrant is a group of tiles to be drawn together on a single canvas item, for optimization purposes. [member rendering_quadrant_size] defines the length of a square's side, in the map's coordinate system, that forms the quadrant. Thus, the default quandrant size groups together [code]16 * 16 = 256[/code] tiles.\nThe quadrant size does not apply on a Y-sorted [TileMapLayer], as tiles are be grouped by Y position instead in that case.\n[b]Note:[/b] As quadrants are created according to the map's coordinate system, the quadrant's \"square shape\" might not look like square in the [TileMapLayer]'s local coordinate system."
+					"description": "The [TileMapLayer]'s quadrant size. A quadrant is a group of tiles to be drawn together on a single canvas item, for optimization purposes. [member rendering_quadrant_size] defines the length of a square's side, in the map's coordinate system, that forms the quadrant. Thus, the default quadrant size groups together [code]16 * 16 = 256[/code] tiles.\nThe quadrant size does not apply on a Y-sorted [TileMapLayer], as tiles are grouped by Y position instead in that case.\n[b]Note:[/b] As quadrants are created according to the map's coordinate system, the quadrant's \"square shape\" might not look like square in the [TileMapLayer]'s local coordinate system."
 				},
 				{
 					"type": "bool",
@@ -314953,14 +315842,14 @@
 					"name": "required_features",
 					"setter": "set_required_features",
 					"getter": "get_required_features",
-					"description": "A comma-seperated list of required features used by [method XRInterface.initialize] when setting up the WebXR session.\nIf a user's browser or device doesn't support one of the given features, initialization will fail and [signal session_failed] will be emitted.\nThis doesn't have any effect on the interface when already initialized.\nPossible values come from [url=https://developer.mozilla.org/en-US/docs/Web/API/XRReferenceSpaceType]WebXR's XRReferenceSpaceType[/url]. If you want to use a particular reference space type, it must be listed in either [member required_features] or [member optional_features]."
+					"description": "A comma-seperated list of required features used by [method XRInterface.initialize] when setting up the WebXR session.\nIf a user's browser or device doesn't support one of the given features, initialization will fail and [signal session_failed] will be emitted.\nThis doesn't have any effect on the interface when already initialized.\nPossible values come from [url=https://developer.mozilla.org/en-US/docs/Web/API/XRReferenceSpaceType]WebXR's XRReferenceSpaceType[/url], or include other features like [code]\"hand-tracking\"[/code] to enable hand tracking."
 				},
 				{
 					"type": "String",
 					"name": "optional_features",
 					"setter": "set_optional_features",
 					"getter": "get_optional_features",
-					"description": "A comma-seperated list of optional features used by [method XRInterface.initialize] when setting up the WebXR session.\nIf a user's browser or device doesn't support one of the given features, initialization will continue, but you won't be able to use the requested feature.\nThis doesn't have any effect on the interface when already initialized.\nPossible values come from [url=https://developer.mozilla.org/en-US/docs/Web/API/XRReferenceSpaceType]WebXR's XRReferenceSpaceType[/url]. If you want to use a particular reference space type, it must be listed in either [member required_features] or [member optional_features]."
+					"description": "A comma-seperated list of optional features used by [method XRInterface.initialize] when setting up the WebXR session.\nIf a user's browser or device doesn't support one of the given features, initialization will continue, but you won't be able to use the requested feature.\nThis doesn't have any effect on the interface when already initialized.\nPossible values come from [url=https://developer.mozilla.org/en-US/docs/Web/API/XRReferenceSpaceType]WebXR's XRReferenceSpaceType[/url], or include other features like [code]\"hand-tracking\"[/code] to enable hand tracking."
 				},
 				{
 					"type": "String",
@@ -314979,7 +315868,7 @@
 					"type": "String",
 					"name": "enabled_features",
 					"getter": "get_enabled_features",
-					"description": "A comma-separated list of features that were successfully enabled by [method XRInterface.initialize] when setting up the WebXR session.\nThis may include features requested by setting [member required_features] and [member optional_features]."
+					"description": "A comma-separated list of features that were successfully enabled by [method XRInterface.initialize] when setting up the WebXR session.\nThis may include features requested by setting [member required_features] and [member optional_features], and will only be available after [signal session_started] has been emitted.\n[b]Note:[/b] This may not be support by all web browsers, in which case it will be an empty string."
 				},
 				{
 					"type": "String",
@@ -314989,7 +315878,7 @@
 				}
 			],
 			"brief_description": "XR interface using WebXR.",
-			"description": "WebXR is an open standard that allows creating VR and AR applications that run in the web browser.\nAs such, this interface is only available when running in Web exports.\nWebXR supports a wide range of devices, from the very capable (like Valve Index, HTC Vive, Oculus Rift and Quest) down to the much less capable (like Google Cardboard, Oculus Go, GearVR, or plain smartphones).\nSince WebXR is based on JavaScript, it makes extensive use of callbacks, which means that [WebXRInterface] is forced to use signals, where other XR interfaces would instead use functions that return a result immediately. This makes [WebXRInterface] quite a bit more complicated to initialize than other XR interfaces.\nHere's the minimum code required to start an immersive VR session:\n[codeblock]\nextends Node3D\n\nvar webxr_interface\nvar vr_supported = false\n\nfunc _ready():\n    # We assume this node has a button as a child.\n    # This button is for the user to consent to entering immersive VR mode.\n    $Button.pressed.connect(self._on_button_pressed)\n\n    webxr_interface = XRServer.find_interface(\"WebXR\")\n    if webxr_interface:\n        # WebXR uses a lot of asynchronous callbacks, so we connect to various\n        # signals in order to receive them.\n        webxr_interface.session_supported.connect(self._webxr_session_supported)\n        webxr_interface.session_started.connect(self._webxr_session_started)\n        webxr_interface.session_ended.connect(self._webxr_session_ended)\n        webxr_interface.session_failed.connect(self._webxr_session_failed)\n\n        # This returns immediately - our _webxr_session_supported() method\n        # (which we connected to the \"session_supported\" signal above) will\n        # be called sometime later to let us know if it's supported or not.\n        webxr_interface.is_session_supported(\"immersive-vr\")\n\nfunc _webxr_session_supported(session_mode, supported):\n    if session_mode == 'immersive-vr':\n        vr_supported = supported\n\nfunc _on_button_pressed():\n    if not vr_supported:\n        OS.alert(\"Your browser doesn't support VR\")\n        return\n\n    # We want an immersive VR session, as opposed to AR ('immersive-ar') or a\n    # simple 3DoF viewer ('viewer').\n    webxr_interface.session_mode = 'immersive-vr'\n    # 'bounded-floor' is room scale, 'local-floor' is a standing or sitting\n    # experience (it puts you 1.6m above the ground if you have 3DoF headset),\n    # whereas as 'local' puts you down at the XROrigin.\n    # This list means it'll first try to request 'bounded-floor', then\n    # fallback on 'local-floor' and ultimately 'local', if nothing else is\n    # supported.\n    webxr_interface.requested_reference_space_types = 'bounded-floor, local-floor, local'\n    # In order to use 'local-floor' or 'bounded-floor' we must also\n    # mark the features as required or optional.\n    webxr_interface.required_features = 'local-floor'\n    webxr_interface.optional_features = 'bounded-floor'\n\n    # This will return false if we're unable to even request the session,\n    # however, it can still fail asynchronously later in the process, so we\n    # only know if it's really succeeded or failed when our\n    # _webxr_session_started() or _webxr_session_failed() methods are called.\n    if not webxr_interface.initialize():\n        OS.alert(\"Failed to initialize\")\n        return\n\nfunc _webxr_session_started():\n    $Button.visible = false\n    # This tells Godot to start rendering to the headset.\n    get_viewport().use_xr = true\n    # This will be the reference space type you ultimately got, out of the\n    # types that you requested above. This is useful if you want the game to\n    # work a little differently in 'bounded-floor' versus 'local-floor'.\n    print (\"Reference space type: \" + webxr_interface.reference_space_type)\n\nfunc _webxr_session_ended():\n    $Button.visible = true\n    # If the user exits immersive mode, then we tell Godot to render to the web\n    # page again.\n    get_viewport().use_xr = false\n\nfunc _webxr_session_failed(message):\n    OS.alert(\"Failed to initialize: \" + message)\n[/codeblock]\nThere are a couple ways to handle \"controller\" input:\n- Using [XRController3D] nodes and their [signal XRController3D.button_pressed] and [signal XRController3D.button_released] signals. This is how controllers are typically handled in XR apps in Godot, however, this will only work with advanced VR controllers like the Oculus Touch or Index controllers, for example.\n- Using the [signal select], [signal squeeze] and related signals. This method will work for both advanced VR controllers, and non-traditional input sources like a tap on the screen, a spoken voice command or a button press on the device itself.\nYou can use both methods to allow your game or app to support a wider or narrower set of devices and input methods, or to allow more advanced interactions with more advanced devices."
+			"description": "WebXR is an open standard that allows creating VR and AR applications that run in the web browser.\nAs such, this interface is only available when running in Web exports.\nWebXR supports a wide range of devices, from the very capable (like Valve Index, HTC Vive, Oculus Rift and Quest) down to the much less capable (like Google Cardboard, Oculus Go, GearVR, or plain smartphones).\nSince WebXR is based on JavaScript, it makes extensive use of callbacks, which means that [WebXRInterface] is forced to use signals, where other XR interfaces would instead use functions that return a result immediately. This makes [WebXRInterface] quite a bit more complicated to initialize than other XR interfaces.\nHere's the minimum code required to start an immersive VR session:\n[codeblock]\nextends Node3D\n\nvar webxr_interface\nvar vr_supported = false\n\nfunc _ready():\n    # We assume this node has a button as a child.\n    # This button is for the user to consent to entering immersive VR mode.\n    $Button.pressed.connect(self._on_button_pressed)\n\n    webxr_interface = XRServer.find_interface(\"WebXR\")\n    if webxr_interface:\n        # WebXR uses a lot of asynchronous callbacks, so we connect to various\n        # signals in order to receive them.\n        webxr_interface.session_supported.connect(self._webxr_session_supported)\n        webxr_interface.session_started.connect(self._webxr_session_started)\n        webxr_interface.session_ended.connect(self._webxr_session_ended)\n        webxr_interface.session_failed.connect(self._webxr_session_failed)\n\n        # This returns immediately - our _webxr_session_supported() method\n        # (which we connected to the \"session_supported\" signal above) will\n        # be called sometime later to let us know if it's supported or not.\n        webxr_interface.is_session_supported(\"immersive-vr\")\n\nfunc _webxr_session_supported(session_mode, supported):\n    if session_mode == 'immersive-vr':\n        vr_supported = supported\n\nfunc _on_button_pressed():\n    if not vr_supported:\n        OS.alert(\"Your browser doesn't support VR\")\n        return\n\n    # We want an immersive VR session, as opposed to AR ('immersive-ar') or a\n    # simple 3DoF viewer ('viewer').\n    webxr_interface.session_mode = 'immersive-vr'\n    # 'bounded-floor' is room scale, 'local-floor' is a standing or sitting\n    # experience (it puts you 1.6m above the ground if you have 3DoF headset),\n    # whereas as 'local' puts you down at the XROrigin.\n    # This list means it'll first try to request 'bounded-floor', then\n    # fallback on 'local-floor' and ultimately 'local', if nothing else is\n    # supported.\n    webxr_interface.requested_reference_space_types = 'bounded-floor, local-floor, local'\n    # In order to use 'local-floor' or 'bounded-floor' we must also\n    # mark the features as required or optional. By including 'hand-tracking'\n    # as an optional feature, it will be enabled if supported.\n    webxr_interface.required_features = 'local-floor'\n    webxr_interface.optional_features = 'bounded-floor, hand-tracking'\n\n    # This will return false if we're unable to even request the session,\n    # however, it can still fail asynchronously later in the process, so we\n    # only know if it's really succeeded or failed when our\n    # _webxr_session_started() or _webxr_session_failed() methods are called.\n    if not webxr_interface.initialize():\n        OS.alert(\"Failed to initialize\")\n        return\n\nfunc _webxr_session_started():\n    $Button.visible = false\n    # This tells Godot to start rendering to the headset.\n    get_viewport().use_xr = true\n    # This will be the reference space type you ultimately got, out of the\n    # types that you requested above. This is useful if you want the game to\n    # work a little differently in 'bounded-floor' versus 'local-floor'.\n    print(\"Reference space type: \", webxr_interface.reference_space_type)\n    # This will be the list of features that were successfully enabled\n    # (except on browsers that don't support this property).\n    print(\"Enabled features: \", webxr_interface.enabled_features)\n\nfunc _webxr_session_ended():\n    $Button.visible = true\n    # If the user exits immersive mode, then we tell Godot to render to the web\n    # page again.\n    get_viewport().use_xr = false\n\nfunc _webxr_session_failed(message):\n    OS.alert(\"Failed to initialize: \" + message)\n[/codeblock]\nThere are a couple ways to handle \"controller\" input:\n- Using [XRController3D] nodes and their [signal XRController3D.button_pressed] and [signal XRController3D.button_released] signals. This is how controllers are typically handled in XR apps in Godot, however, this will only work with advanced VR controllers like the Oculus Touch or Index controllers, for example.\n- Using the [signal select], [signal squeeze] and related signals. This method will work for both advanced VR controllers, and non-traditional input sources like a tap on the screen, a spoken voice command or a button press on the device itself.\nYou can use both methods to allow your game or app to support a wider or narrower set of devices and input methods, or to allow more advanced interactions with more advanced devices."
 		},
 		{
 			"name": "Window",
