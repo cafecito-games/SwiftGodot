@@ -82,7 +82,7 @@ func generateVirtualProxy (_ p: Printer,
     if let ret = method.returnValue {
         let godotReturnType = ret.type
         let godotReturnTypeIsReferenceType = classMap [godotReturnType] != nil
-        returnOptional = godotReturnTypeIsReferenceType && isReturnOptional(className: cdef.name, method: methodName)
+        returnOptional = godotReturnTypeIsReferenceType && ret.meta != .required
 
         virtRet = getGodotType(ret)
     } else {
@@ -115,11 +115,18 @@ func generateVirtualProxy (_ p: Printer,
                 // This idiom guarantees that: if this is a known object, we surface this
                 // object, but if it is not known, then we create the instance
                 //
-                argPrep += "let resolved_\(i) = args [\(i)]!.load (as: GodotNativeObjectPointer?.self)\n"
-                if isMethodArgumentOptional(className: cdef.name, method: methodName, arg: arg.name) {
-                    argCall += "resolved_\(i) == nil ? nil : getOrInitSwiftObject (nativeHandle: resolved_\(i)!, ownership: .borrowed) as? \(arg.type)"
+                if isRefCountedType(arg.type) {
+                    argPrep += "var resolved_\(i) = gi.ref_get_object(args [\(i)])\n"
+                    argPrep += "if resolved_\(i) == nil { resolved_\(i) = args [\(i)]!.load (as: GodotNativeObjectPointer?.self) }\n"
                 } else {
-                    argCall += "getOrInitSwiftObject (nativeHandle: resolved_\(i)!, ownership: .borrowed) as! \(arg.type)"
+                    argPrep += "let resolved_\(i) = args [\(i)]!.load (as: GodotNativeObjectPointer?.self)\n"
+                }
+                if arg.meta != .required {
+                    let ownership = isRefCountedType(arg.type) ? ".refWrapper" : ".borrowed"
+                    argCall += "resolved_\(i) == nil ? nil : getOrInitSwiftObject (nativeHandle: resolved_\(i)!, ownership: \(ownership)) as? \(arg.type)"
+                } else {
+                    let ownership = isRefCountedType(arg.type) ? ".refWrapper" : ".borrowed"
+                    argCall += "getOrInitSwiftObject (nativeHandle: resolved_\(i)!, ownership: \(ownership)) as! \(arg.type)"
                 }
             } else if let storage = builtinClassStorage[arg.type] {
                 argCall += "\(mapTypeName (arg.type)) (content: args [\(i)]!.assumingMemoryBound (to: \(storage).self).pointee)"
@@ -424,7 +431,7 @@ func generateProperties (_ p: Printer,
         let godotReturnType = method.returnValue?.type
         let godotReturnTypeIsReferenceType = classMap [godotReturnType ?? ""] != nil
 
-        let propertyOptional = godotReturnType == "Variant" || godotReturnTypeIsReferenceType && isReturnOptional(className: cdef.name, method: property.getter)
+        let propertyOptional = godotReturnType == "Variant" || (godotReturnTypeIsReferenceType && method.returnValue?.meta != .required)
         
         // Lookup the type from the method, not the property,
         // sometimes the method is a GString, but the property is a StringName
