@@ -291,7 +291,7 @@ jobs:
 
       - name: Run release script
         env:
-          GH_TOKEN: ${{ secrets.SWIFT_GODOT_RELEASE_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
           SWIFT_GODOT_SOURCE_REPO: ${{ github.repository }}
           SWIFT_GODOT_BINARY_REPO: cafecito-games/SwiftGodotBinary
           SWIFT_GODOT_BINARY_REPO_DIR: ${{ runner.temp }}/SwiftGodotBinary
