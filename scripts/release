@@ -10,6 +10,8 @@ usage() {
     echo "  SWIFT_GODOT_BINARY_REPO_DIR   Local binary repo checkout. Default: ../SwiftGodotBinary"
     echo "  SWIFT_GODOT_BINARY_BRANCH     Binary repo branch. Default: main"
     echo "  SWIFT_GODOT_OUTPUT_DIR        Build output directory. Default: \$HOME/sg-builds"
+    echo "  SWIFT_GODOT_DERIVED_DATA      DerivedData directory to build into or package from"
+    echo "  SWIFT_GODOT_SKIP_BUILD        Package prebuilt DerivedData instead of running xcodebuild"
     echo "  SWIFT_GODOT_NODEPLOY          Build the xcframework but skip GitHub release publishing"
 }
 
@@ -77,7 +79,8 @@ fi
 
 arch=$(uname -m)
 build_dir="$output_dir/$$-build"
-derived_data="$build_dir/derived"
+derived_data=${SWIFT_GODOT_DERIVED_DATA:-$build_dir/derived}
+derived_data=${derived_data%/}
 archive_path="$build_dir/archive"
 
 mkdir -p "$derived_data"
@@ -91,28 +94,47 @@ echo "Source repo: $source_repo"
 echo "Binary repo: $binary_repo"
 start=$(date)
 
-xcodebuild \
-    -scheme SwiftGodot \
-    -destination "platform=macOS,arch=x86_64" \
-    -derivedDataPath "$derived_data" \
-    -archivePath "$archive_path" \
-    > "$build_dir/x86_64.log"
-
-if [[ "$arch" = "arm64" ]]; then
+if [[ -z "${SWIFT_GODOT_SKIP_BUILD:-}" ]]; then
     xcodebuild \
         -scheme SwiftGodot \
-        -destination "platform=macOS,arch=arm64" \
-        -derivedDataPath "${derived_data}_arm" \
+        -destination "platform=macOS,arch=x86_64" \
+        -derivedDataPath "$derived_data" \
         -archivePath "$archive_path" \
-        > "$build_dir/arm64.log"
-fi
+        > "$build_dir/x86_64.log"
 
-xcodebuild \
-    -scheme SwiftGodot \
-    -destination "generic/platform=iOS" \
-    -derivedDataPath "$derived_data" \
-    -archivePath "$archive_path" \
-    > "$build_dir/ios_arm64.log"
+    if [[ "$arch" = "arm64" ]]; then
+        xcodebuild \
+            -scheme SwiftGodot \
+            -destination "platform=macOS,arch=arm64" \
+            -derivedDataPath "${derived_data}_arm" \
+            -archivePath "$archive_path" \
+            > "$build_dir/arm64.log"
+    fi
+
+    xcodebuild \
+        -scheme SwiftGodot \
+        -destination "generic/platform=iOS" \
+        -derivedDataPath "$derived_data" \
+        -archivePath "$archive_path" \
+        > "$build_dir/ios_arm64.log"
+else
+    echo "Using prebuilt DerivedData from: $derived_data"
+    require_prebuilt_artifact() {
+        if [[ ! -e "$1" ]]; then
+            echo "Missing prebuilt release artifact: $1"
+            exit 1
+        fi
+    }
+
+    require_prebuilt_artifact "$derived_data/Build/Products/Debug/PackageFrameworks/SwiftGodot.framework"
+    require_prebuilt_artifact "$derived_data/Build/Products/Debug/SwiftGodot.swiftmodule"
+    if [[ "$arch" = "arm64" ]]; then
+        require_prebuilt_artifact "${derived_data}_arm/Build/Products/Debug/PackageFrameworks/SwiftGodot.framework"
+        require_prebuilt_artifact "${derived_data}_arm/Build/Products/Debug/SwiftGodot.swiftmodule"
+    fi
+    require_prebuilt_artifact "$derived_data/Build/Products/Debug-iphoneos/PackageFrameworks/SwiftGodot.framework"
+    require_prebuilt_artifact "$derived_data/Build/Products/Debug-iphoneos/SwiftGodot.swiftmodule"
+fi
 
 sh scripts/make-swiftgodot-framework "$derived_data/" "$output_dir/SwiftGodot.xcframework"
 
