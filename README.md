@@ -80,7 +80,7 @@ There are two ways of consuming SwiftGodot, you can either reference
 this module in SwiftPM by using this address - and it will trigger a
 complete source code build for you, or to quickly iterate on MacOS,
 you can use a convenient binary in the peer
-https://github.com/migueldeicaza/SwiftGodotBinary
+https://github.com/cafecito-games/SwiftGodotBinary
 
 Currently this fork requires Swift 6.3 or a matching Xcode toolchain.
 
@@ -126,7 +126,7 @@ let package = Package(
         .library(name: "MyFirstGame", type: .dynamic, targets: ["MyFirstGame"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/migueldeicaza/SwiftGodot", branch: "main")
+        .package(url: "https://github.com/cafecito-games/SwiftGodot", branch: "main")
     ],
     targets: [
         .target(
@@ -139,7 +139,7 @@ The above will compile all of SwiftGodot for you - alternatively, if
 you do not need access to the source, you can use the `.binaryTarget`
 feature of SwiftPM and reference an `.xcframework` that I have
 conveniently published on GitHub at
-https://github.com/migueldeicaza/SwiftGodotBinary
+https://github.com/cafecito-games/SwiftGodotBinary
 
 The next step is to create your source file with the magic on it,
 here we declare a spinning cube:
@@ -206,7 +206,7 @@ let package = Package(
         .library(name: "MyFirstGame", type: .dynamic, targets: ["MyFirstGame"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/migueldeicaza/SwiftGodot", branch: "main")
+        .package(url: "https://github.com/cafecito-games/SwiftGodot", branch: "main")
     ],
     targets: [
         .target(
