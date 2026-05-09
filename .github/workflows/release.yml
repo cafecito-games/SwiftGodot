@@ -121,7 +121,8 @@ jobs:
         run: |
           tar -czf "$RUNNER_TEMP/swiftgodot-x86-products.tgz" -C "$DERIVED_DATA" \
             Build/Products/Debug/PackageFrameworks/SwiftGodot.framework \
-            Build/Products/Debug/SwiftGodot.swiftmodule
+            Build/Products/Debug/SwiftGodot.swiftmodule \
+            Build/Products/Debug/SwiftGodotRuntime.swiftmodule
 
       - name: Upload release products
         uses: actions/upload-artifact@v4
@@ -171,7 +172,8 @@ jobs:
         run: |
           tar -czf "$RUNNER_TEMP/swiftgodot-ios-products.tgz" -C "$DERIVED_DATA" \
             Build/Products/Debug-iphoneos/PackageFrameworks/SwiftGodot.framework \
-            Build/Products/Debug-iphoneos/SwiftGodot.swiftmodule
+            Build/Products/Debug-iphoneos/SwiftGodot.swiftmodule \
+            Build/Products/Debug-iphoneos/SwiftGodotRuntime.swiftmodule
 
       - name: Upload release products
         uses: actions/upload-artifact@v4
@@ -221,7 +223,8 @@ jobs:
         run: |
           tar -czf "$RUNNER_TEMP/swiftgodot-arm64-products.tgz" -C "$DERIVED_DATA" \
             Build/Products/Debug/PackageFrameworks/SwiftGodot.framework \
-            Build/Products/Debug/SwiftGodot.swiftmodule
+            Build/Products/Debug/SwiftGodot.swiftmodule \
+            Build/Products/Debug/SwiftGodotRuntime.swiftmodule
 
       - name: Upload release products
         uses: actions/upload-artifact@v4

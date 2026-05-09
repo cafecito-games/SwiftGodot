@@ -128,12 +128,15 @@ else
 
     require_prebuilt_artifact "$derived_data/Build/Products/Debug/PackageFrameworks/SwiftGodot.framework"
     require_prebuilt_artifact "$derived_data/Build/Products/Debug/SwiftGodot.swiftmodule"
+    require_prebuilt_artifact "$derived_data/Build/Products/Debug/SwiftGodotRuntime.swiftmodule"
     if [[ "$arch" = "arm64" ]]; then
         require_prebuilt_artifact "${derived_data}_arm/Build/Products/Debug/PackageFrameworks/SwiftGodot.framework"
         require_prebuilt_artifact "${derived_data}_arm/Build/Products/Debug/SwiftGodot.swiftmodule"
+        require_prebuilt_artifact "${derived_data}_arm/Build/Products/Debug/SwiftGodotRuntime.swiftmodule"
     fi
     require_prebuilt_artifact "$derived_data/Build/Products/Debug-iphoneos/PackageFrameworks/SwiftGodot.framework"
     require_prebuilt_artifact "$derived_data/Build/Products/Debug-iphoneos/SwiftGodot.swiftmodule"
+    require_prebuilt_artifact "$derived_data/Build/Products/Debug-iphoneos/SwiftGodotRuntime.swiftmodule"
 fi
 
 sh scripts/make-swiftgodot-framework "$derived_data/" "$output_dir/SwiftGodot.xcframework"
@@ -150,6 +153,14 @@ asset_url="https://github.com/$source_repo/releases/download/$tag/SwiftGodot.xcf
 
 gh release create "$tag" "$zip_path" -R "$source_repo" -F "$release_notes" --target "$commit"
 
+gdextension_target_dir="$binary_repo_dir/Sources/GDExtension"
+rm -rf "$gdextension_target_dir"
+mkdir -p "$gdextension_target_dir/include"
+cp Sources/GDExtension/GDExtension.h "$gdextension_target_dir/GDExtension.h"
+cp Sources/GDExtension/GDExtensionSupport.c "$gdextension_target_dir/GDExtensionSupport.c"
+cp Sources/GDExtension/include/GDExtensionSupport.h "$gdextension_target_dir/include/GDExtensionSupport.h"
+cp Sources/GDExtension/include/gdextension_interface.h "$gdextension_target_dir/include/gdextension_interface.h"
+
 cat > "$binary_repo_dir/Package.swift" <<EOF
 // swift-tools-version:6.3
 // The swift-tools-version declares the minimum version of Swift required to build this package.
@@ -161,21 +172,24 @@ let package = Package(
     products: [
         .library(
             name: "SwiftGodot",
-            targets: ["SwiftGodot"])
+            targets: ["SwiftGodot", "GDExtension"])
     ],
     targets: [
         .binaryTarget(
             name: "SwiftGodot",
             url: "$asset_url",
             checksum: "$checksum"),
-        .testTarget(name: "SwiftGodotTests", dependencies: ["SwiftGodot"]),
+        .target(
+            name: "GDExtension",
+            path: "Sources/GDExtension"),
+        .testTarget(name: "SwiftGodotTests", dependencies: ["SwiftGodot", "GDExtension"]),
     ]
 )
 EOF
 
 (
     cd "$binary_repo_dir"
-    git add Package.swift
+    git add Package.swift Sources/GDExtension
     git commit -m "Update to $tag"
     git tag "$tag"
     git push -u origin "$binary_branch"
