@@ -21,3 +21,4 @@ Package.resolved
 .swiftpm/xcode/xcshareddata/xcschemes
 GeneratedForDebug/
 Tests/SwiftGodotTestProject/test_results.json
+/Testbed/bin/SwiftGodot
