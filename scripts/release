@@ -161,18 +161,34 @@ cp Sources/GDExtension/GDExtensionSupport.c "$gdextension_target_dir/GDExtension
 cp Sources/GDExtension/include/GDExtensionSupport.h "$gdextension_target_dir/include/GDExtensionSupport.h"
 cp Sources/GDExtension/include/gdextension_interface.h "$gdextension_target_dir/include/gdextension_interface.h"
 
+macro_target_dir="$binary_repo_dir/Sources/SwiftGodotMacroLibrary"
+rm -rf "$macro_target_dir"
+mkdir -p "$macro_target_dir"
+cp Sources/SwiftGodotMacroLibrary/*.swift "$macro_target_dir/"
+
 cat > "$binary_repo_dir/Package.swift" <<EOF
 // swift-tools-version:6.3
 // The swift-tools-version declares the minimum version of Swift required to build this package.
 
+import CompilerPluginSupport
 import PackageDescription
 
 let package = Package(
     name: "SwiftGodot",
+    platforms: [
+        .macOS(.v14),
+        .iOS(.v17),
+    ],
     products: [
         .library(
             name: "SwiftGodot",
-            targets: ["SwiftGodot", "GDExtension"])
+            targets: ["SwiftGodot", "GDExtension"]),
+        .library(
+            name: "SwiftGodotMacros",
+            targets: ["SwiftGodotMacroLibrary"]),
+    ],
+    dependencies: [
+        .package(url: "https://github.com/swiftlang/swift-syntax", from: "600.0.1"),
     ],
     targets: [
         .binaryTarget(
@@ -182,14 +198,27 @@ let package = Package(
         .target(
             name: "GDExtension",
             path: "Sources/GDExtension"),
-        .testTarget(name: "SwiftGodotTests", dependencies: ["SwiftGodot", "GDExtension"]),
+        .macro(
+            name: "SwiftGodotMacroLibrary",
+            dependencies: [
+                .product(name: "SwiftSyntaxMacros", package: "swift-syntax"),
+                .product(name: "SwiftSyntax", package: "swift-syntax"),
+                .product(name: "SwiftCompilerPlugin", package: "swift-syntax"),
+                .product(name: "SwiftDiagnostics", package: "swift-syntax"),
+                .product(name: "SwiftParserDiagnostics", package: "swift-syntax"),
+                .product(name: "SwiftParser", package: "swift-syntax"),
+                .product(name: "SwiftBasicFormat", package: "swift-syntax"),
+            ],
+            path: "Sources/SwiftGodotMacroLibrary",
+            swiftSettings: [.swiftLanguageMode(.v5)]),
+        .testTarget(name: "SwiftGodotTests", dependencies: ["SwiftGodot", "GDExtension", "SwiftGodotMacroLibrary"]),
     ]
 )
 EOF
 
 (
     cd "$binary_repo_dir"
-    git add Package.swift Sources/GDExtension
+    git add Package.swift Sources/GDExtension Sources/SwiftGodotMacroLibrary
     git commit -m "Update to $tag"
     git tag "$tag"
     git push -u origin "$binary_branch"

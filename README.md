@@ -141,6 +141,23 @@ feature of SwiftPM and reference an `.xcframework` that I have
 conveniently published on GitHub at
 https://github.com/cafecito-games/SwiftGodotBinary
 
+When using the binary package with SwiftGodot macros, depend on both
+the runtime product and the host-side macro product:
+
+```swift
+dependencies: [
+    .package(url: "https://github.com/cafecito-games/SwiftGodotBinary", from: "0.0.0")
+],
+targets: [
+    .target(
+        name: "MyFirstGame",
+        dependencies: [
+            .product(name: "SwiftGodot", package: "SwiftGodotBinary"),
+            .product(name: "SwiftGodotMacros", package: "SwiftGodotBinary"),
+        ])
+]
+```
+
 The next step is to create your source file with the magic on it,
 here we declare a spinning cube:
 
