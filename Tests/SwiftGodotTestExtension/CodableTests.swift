@@ -179,6 +179,7 @@ final class CodableTests {
     @SwiftGodotTest
     public func testVariantObjectEncodingThrows() {
         let node = Node()
+        defer { freeOrphanNode(node) }
         let variant = Variant(node)
         var didThrow = false
         do {

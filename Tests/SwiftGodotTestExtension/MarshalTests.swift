@@ -73,6 +73,7 @@ final class MarshalTests {
     @SwiftGodotTest
     public func testExportedClosure() {
         let node = TestNode()
+        defer { freeOrphanNode(node) }
         
         guard let callable = node.call(method: "get_closure").map({ Callable.fromVariant($0) }) as? Callable else {
             XCTFail()
@@ -103,6 +104,7 @@ final class MarshalTests {
     @SwiftGodotTest
     public func testDateNode() {
         let node = NodeUsingSwiftDate()
+        defer { freeOrphanNode(node) }
         let date = Date.now
         
         _ = node.call(method: "set_date", (date.timeIntervalSince1970 + 1).toVariant())
@@ -114,6 +116,10 @@ final class MarshalTests {
     public func testClassesMethodsPerformance() {
         let node = TestNode()
         let child = TestNode()
+        defer {
+            freeOrphanNode(child)
+            freeOrphanNode(node)
+        }
 
         let addChildName = StringName("add_child")
         let removeChildName = StringName("remove_child")
@@ -136,6 +142,7 @@ final class MarshalTests {
     @SwiftGodotTest
     public func testSignals() {
         let node = TestNode()
+        defer { freeOrphanNode(node) }
         var value: Int = 0
         
         node.someSignal.connect { int in
@@ -184,6 +191,7 @@ final class MarshalTests {
     @SwiftGodotTest
     public func testCallableArgumentInCallable() {
         let testNode = TestNode()
+        defer { freeOrphanNode(testNode) }
         
         let result = testNode.foo(Callable({ arguments in
             do {
@@ -218,6 +226,7 @@ final class MarshalTests {
     @SwiftGodotTest
     public func testSwiftArrays() {
         let testNode = TestNode()
+        defer { freeOrphanNode(testNode) }
         let array = VariantArray(Int.self)
         array.append(Variant(20))
         array.append(Variant(40))
@@ -264,6 +273,7 @@ final class MarshalTests {
     @SwiftGodotTest
     public func testCallableMethodReturningVariant() {
         let testNode = TestNode()
+        defer { freeOrphanNode(testNode) }
         
         XCTAssertEqual(testNode.call(method: "bar", Variant(42)), Variant(42))
         XCTAssertEqual(testNode.call(method: "bar", Variant("Foo")), Variant("Foo"))
@@ -294,7 +304,9 @@ final class MarshalTests {
             return value.toVariant()
         }
         
-        let variant = wrap(TestNode())
+        let testNode = TestNode()
+        defer { freeOrphanNode(testNode) }
+        let variant = wrap(testNode)
         
         let node0 = TestNode.fromVariant(variant)
         let node1 = variant.to(TestNode.self)
@@ -369,6 +381,7 @@ final class MarshalTests {
     @SwiftGodotTest
     public func testOptionalObjectArgument() {
         let testNode = Node()
+        defer { freeOrphanNode(testNode) }
         let arguments = Arguments(from: [nil, testNode.toVariant()])
         var fulfillmentCount = 0
         do {
@@ -403,4 +416,3 @@ final class MarshalTests {
         XCTAssertEqual(fulfillmentCount, 5, "Expected 5 fulfillments")
     }
 }
-

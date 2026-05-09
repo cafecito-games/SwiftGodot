@@ -61,7 +61,7 @@ extension Generator {
             p("/// Used to serialize/deserialize Variant values to/from Codable-compatible formats.")
             p("/// Non-serializable types (Object, Callable, Signal, RID) are not included;")
             p("/// attempting to create a CodableTaggedRepresentation from such a Variant will throw.")
-            p.b("enum CodableTaggedRepresentation: Codable, Equatable") {
+            p.b("public enum CodableTaggedRepresentation: Codable, Equatable") {
                 for entry in codableGTypeCases {
                     p("case \(entry.caseName)(\(entry.swiftType))")
                 }
@@ -109,7 +109,7 @@ extension Generator {
                 // init(_ variant: Variant) throws
                 p("/// Creates a CodableTaggedRepresentation from a Variant.")
                 p("/// Throws `EncodingError.invalidValue` for non-serializable types (Object, Callable, Signal, RID) and nil Variants.")
-                p.b("init(_ variant: Variant) throws") {
+                p.b("public init(_ variant: Variant) throws") {
                     p.b("switch variant.gtype") {
                         p("case .nil:")
                         p("    throw EncodingError.invalidValue(variant, EncodingError.Context(codingPath: [], debugDescription: \"Cannot encode nil Variant. Use CodableTaggedRepresentation? (Optional) for nil Variants.\"))")

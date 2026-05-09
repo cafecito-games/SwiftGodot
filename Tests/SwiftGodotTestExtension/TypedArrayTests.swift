@@ -60,7 +60,9 @@ final class TypedArrayTests {
     func testObjectArrayInvariance() {
         let typed = TypedArray<Node?>()
         let anotherTyped = TypedArray<Object?>(from: typed.array)
-        typed.append(Node())
+        let node = Node()
+        defer { freeOrphanNode(node) }
+        typed.append(node)
         XCTAssert(typed.array !== anotherTyped.array)
         XCTAssert(typed.array != anotherTyped.array)
     }

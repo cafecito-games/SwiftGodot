@@ -5,8 +5,6 @@
 //  Created by Claude on 2025-01-02.
 //
 
-#if !(os(Windows) && swift(<5.9.1))
-
 /// Marks a function for RPC (Remote Procedure Call) in Godot's multiplayer system.
 ///
 /// When this attribute is applied to a function, the `@Godot` macro will register the RPC configuration
@@ -33,5 +31,3 @@ public macro Rpc(
     transferMode: MultiplayerPeer.TransferMode = .unreliable,
     transferChannel: Int = 0
 ) = #externalMacro(module: "SwiftGodotMacroLibrary", type: "GodotRpc")
-
-#endif

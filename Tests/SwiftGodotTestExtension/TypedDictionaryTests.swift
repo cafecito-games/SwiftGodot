@@ -825,6 +825,7 @@ final class TypedDictionaryTests {
         // Try to insert a Node (which is not RefCounted) via underlying dictionary
         // This should fail because Node is not compatible with RefCounted
         let node = Node()
+        defer { freeOrphanNode(node) }
         typed.dictionary[Variant(2)] = Variant(node)
 
         // Dictionary should only have the valid entry

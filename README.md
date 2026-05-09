@@ -82,7 +82,7 @@ complete source code build for you, or to quickly iterate on MacOS,
 you can use a convenient binary in the peer
 https://github.com/migueldeicaza/SwiftGodotBinary
 
-Currently this requires Swift 5.9 or Xcode 15.
+Currently this fork requires Swift 6.3 or a matching Xcode toolchain.
 
 # Working with this Repository
 
@@ -117,7 +117,7 @@ create a Swift Library Package that references the Swift Godot
 package, like this:
 
 ```swift
-// swift-tools-version: 5.9
+// swift-tools-version: 6.3
 import PackageDescription
 
 let package = Package(

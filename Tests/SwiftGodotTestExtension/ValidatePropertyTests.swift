@@ -33,6 +33,7 @@ final class ValidatePropertyTests {
     public func testThing() {
         var found = false
         let node = TestProp()
+        defer { freeOrphanNode(node) }
         for prop in node.getPropertyList() {
             //print("PROP: \(prop)")
             guard let nameV = prop["name"] else { continue }

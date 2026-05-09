@@ -58,7 +58,7 @@ enum TestInt64Enum: Int64 {
 // MARK: - Test Node with @Callable methods covering all fetchArgument paths
 
 @Godot
-class RawArgumentsTestNode: Node {
+class RawArgumentsTestNode: RefCounted {
 
     // MARK: - Primitive types via _GodotBridgeableBuiltin
 
@@ -887,6 +887,7 @@ final class RawArgumentsFetchTests {
     func testFetchNodeOptionalWithValue() {
         let node = RawArgumentsTestNode()
         let testNode = Node()
+        defer { freeOrphanNode(testNode) }
         testNode.name = "TestNode"
         let result = node.call(method: "testNodeOptional", Variant(testNode))
         XCTAssertEqual(String(result), "TestNode")
@@ -896,6 +897,7 @@ final class RawArgumentsFetchTests {
     func testFetchNode() {
         let node = RawArgumentsTestNode()
         let testNode = Node()
+        defer { freeOrphanNode(testNode) }
         testNode.name = "MyTestNode"
         let result = node.call(method: "testNode", Variant(testNode))
         XCTAssertEqual(String(result), "MyTestNode")
@@ -1009,6 +1011,7 @@ final class RawArgumentsFetchTests {
     func testFetchMixedWithObjects() {
         let node = RawArgumentsTestNode()
         let testNode = Node()
+        defer { freeOrphanNode(testNode) }
         testNode.name = "ObjNode"
 
         let result = node.call(

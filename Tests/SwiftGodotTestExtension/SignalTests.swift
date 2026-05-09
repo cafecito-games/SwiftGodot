@@ -28,6 +28,7 @@ final class SignalTests {
     @SwiftGodotTest
     public func testUserDefinedSignal() {
         let node = TestSignalNode()
+        defer { freeOrphanNode(node) }
 
         node.connect (signal: TestSignalNode.mySignal, to: node, method: "receiveSignal")
         node.emit (signal: TestSignalNode.mySignal, 22, "Joey")
@@ -39,6 +40,7 @@ final class SignalTests {
     @SwiftGodotTest
     public func testNuSignal() {
         let node = TestSignalNode()
+        defer { freeOrphanNode(node) }
         var signalReceived = false
 
         node.nuSignal.connect { age, name in
@@ -53,6 +55,7 @@ final class SignalTests {
     @SwiftGodotTest
     public func testBuiltInSignalWithNoArgument() {
         let node = Node()
+        defer { freeOrphanNode(node) }
         var signalReceived = false
         node.ready.connect {
             signalReceived = true
@@ -64,6 +67,7 @@ final class SignalTests {
     @SwiftGodotTest
     public func testBuiltInSignalWithArgument() {
         let node = Node()
+        defer { freeOrphanNode(node) }
         var signalReceived = false
         node.childExitingTree.connect { (nodeParameter: Node?) in // full signature is specified here to check that it's being generated with the right types
             signalReceived = true
@@ -87,4 +91,3 @@ final class SignalTests {
         XCTAssertTrue (signalReceived, "signal should have been received")
     }
 }
-

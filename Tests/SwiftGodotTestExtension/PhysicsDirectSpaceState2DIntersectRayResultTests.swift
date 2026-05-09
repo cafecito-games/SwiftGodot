@@ -13,7 +13,7 @@
 final class PhysicsDirectSpaceState2DIntersectRayResultTests {
     @SwiftGodotTest
     public func testIntersectRayResultPropertiesMatchDictionary_whenAllPropertiesPresent() {
-        let collider: Object = GridMap()
+        let collider: Object = RefCounted()
 
         let dictionary: VariantDictionary = {
             let dictionary = VariantDictionary()
@@ -26,7 +26,7 @@ final class PhysicsDirectSpaceState2DIntersectRayResultTests {
             return dictionary
         }()
 
-        guard let result = PhysicsDirectSpaceState2D.IntersectRayResult<GridMap>(dictionary) else {
+        guard let result = PhysicsDirectSpaceState2D.IntersectRayResult<RefCounted>(dictionary) else {
             XCTFail("Expected non-nil result")
             return
         }
@@ -41,7 +41,7 @@ final class PhysicsDirectSpaceState2DIntersectRayResultTests {
 
     @SwiftGodotTest
     public func testIntersectRayResultIsNil_whenColliderPropertyIsMissing() {
-        let collider: Object = GridMap()
+        let collider: Object = RefCounted()
         
         let dictionary: VariantDictionary = {
             let dictionary = VariantDictionary()
@@ -54,7 +54,7 @@ final class PhysicsDirectSpaceState2DIntersectRayResultTests {
             return dictionary
         }()
         
-        let result = PhysicsDirectSpaceState2D.IntersectRayResult<GridMap>(dictionary)
+        let result = PhysicsDirectSpaceState2D.IntersectRayResult<RefCounted>(dictionary)
         
         XCTAssertNil(result)
     }

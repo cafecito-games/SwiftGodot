@@ -5,8 +5,6 @@
 //  Created by Miguel de Icaza on 9/25/23.
 //
 
-#if !(os(Windows) && swift(<5.9.1))
-
 /// Creates the definition for a Swift class to be surfaced to Godot.
 ///
 /// This macro creates the required constructors that the SwiftGodot framework requires (the `init`, and the
@@ -294,5 +292,3 @@ public macro signal(_ signalName: String, arguments: [String: Any.Type] = [:]) =
 
 @attached(accessor)
 public macro Signal(_ names: String...) = #externalMacro(module: "SwiftGodotMacroLibrary", type: "SignalAttachmentMacro")
-
-#endif

@@ -23,6 +23,11 @@ final class VariantTests {
     @SwiftGodotTest
     public func testWrap() {
         let x: Node? = Node()
+        defer {
+            if let x {
+                freeOrphanNode(x)
+            }
+        }
         let _ = Variant(x)
     }
     
@@ -124,6 +129,7 @@ final class VariantTests {
         
         // Reference object
         let sprite = Sprite2D ()
+        defer { freeOrphanNode(sprite) }
         sprite.position = Vector2 (x: 1, y: 2)
         sprite.offset = Vector2 (x: 3, y: 4)
         variant = Variant (sprite)
@@ -156,6 +162,10 @@ final class VariantTests {
         XCTAssertFalse (Variant (Vector2 (x: 1, y: 2)) == Variant (Vector2 (x: 1, y: 3)))
         let node = Node()
         let node2 = Node()
+        defer {
+            freeOrphanNode(node2)
+            freeOrphanNode(node)
+        }
         XCTAssertTrue (Variant (node) == Variant (node))
         XCTAssertFalse (Variant (node) == Variant (node2))
     }

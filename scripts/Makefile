@@ -1,4 +1,4 @@
-LIBGODOT=~/cvs/libgodot-4.3
+LIBGODOT=~/cvs/libgodot-4.6
 
 build-libgodot:
 	(cd $(LIBGODOT); scons platform=macos target=template_debug dev_build=yes library_type=shared_library vulkan_sdk_path=~/MoltenVK/)

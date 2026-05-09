@@ -401,6 +401,7 @@ final class MemoryLeakTests {
         }
 
         let object = Object()
+        defer { object.free() }
 
         // Warm-up the code path in case it performs any one-time permanent allocations.
         oneIteration(object: object)
@@ -563,6 +564,7 @@ final class MemoryLeakTests {
     @SwiftGodotTest
     public func test_emit_signal_leak() {
         let object = Object()
+        defer { object.free() }
         let signal = SignalWithNoArguments("some_random_name")
         
         checkLeaks {
