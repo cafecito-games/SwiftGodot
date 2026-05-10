@@ -299,7 +299,11 @@ public struct TypedDictionary<Key: _GodotContainerTypingParameter, Value: _Godot
     @inline(__always)
     public static func _fromRawArgument(_ ptr: UnsafeRawPointer) throws(ArgumentAccessError) -> Self {
         let content = ptr.assumingMemoryBound(to: VariantDictionary.ContentType.self).pointee
-        return Self(_wrapping: VariantDictionary(content: content))
+        let dictionary = VariantDictionary(content: content)
+        guard isTypingCompatible(with: dictionary) else {
+            throw .godotCallingConventionError
+        }
+        return Self(_wrapping: dictionary)
     }
 
     /// Internal API. Returns ``PropInfo`` for when any ``TypedDictionary`` is used in API visible to Godot

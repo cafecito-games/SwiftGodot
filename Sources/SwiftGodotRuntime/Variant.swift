@@ -543,10 +543,11 @@ extension Variant? {
     }
     
     /// Extract `T: Object` from this ``Variant?`` or return nil if unsucessful.
+    @MainActor
     @inline(__always)
     @inlinable
     public func to<T>(_ type: T.Type = T.self) -> T? where T: Object {
-        type.fromVariant(self)
+        self?.asObject(type)
     }
     
     public var content: Variant.ContentType {
