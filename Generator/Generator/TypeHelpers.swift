@@ -35,14 +35,14 @@ func MemberBuiltinJsonTypeToSwift (_ type: String) -> String {
 }
 
 /// Returns true for the Built-in types that are generated as classes, rather than structures
-func isBuiltinClass (_ godotTypeName: String) -> Bool {
+@MainActor func isBuiltinClass (_ godotTypeName: String) -> Bool {
     builtinClassStorage [godotTypeName] != nil
 }
 
 /// Given an enumeration name, and a value associated with it, returns the Swift
 /// enum value, or nil if it can not be found.
 /// Example type: "ArrowDirection", value: "0" would return ".up"
-func mapEnumValue (enumDef: String, value: String) -> String? {
+@MainActor func mapEnumValue (enumDef: String, value: String) -> String? {
     func findEnumMatch (element:  JGodotGlobalEnumElement) -> String? {
         let enumCasePrefix = element.values.commonPrefix()
         for evalue in element.values {
@@ -95,14 +95,14 @@ func godotPropertyToSwift (_ name: String) -> String {
     return v
 }
 
-func isRefCountedType(_ name: String) -> Bool {
+@MainActor func isRefCountedType(_ name: String) -> Bool {
     if let def = classMap[name] {
         return def.isRefcounted
     }
     return name == "RefCounted"
 }
 
-var core_types = [
+nonisolated(unsafe) var core_types = [
               "String",
               "Vector2",
               "Vector2i",
@@ -247,13 +247,13 @@ enum ArgumentKind {
     case builtIn
 }
 
-var mapStringToSwift = true
+nonisolated(unsafe) var mapStringToSwift = true
 
 /// Given a type definition with its metadata, and the context where the type is being
 /// useds, returns the type for it.
 ///
 ///
-func getGodotType (_ t: TypeWithMeta?, kind: ArgumentKind = .classes) -> String {
+@MainActor func getGodotType (_ t: TypeWithMeta?, kind: ArgumentKind = .classes) -> String {
     guard let t else {
         return ""
     }
@@ -378,7 +378,7 @@ func getGodotType (_ t: TypeWithMeta?, kind: ArgumentKind = .classes) -> String 
 /// Documentation can legitimately reference types that are not generated in the
 /// current split target. For those cases we want the original type name for the
 /// doc link text, not API-surface fallback or generation failure.
-func getGodotDocType(_ t: TypeWithMeta?, kind: ArgumentKind = .classes) -> String {
+@MainActor func getGodotDocType(_ t: TypeWithMeta?, kind: ArgumentKind = .classes) -> String {
     guard let t else {
         return ""
     }
@@ -394,7 +394,7 @@ func getGodotDocType(_ t: TypeWithMeta?, kind: ArgumentKind = .classes) -> Strin
 /// "content", given a godotType name of those, this returns a pair
 /// containing the Swift-type that is used to store this, and a suitable initialization
 /// value for it.
-func getBuiltinStorage (_ name: String, asComputedProperty: Bool) -> (String, String) {
+@MainActor func getBuiltinStorage (_ name: String, asComputedProperty: Bool) -> (String, String) {
     guard let size = builtinSizes [name] else {
         fatalError()
     }

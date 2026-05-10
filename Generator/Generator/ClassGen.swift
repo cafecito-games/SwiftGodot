@@ -8,7 +8,7 @@
 import Foundation
 import ExtensionApi
 
-func makeDefaultInit (godotType: String, initCollection: String = "") -> String {
+@MainActor func makeDefaultInit (godotType: String, initCollection: String = "") -> String {
     switch godotType {
     case "Variant":
         return "nil"
@@ -51,11 +51,11 @@ func makeDefaultInit (godotType: String, initCollection: String = "") -> String 
     }
 }
 
-func makeDefaultReturn (godotType: String) -> String {
+@MainActor func makeDefaultReturn (godotType: String) -> String {
     return "return \(makeDefaultInit(godotType: godotType))"
 }
 
-func argTypeNeedsCopy (godotType: String) -> Bool {
+@MainActor func argTypeNeedsCopy (godotType: String) -> Bool {
     if isStruct(godotType) {
         return true
     }
@@ -68,7 +68,7 @@ func argTypeNeedsCopy (godotType: String) -> Bool {
     return false
 }
 
-func generateVirtualProxy (_ p: Printer,
+@MainActor func generateVirtualProxy (_ p: Printer,
                            cdef: JGodotExtensionAPIClass,
                            methodName: String,
                            method: JGodotClassMethod) {
@@ -88,130 +88,132 @@ func generateVirtualProxy (_ p: Printer,
     } else {
         virtRet = nil
     }
-    p ("func _\(cdef.name)_proxy\(method.name) (instance: UnsafeMutableRawPointer?, args: UnsafePointer<UnsafeRawPointer?>?, retPtr: UnsafeMutableRawPointer?)") {
-        p ("guard let instance else { return }")
-        if let arguments = method.arguments, arguments.count > 0 {
-            p ("guard let args else { return }")
-        }
-        p ("let reference = Unmanaged<WrappedReference>.fromOpaque(instance).takeUnretainedValue()")
-        p ("guard let swiftObject = reference.value as? \(cdef.name) else { return }")
-        
-        var argCall = ""
-        var argPrep = ""
-        var i = 0
-        for arg in method.arguments ?? [] {
-            if argCall != "" { argCall += ", " }
-            let argName = escapeSwift (snakeToCamel (arg.name))
-            
-            // Drop the first argument name for methods whose name already include the argument
-            // name, like 'setMultiplayerPeer (peer: ..)' becomes 'setMultiplayerPeer (_ peer: ...)'
-            if i > 0 || !method.name.hasSuffix("_\(arg.name)") {
-                argCall += "\(argName): "
+    p ("nonisolated func _\(cdef.name)_proxy\(method.name) (instance: UnsafeMutableRawPointer?, args: UnsafePointer<UnsafeRawPointer?>?, retPtr: UnsafeMutableRawPointer?)") {
+        p ("MainActor.assumeIsolated") {
+            p ("guard let instance else { return }")
+            if let arguments = method.arguments, arguments.count > 0 {
+                p ("guard let args else { return }")
             }
-            if arg.type == "String" {
-                argCall += "GString.stringFromGStringPtr (ptr: args [\(i)]!) ?? \"\""
-            } else if classMap [arg.type] != nil {
-                //
-                // This idiom guarantees that: if this is a known object, we surface this
-                // object, but if it is not known, then we create the instance
-                //
-                if isRefCountedType(arg.type) {
-                    argPrep += "var resolved_\(i) = gi.ref_get_object(args [\(i)])\n"
-                    argPrep += "if resolved_\(i) == nil { resolved_\(i) = args [\(i)]!.load (as: GodotNativeObjectPointer?.self) }\n"
-                } else {
-                    argPrep += "let resolved_\(i) = args [\(i)]!.load (as: GodotNativeObjectPointer?.self)\n"
-                }
-                if arg.meta != .required {
-                    let ownership = isRefCountedType(arg.type) ? ".refWrapper" : ".borrowed"
-                    argCall += "resolved_\(i) == nil ? nil : getOrInitSwiftObject (nativeHandle: resolved_\(i)!, ownership: \(ownership)) as? \(arg.type)"
-                } else {
-                    let ownership = isRefCountedType(arg.type) ? ".refWrapper" : ".borrowed"
-                    argCall += "getOrInitSwiftObject (nativeHandle: resolved_\(i)!, ownership: \(ownership)) as! \(arg.type)"
-                }
-            } else if let storage = builtinClassStorage[arg.type] {
-                argCall += "\(mapTypeName (arg.type)) (content: args [\(i)]!.assumingMemoryBound (to: \(storage).self).pointee)"
-            } else {
-                let gt = getGodotType(arg)
-                if gt.hasPrefix("Packed") || gt.hasSuffix("Array") {
-                    fatalError("Precondition, this should not happen: PackedArrays should have been handled on the code above that uses `storage`")
-                }
-                argCall += "args [\(i)]!.assumingMemoryBound (to: \(gt).self).pointee"
-            }
-            i += 1
-        }
-        let hasReturn = method.returnValue != nil
-        if argPrep != "" {
-            p (argPrep)
-        }
+            p ("let reference = Unmanaged<WrappedReference>.fromOpaque(instance).takeUnretainedValue()")
+            p ("guard let swiftObject = reference.value as? \(cdef.name) else { return }")
 
-        // For Node's _ready method, call _before_ready() first to allow
-        // @Godot macro to perform setup tasks like RPC configuration
-        if cdef.name == "Node" && method.name == "_ready" {
-            p ("swiftObject._before_ready()")
-        }
+            var argCall = ""
+            var argPrep = ""
+            var i = 0
+            for arg in method.arguments ?? [] {
+                if argCall != "" { argCall += ", " }
+                let argName = escapeSwift (snakeToCamel (arg.name))
 
-        var call = "swiftObject.\(methodName) (\(argCall))"
-        if method.returnValue?.type == "String" {
-            call = "GString (\(call))"
-        }
-        if hasReturn {
-            p ("let ret = \(call)")
-        } else {
-            p ("\(call)")
-        }
-        if let ret = method.returnValue {
-            if ret.type == "Variant" {
-                p("""
-                retPtr!.storeBytes(of: ret.content, as: Variant.ContentType.self)
-                ret?.content = Variant.zero
-                """)
-            } else if isStruct(ret.type) || isStruct(virtRet ?? "NON_EXISTENT") || ret.type.starts(with: "bitfield::"){
-                p ("retPtr!.storeBytes (of: ret, as: \(virtRet!).self)")
-            } else if ret.type.starts(with: "enum::") {
-                p ("retPtr!.storeBytes (of: Int32 (ret.rawValue), as: Int32.self)")
-            } else if ret.type.contains("*") {
-                p ("retPtr!.storeBytes (of: ret, as: OpaquePointer?.self)")
-            } else {
-                let derefField: String
-                let derefType: String
-                if ret.type.starts(with: "typedarray::") {
-                    derefField = "array.content"
-                    derefType = "type (of: ret.array.content)"
-                } else if classMap [ret.type] != nil {
-                    derefField = "handle"
-                    derefType = " GodotNativeObjectPointer?.self"
-                } else {
-                    derefField = "content"
-                    derefType = "type (of: ret.content)"
+                // Drop the first argument name for methods whose name already include the argument
+                // name, like 'setMultiplayerPeer (peer: ..)' becomes 'setMultiplayerPeer (_ peer: ...)'
+                if i > 0 || !method.name.hasSuffix("_\(arg.name)") {
+                    argCall += "\(argName): "
                 }
-                
-                let target: String
-                if ret.type.starts (with: "typedarray::") {
-                    target = "array.content"
-                } else {
-                    target = classMap [ret.type] != nil ? "handle" : "content"
-                }
-                if classMap [ret.type] != nil && isRefCountedType(ret.type) {
-                    p("gi.ref_set_object(retPtr, ret\(returnOptional ? "?" : "").handle)")
-                } else {
-                    p ("retPtr!.storeBytes (of: ret\(returnOptional ? "?" : "").\(derefField), as: \(derefType)) // \(ret.type)")
-                }
-                
-                // Poor man's transfer the ownership: we clear the content
-                // so the destructor has nothing to act on, because we are
-                // returning the reference to the other side.
-                if target == "content" {
-                    let type = getGodotType(SimpleType(type: ret.type))
-                    switch type {
-                    case "String":
-                        p ("ret.content = GString.zero")
-                    case "Array":
-                        p ("ret.content = VariantArray.zero")
-                    default:
-                        p ("ret.content = \(type).zero")
+                if arg.type == "String" {
+                    argCall += "GString.stringFromGStringPtr (ptr: args [\(i)]!) ?? \"\""
+                } else if classMap [arg.type] != nil {
+                    //
+                    // This idiom guarantees that: if this is a known object, we surface this
+                    // object, but if it is not known, then we create the instance
+                    //
+                    if isRefCountedType(arg.type) {
+                        argPrep += "var resolved_\(i) = gi.ref_get_object(args [\(i)])\n"
+                        argPrep += "if resolved_\(i) == nil { resolved_\(i) = args [\(i)]!.load (as: GodotNativeObjectPointer?.self) }\n"
+                    } else {
+                        argPrep += "let resolved_\(i) = args [\(i)]!.load (as: GodotNativeObjectPointer?.self)\n"
                     }
-                } else if target == "array.content" {
-                    p("ret.array.content = VariantArray.zero")
+                    if arg.meta != .required {
+                        let ownership = isRefCountedType(arg.type) ? ".refWrapper" : ".borrowed"
+                        argCall += "resolved_\(i) == nil ? nil : getOrInitSwiftObject (nativeHandle: resolved_\(i)!, ownership: \(ownership)) as? \(arg.type)"
+                    } else {
+                        let ownership = isRefCountedType(arg.type) ? ".refWrapper" : ".borrowed"
+                        argCall += "getOrInitSwiftObject (nativeHandle: resolved_\(i)!, ownership: \(ownership)) as! \(arg.type)"
+                    }
+                } else if let storage = builtinClassStorage[arg.type] {
+                    argCall += "\(mapTypeName (arg.type)) (content: args [\(i)]!.assumingMemoryBound (to: \(storage).self).pointee)"
+                } else {
+                    let gt = getGodotType(arg)
+                    if gt.hasPrefix("Packed") || gt.hasSuffix("Array") {
+                        fatalError("Precondition, this should not happen: PackedArrays should have been handled on the code above that uses `storage`")
+                    }
+                    argCall += "args [\(i)]!.assumingMemoryBound (to: \(gt).self).pointee"
+                }
+                i += 1
+            }
+            let hasReturn = method.returnValue != nil
+            if argPrep != "" {
+                p (argPrep)
+            }
+
+            // For Node's _ready method, call _before_ready() first to allow
+            // @Godot macro to perform setup tasks like RPC configuration
+            if cdef.name == "Node" && method.name == "_ready" {
+                p ("swiftObject._before_ready()")
+            }
+
+            var call = "swiftObject.\(methodName) (\(argCall))"
+            if method.returnValue?.type == "String" {
+                call = "GString (\(call))"
+            }
+            if hasReturn {
+                p ("let ret = \(call)")
+            } else {
+                p ("\(call)")
+            }
+            if let ret = method.returnValue {
+                if ret.type == "Variant" {
+                    p("""
+                    retPtr!.storeBytes(of: ret.content, as: Variant.ContentType.self)
+                    ret?.content = Variant.zero
+                    """)
+                } else if isStruct(ret.type) || isStruct(virtRet ?? "NON_EXISTENT") || ret.type.starts(with: "bitfield::"){
+                    p ("retPtr!.storeBytes (of: ret, as: \(virtRet!).self)")
+                } else if ret.type.starts(with: "enum::") {
+                    p ("retPtr!.storeBytes (of: Int32 (ret.rawValue), as: Int32.self)")
+                } else if ret.type.contains("*") {
+                    p ("retPtr!.storeBytes (of: ret, as: OpaquePointer?.self)")
+                } else {
+                    let derefField: String
+                    let derefType: String
+                    if ret.type.starts(with: "typedarray::") {
+                        derefField = "array.content"
+                        derefType = "type (of: ret.array.content)"
+                    } else if classMap [ret.type] != nil {
+                        derefField = "handle"
+                        derefType = " GodotNativeObjectPointer?.self"
+                    } else {
+                        derefField = "content"
+                        derefType = "type (of: ret.content)"
+                    }
+
+                    let target: String
+                    if ret.type.starts (with: "typedarray::") {
+                        target = "array.content"
+                    } else {
+                        target = classMap [ret.type] != nil ? "handle" : "content"
+                    }
+                    if classMap [ret.type] != nil && isRefCountedType(ret.type) {
+                        p("gi.ref_set_object(retPtr, ret\(returnOptional ? "?" : "").handle)")
+                    } else {
+                        p ("retPtr!.storeBytes (of: ret\(returnOptional ? "?" : "").\(derefField), as: \(derefType)) // \(ret.type)")
+                    }
+
+                    // Poor man's transfer the ownership: we clear the content
+                    // so the destructor has nothing to act on, because we are
+                    // returning the reference to the other side.
+                    if target == "content" {
+                        let type = getGodotType(SimpleType(type: ret.type))
+                        switch type {
+                        case "String":
+                            p ("ret.content = GString.zero")
+                        case "Array":
+                            p ("ret.content = VariantArray.zero")
+                        default:
+                            p ("ret.content = \(type).zero")
+                        }
+                    } else if target == "array.content" {
+                        p("ret.array.content = VariantArray.zero")
+                    }
                 }
             }
         }
@@ -286,7 +288,7 @@ func shouldOmitFirstArgLabel(typeName: String, methodName: String, argName: Stri
 /// Returns a hashtable mapping a godot method name to a Swift Name + its definition
 /// this list is used to generate later the proxies outside the class
 ///
-func generateMethods (_ p: Printer,
+@MainActor func generateMethods (_ p: Printer,
                       cdef: JGodotExtensionAPIClass,
                       methods: [JGodotClassMethod],
                       usedMethods: Set<String>,
@@ -304,7 +306,7 @@ func generateMethods (_ p: Printer,
     }
     
     if virtuals.count > 0 {
-        p ("@_spi(SwiftGodotRuntimePrivate) open override class func getVirtualDispatcher(name: StringName) -> GodotVirtualDispatchCallback?"){
+        p ("@_spi(SwiftGodotRuntimePrivate) nonisolated open override class func getVirtualDispatcher(name: StringName) -> GodotVirtualDispatchCallback?"){
             p ("guard implementedOverrides().contains(name) else { return nil }")
             p ("switch name.description") {
                 for name in virtuals.keys.sorted() {
@@ -319,7 +321,7 @@ func generateMethods (_ p: Printer,
     return virtuals
 }
 
-func generateConstants (_ p: Printer,
+@MainActor func generateConstants (_ p: Printer,
                         cdef: JGodotExtensionAPIClass,
                         _ constants: [JGodotValueElement]) {
     p ("/* Constants */")
@@ -329,7 +331,7 @@ func generateConstants (_ p: Printer,
         p ("public static let \(snakeToCamel (constant.name)) = \(constant.value)")
     }
 }
-func generateProperties (_ p: Printer,
+@MainActor func generateProperties (_ p: Printer,
                          cdef: JGodotExtensionAPIClass,
                          _ properties: [JGodotProperty],
                          _ methods: [JGodotClassMethod],
@@ -482,24 +484,20 @@ func generateProperties (_ p: Printer,
 var okList: Set<String> = [ "RefCounted", "Node", "Sprite2D", "Node2D", "CanvasItem", "Object", "String", "StringName", "AStar2D", "Material", "Camera3D", "Node3D", "ProjectSettings", "MeshInstance3D", "BoxMesh", "SceneTree", "Window", "Label", "Timer", "AudioStreamPlayer", "PackedScene", "PathFollow2D", "InputEvent", "ClassDB", "AnimatedSprite2D", "Input", "CollisionShape2D", "SpriteFrames", "RigidBody2D" ]
 var skipList = Set<String>()
 #else
-var okList = Set<String>()
-var skipList = Set<String>()
+nonisolated(unsafe) var okList = Set<String>()
+nonisolated(unsafe) var skipList = Set<String>()
 #endif
 
-func generateClasses (values: [JGodotExtensionAPIClass], outputDir: String?) async {
+@MainActor func generateClasses (values: [JGodotExtensionAPIClass], outputDir: String?) async {
     let filteredClasses = values.filter { shouldGenerateClass($0.name) }
     classesSelectedForGeneration = filteredClasses.map { $0.name }
 
-    await withTaskGroup(of: Void.self) { group in
-        for cdef in filteredClasses {
-            group.addTask {
-                await processClass (cdef: cdef, outputDir: outputDir)
-            }
-        }
+    for cdef in filteredClasses {
+        await processClass(cdef: cdef, outputDir: outputDir)
     }
 }
 
-func generateSignals (_ p: Printer,
+@MainActor func generateSignals (_ p: Printer,
                       cdef: JGodotExtensionAPIClass,
                       signals: [JGodotSignal]) {
     p ("// Signals ")
@@ -533,7 +531,7 @@ func generateSignals (_ p: Printer,
 }
 
 /// Return the type of a signal's parameters.
-func getSignalType(_ signal: JGodotSignal) -> String {
+@MainActor func getSignalType(_ signal: JGodotSignal) -> String {
     var argTypes: [String] = []
     for signalArgument in signal.arguments ?? [] {
         let godotType = getGodotType(signalArgument)        
@@ -551,7 +549,7 @@ func getSignalType(_ signal: JGodotSignal) -> String {
         
 /// Return the names of a signal's parameters,
 /// for use in documenting the corresponding lambda.
-func getSignalLambdaArgs(_ signal: JGodotSignal) -> String {
+@MainActor func getSignalLambdaArgs(_ signal: JGodotSignal) -> String {
     var argNames: [String] = []
     for signalArgument in signal.arguments ?? [] {
         argNames.append(escapeSwift(snakeToCamel(signalArgument.name)))
@@ -560,7 +558,7 @@ func getSignalLambdaArgs(_ signal: JGodotSignal) -> String {
     return argNames.joined(separator: ", ")
 }
 
-func generateSignalDocAppendix (_ p: Printer, cdef: JGodotExtensionAPIClass, signals: [JGodotSignal]?) {
+@MainActor func generateSignalDocAppendix (_ p: Printer, cdef: JGodotExtensionAPIClass, signals: [JGodotSignal]?) {
     guard let signals = signals, signals.count > 0 else {
         return
     }
@@ -577,7 +575,7 @@ func generateSignalDocAppendix (_ p: Printer, cdef: JGodotExtensionAPIClass, sig
 
 let objectInherits = "Wrapped, _GodotBridgeable, _GodotNullableBridgeable"
 
-func processClass (cdef: JGodotExtensionAPIClass, outputDir: String?) async {
+@MainActor func processClass (cdef: JGodotExtensionAPIClass, outputDir: String?) async {
     guard shouldGenerateClass(cdef.name) else {
         return
     }
@@ -625,10 +623,10 @@ func processClass (cdef: JGodotExtensionAPIClass, outputDir: String?) async {
         }
 
         if noStaticCaches {
-            p ("override open class var godotClassName: StringName { \"\(cdef.name)\" }")
+            p ("nonisolated override open class var godotClassName: StringName { \"\(cdef.name)\" }")
         } else {
             p ("private static var className = StringName(\"\(cdef.name)\")")
-            p ("override open class var godotClassName: StringName { className }")
+            p ("nonisolated override open class var godotClassName: StringName { className }")
         }
 
         if cdef.name == "RefCounted" {

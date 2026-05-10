@@ -9,15 +9,15 @@ import Foundation
 import ExtensionApi
 
 @available(macOS 13.0, iOS 16.0, *)
-let rxConstantParam: Regex<(Substring,Substring,Substring)> = try! Regex ("\\[(constant|param) ([\\w\\._@]+)\\]")
+nonisolated(unsafe) let rxConstantParam: Regex<(Substring,Substring,Substring)> = try! Regex ("\\[(constant|param) ([\\w\\._@]+)\\]")
 @available(macOS 13.0, iOS 16.0, *)
-let rxEnumMethodMember: Regex<(Substring,Substring,Substring)> = try! Regex ("\\[(enum|method|member) ([\\w\\.@_/]+)\\]")
+nonisolated(unsafe) let rxEnumMethodMember: Regex<(Substring,Substring,Substring)> = try! Regex ("\\[(enum|method|member) ([\\w\\.@_/]+)\\]")
 @available(macOS 13.0, iOS 16.0, *)
-let rxTypeName: Regex<(Substring, Substring)> = try! Regex ("\\[([A-Z]\\w+)\\]")
+nonisolated(unsafe) let rxTypeName: Regex<(Substring, Substring)> = try! Regex ("\\[([A-Z]\\w+)\\]")
 @available(macOS 13.0, iOS 16.0, *)
-let rxEmptyLeading: Regex<Substring> = try! Regex ("\\s+")
+nonisolated(unsafe) let rxEmptyLeading: Regex<Substring> = try! Regex ("\\s+")
 @available(macOS 13.0, iOS 16.0, *)
-let rxUrl: Regex<(Substring,Substring)> = try! Regex ("\\[url=(.*?)\\]")
+nonisolated(unsafe) let rxUrl: Regex<(Substring,Substring)> = try! Regex ("\\[url=(.*?)\\]")
 
 // If the string contains a ".", it will return a pair
 // with the first element containing all the text up until the last dot
@@ -39,7 +39,7 @@ func splitAtLastDot (str: String.SubSequence) -> (String, String) {
 // [b]..[/b] bold
 // [method name] is a method reference, should apply the remapping we do
 // 
-func doc (_ p: Printer, _ cdef: JClassInfo?, _ text: String?) {
+@MainActor func doc (_ p: Printer, _ cdef: JClassInfo?, _ text: String?) {
     guard let text else { return }
 //    guard ProcessInfo.processInfo.environment ["GENERATE_DOCS"] != nil else {
 //        return

@@ -78,7 +78,7 @@ var targets: [Target] = [
             .product(name: "SwiftParser", package: "swift-syntax"),
             .product(name: "ArgumentParser", package: "swift-argument-parser"),
         ],
-        swiftSettings: [.swiftLanguageMode(.v5)]
+        swiftSettings: [.swiftLanguageMode(.v6)]
     ),
 
     // This contains GDExtension's JSON API data models
@@ -110,7 +110,7 @@ var targets: [Target] = [
         path: "Generator",
         exclude: ["README.md"],
         swiftSettings: [
-            .swiftLanguageMode(.v5)
+            .swiftLanguageMode(.v6)
             // Uncomment for using legacy array-based marshalling
             //.define("LEGACY_MARSHALING")
         ]

@@ -202,7 +202,7 @@ private var structTypes: Set<String> = [
 
 /// - parameter type: A type name as found in `extension_api.json`.
 /// - returns: True if the type is represented in Swift as simple `struct` with fields (or as a built-in Swift type), not wrapping a handle (pointer) to a native Godot object.
-func isStruct(_ type: String) -> Bool { structTypes.contains(type) }
+@MainActor func isStruct(_ type: String) -> Bool { structTypes.contains(type) }
 
 var builtinMap: [String: JGodotBuiltinClass] = [:]
 
@@ -250,7 +250,7 @@ if combineOutput {
 //skipList.insert("OpenXRInterface")
 //#endif
 
-struct Generator {
+@MainActor struct Generator {
     func run() async throws {
         let coreDefPrinter = await PrinterFactory.shared.initPrinter("core-defs", withPreamble: true)
         generateUnsafePointerHelpers(coreDefPrinter)
@@ -274,7 +274,7 @@ struct Generator {
 }
 
 let semaphore = DispatchSemaphore(value: 0)
-let _ = Task {
+let _ = Task { @MainActor in
     let generator = Generator()
     try! await generator.run()
     semaphore.signal()

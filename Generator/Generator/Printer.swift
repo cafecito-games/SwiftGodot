@@ -7,7 +7,7 @@
 
 import Foundation
 
-class Printer {
+class Printer: @unchecked Sendable {
     let name: String
     // Where we accumulate our output for the p/b routines
     var result = ""

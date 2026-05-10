@@ -10,7 +10,7 @@ import ExtensionApi
 
 /// Given an initializer of the form "Vector (0, 1, 0)" returns a proper Swift "Vector (x: 0, y: 1, z: 0)" value
 ///
-func getInitializer (_ bc: JGodotBuiltinClass, _ val: String) -> String? {
+@MainActor func getInitializer (_ bc: JGodotBuiltinClass, _ val: String) -> String? {
     if let pstart = val.firstIndex(of: "("), let pend = val.lastIndex(of: ")"){
         let va = val [val.index(pstart, offsetBy: 1)..<pend]
         let splitArgs: [Substring.SubSequence]
@@ -74,7 +74,7 @@ extension JGodotTypeEnum {
     }
 }
 
-func generateBuiltinConstants (_ p: Printer,
+@MainActor func generateBuiltinConstants (_ p: Printer,
                                _ bc: JGodotBuiltinClass,
                                typeName: String) {
         
@@ -94,7 +94,7 @@ func generateBuiltinConstants (_ p: Printer,
     }
 }
 
-func generateBuiltinCtors (_ p: Printer,
+@MainActor func generateBuiltinCtors (_ p: Printer,
                            _ gip: Printer,
                            _ bc: JGodotBuiltinClass,
                            _ ctors: [JGodotConstructor],
@@ -210,7 +210,7 @@ func generateBuiltinCtors (_ p: Printer,
     }
 }
 
-func generateMethodCall (_ p: Printer,
+@MainActor func generateMethodCall (_ p: Printer,
                          typeName: String,
                          typeGodotInterfaceName: String,
                          methodToCall: String,
@@ -342,7 +342,7 @@ private struct MethodSignature: Hashable, ExpressibleByStringLiteral {
 ///   - operators: the array of operators
 ///   - godotTypeName: the type for which we are generating operators
 ///   - typeName: the type name above, but in Swift
-func generateBuiltinOperators (_ p: Printer,
+@MainActor func generateBuiltinOperators (_ p: Printer,
                                _ gip: Printer,
                                _ bc: JGodotBuiltinClass,
                                typeName: String,
@@ -446,7 +446,7 @@ func generateBuiltinOperators (_ p: Printer,
     
 
 
-func generateBuiltinMethods (_ p: Printer,
+@MainActor func generateBuiltinMethods (_ p: Printer,
                              _ gip: Printer,
                              _ bc: JGodotBuiltinClass,
                              _ methods: [JGodotBuiltinClassMethod],
@@ -603,10 +603,10 @@ enum BKind {
     case isStruct
     case isClass
 }
-var builtinGodotTypeNames: [String:BKind] = ["Variant": .isClass]
-var builtinClassStorage: [String:String] = [:]
+nonisolated(unsafe) var builtinGodotTypeNames: [String:BKind] = ["Variant": .isClass]
+nonisolated(unsafe) var builtinClassStorage: [String:String] = [:]
 
-func generateBuiltinClasses (values: [JGodotBuiltinClass], outputDir: String?) async {
+@MainActor func generateBuiltinClasses (values: [JGodotBuiltinClass], outputDir: String?) async {
     // Always register builtin enum metadata so other stages can resolve enum defaults
     for bc in values {
         if let enums = bc.enums {
@@ -639,7 +639,7 @@ func generateBuiltinClasses (values: [JGodotBuiltinClass], outputDir: String?) a
 
     let filteredValues = values.filter { shouldGenerateBuiltin($0.name) }
 
-    func generateBuiltinClass(p: Printer, _ bc: JGodotBuiltinClass) {
+    @MainActor func generateBuiltinClass(p: Printer, _ bc: JGodotBuiltinClass) {
         // TODO: isKeyed, hasDestrcturo,
         let kind: BKind = builtinGodotTypeNames[bc.name]!
         
@@ -847,7 +847,7 @@ func generateBuiltinClasses (values: [JGodotBuiltinClass], outputDir: String?) a
                 }
             }
            
-            func memberDoc (_ name: String) {
+            @MainActor func memberDoc (_ name: String) {
                 guard let members = bc.members else { return }
                 for m in members {
                     if m.name == name {
