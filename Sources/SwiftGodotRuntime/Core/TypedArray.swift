@@ -99,8 +99,6 @@ public struct TypedArray<Element: _GodotContainerTypingParameter>: CustomDebugSt
     /// - If array could be converted successfully - it returns a typed array containing the same elements.
     /// - If not - it returns an empty typed array.
     /// See: ``VariantArray.init(base:type:className:script:)``
-    @inline(__always)
-    @inlinable
     public init(from array: VariantArray) {
         switch array.typing {
         case .builtin(let gtype):

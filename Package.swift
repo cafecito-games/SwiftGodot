@@ -202,6 +202,7 @@ var targets: [Target] = [
             .define("SWIFTGODOT_WITH_MULTI_PROCESS", .when(traits: [withMultiProcessTrait])),
             .unsafeFlags(
                 [
+                    "-enable-library-evolution",
                     "-suppress-warnings",
                     "-Xfrontend", "-conditional-runtime-records",
                     "-Xfrontend", "-internalize-at-link",
@@ -222,7 +223,7 @@ var targets: [Target] = [
             .swiftLanguageMode(.v5),
             .define("CUSTOM_BUILTIN_IMPLEMENTATIONS"),
             .define("SWIFTGODOT_WITH_MULTI_PROCESS", .when(traits: [withMultiProcessTrait])),
-            .unsafeFlags(["-suppress-warnings"])
+            .unsafeFlags(["-enable-library-evolution", "-suppress-warnings"])
         ],
         plugins: ["CodeGeneratorPlugin"]
     ),

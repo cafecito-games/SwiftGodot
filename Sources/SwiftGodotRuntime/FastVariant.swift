@@ -9,7 +9,7 @@ import GDExtension
 
 /// 24-bytes payload of Godot Variant
 // @usableFromInline
-public struct VariantContent: Equatable {
+@frozen public struct VariantContent: Equatable {
     @inline(__always)
     @usableFromInline
     let w0: UInt64
