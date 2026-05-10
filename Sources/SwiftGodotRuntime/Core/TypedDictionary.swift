@@ -195,10 +195,9 @@ public struct TypedDictionary<Key: _GodotContainerTypingParameter, Value: _Godot
     @inlinable
     public init(from dictionary: VariantDictionary) {
         if Self.isTypingCompatible(with: dictionary) {
-            // wrap the existing storage
-            self.dictionary = dictionary
+            self.init(_wrapping: dictionary)
         } else if Self.supportsNativeTypedDictionary {
-            self.dictionary = VariantDictionary(
+            self.init(_wrapping: VariantDictionary(
                 base: dictionary,
                 keyType: Int32(Key._variantType.rawValue),
                 keyClassName: Key._className,
@@ -206,9 +205,9 @@ public struct TypedDictionary<Key: _GodotContainerTypingParameter, Value: _Godot
                 valueType: Int32(Value._variantType.rawValue),
                 valueClassName: Value._className,
                 valueScript: nil
-            )
+            ))
         } else {
-            self.dictionary = VariantDictionary(from: dictionary)
+            self.init(_wrapping: VariantDictionary(from: dictionary))
         }
     }
     
