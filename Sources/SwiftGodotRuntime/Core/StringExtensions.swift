@@ -1,8 +1,13 @@
 //
 //  File.swift
-//  
+//
 //
 //  Created by Miguel de Icaza on 3/26/23.
+
+// StringName is generated from the Godot API and has `var content` for C interop,
+// preventing automatic Sendable synthesis. Its logical value is immutable after
+// construction, so @unchecked Sendable is correct.
+extension StringName: @unchecked Sendable {}
 //
 
 import GDExtension

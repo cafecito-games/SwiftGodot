@@ -8,7 +8,7 @@
 /// Describes a signal and its arguments.
 /// - note: It is recommended to use the @Signal macro instead of using this directly.
 //@available(*, deprecated, message: "Use the @Signal macro instead.")
-public struct SignalWithNoArguments: @unchecked Sendable {
+public struct SignalWithNoArguments: Sendable {
     public let name: StringName
     public let arguments: [PropInfo] = [] // needed for registration in macro, but always []
     
@@ -20,7 +20,7 @@ public struct SignalWithNoArguments: @unchecked Sendable {
 /// Describes a signal and its arguments.
 /// - note: It is recommended to use the @Signal macro instead of using this directly.
 @available(*, deprecated, message: "Use the @Signal macro instead.")
-public struct SignalWith1Argument<Argument: _GodotBridgeable>: @unchecked Sendable {
+public struct SignalWith1Argument<Argument: _GodotBridgeable>: Sendable {
     public let name: StringName
     public let arguments: [PropInfo]
     
@@ -41,7 +41,7 @@ public struct SignalWith1Argument<Argument: _GodotBridgeable>: @unchecked Sendab
 public struct SignalWith2Arguments<
     Argument1: _GodotBridgeable,
     Argument2: _GodotBridgeable
->: @unchecked Sendable {
+>: Sendable {
     public let name: StringName
     public let arguments: [PropInfo]
     
@@ -65,7 +65,7 @@ public struct SignalWith3Arguments<
     Argument1: _GodotBridgeable,
     Argument2: _GodotBridgeable,
     Argument3: _GodotBridgeable
->: @unchecked Sendable {
+>: Sendable {
     public let name: StringName
     public let arguments: [PropInfo]
 
@@ -92,7 +92,7 @@ public struct SignalWith4Arguments<
     Argument2: _GodotBridgeable,
     Argument3: _GodotBridgeable,
     Argument4: _GodotBridgeable
->: @unchecked Sendable {
+>: Sendable {
     public let name: StringName
     public let arguments: [PropInfo]
 
@@ -122,7 +122,7 @@ public struct SignalWith5Arguments<
     Argument3: _GodotBridgeable,
     Argument4: _GodotBridgeable,
     Argument5: _GodotBridgeable
->: @unchecked Sendable {
+>: Sendable {
     public let name: StringName
     public let arguments: [PropInfo]
 
@@ -155,7 +155,7 @@ public struct SignalWith6Arguments<
     Argument4: _GodotBridgeable,
     Argument5: _GodotBridgeable,
     Argument6: _GodotBridgeable
->: @unchecked Sendable {
+>: Sendable {
     public let name: StringName
     public let arguments: [PropInfo]
 
