@@ -183,7 +183,7 @@ public struct FastVariant: ~Copyable {
     public init(_ from: Object) {
         self.init(payload: from.handle, constructor: Object.variantFromSelf)
     }
-    
+
     /// Initialize ``FastVariant`` by wrapping ``Object?``, fails if it's `nil`
     @inline(__always)
     public init?(_ from: Object?) {
@@ -288,17 +288,13 @@ public struct FastVariant: ~Copyable {
     /// Extract `T: Object` from this ``FastVariant?`` or return nil if unsucessful.
     @inline(__always)
     public func to<T>(_ type: T.Type = T.self) -> T? where T: Object {
-        guard gtype == .object else {
-            return nil
-        }
-
+        guard gtype == .object else { return nil }
         var objectHandle: GodotNativeObjectPointer? = GodotNativeObjectPointer(bitPattern: 1)!
         constructType(into: &objectHandle, constructor: Object.selfFromVariant)
-        guard let objectHandle else {
-            return nil
-        }
-        let ret: T? = getOrInitSwiftObject(nativeHandle: objectHandle, ownership: .borrowed)
-        return ret
+        guard let objectHandle else { return nil }
+        nonisolated(unsafe) var result: T? = nil
+        MainActor.assumeIsolated { result = getOrInitSwiftObject(nativeHandle: objectHandle, ownership: .borrowed) }
+        return result
     }
     
     /// Extract `T` from this ``FastVariant`` or return nil if unsucessful.

@@ -28,11 +28,13 @@
 /// You should use `YourType` instead.
 /// Godot guarantees non-nullability of `SomeType` when used as `Key` or `Value`.
 fileprivate enum TypedDictionaryRuntimeSupport {
-    static let supportsNativeTypedDictionary: Bool = {
-        let versionInfo = Engine.getVersionInfo()
-        let major = Int(versionInfo["major"]) ?? 0
-        let minor = Int(versionInfo["minor"]) ?? 0
-        return major > 4 || (major == 4 && minor >= 4)
+    nonisolated(unsafe) static let supportsNativeTypedDictionary: Bool = {
+        MainActor.assumeIsolated {
+            let versionInfo = Engine.getVersionInfo()
+            let major = Int(versionInfo["major"]) ?? 0
+            let minor = Int(versionInfo["minor"]) ?? 0
+            return major > 4 || (major == 4 && minor >= 4)
+        }
     }()
 }
 

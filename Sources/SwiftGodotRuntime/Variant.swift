@@ -158,7 +158,7 @@ public final class Variant: Hashable, Equatable, CustomDebugStringConvertible, _
     public convenience init(_ from: Object) {
         self.init(payload: from.handle, constructor: Object.variantFromSelf)
     }
-    
+
     /// Initialize ``Variant`` by wrapping ``Object?``, fails if it's `nil`
     public convenience init?(_ from: Object?) {
         guard let from else {
@@ -248,7 +248,7 @@ public final class Variant: Hashable, Equatable, CustomDebugStringConvertible, _
     /// - Parameter type: the desired type eg. `.asObject(Node.self)`
     /// - Returns: nil on error, or the type on success
     @inline(__always)
-    public func asObject<T: Object> (_ type: T.Type = T.self) -> T? {
+    public func asObject<T: Object>(_ type: T.Type = T.self) -> T? {
         guard gtype == .object else {
             return nil
         }
@@ -258,8 +258,9 @@ public final class Variant: Hashable, Equatable, CustomDebugStringConvertible, _
         guard let objectHandle else {
             return nil
         }
-        let ret: T? = getOrInitSwiftObject(nativeHandle: objectHandle, ownership: .borrowed)
-        return ret
+        nonisolated(unsafe) var result: T? = nil
+        MainActor.assumeIsolated { result = getOrInitSwiftObject(nativeHandle: objectHandle, ownership: .borrowed) }
+        return result
     }
     
     public var description: String {

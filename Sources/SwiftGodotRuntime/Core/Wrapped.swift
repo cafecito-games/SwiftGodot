@@ -27,8 +27,14 @@ func pd (_ str: String) {
     print ("SwiftGodot: \(str)")
     #endif
 }
+
+/// Wraps a non-Sendable value for use across Swift 6 concurrency boundaries where safety is
+/// guaranteed by the caller (e.g. Godot C callbacks known to be called on the main thread).
+struct UnsafeSendable<T>: @unchecked Sendable {
+    let value: T
+}
 #if DEBUG_INSTANCES
-var xmap: [UnsafeRawPointer: String] = [:]
+nonisolated(unsafe) var xmap: [UnsafeRawPointer: String] = [:]
 #endif
 
 /// Describes the role of a Swift wrapper.
@@ -148,9 +154,9 @@ public struct InitContext {
 /// If you do not call this method, many of the overloads that Godot would
 /// call you back on will not be invoked.
 @MainActor
-open class Wrapped: Equatable, Identifiable, Hashable {
+open class Wrapped {
     /// Points to the underlying object
-    public var handle: GodotNativeObjectPointer?
+    public nonisolated(unsafe) var handle: GodotNativeObjectPointer?
     
     weak var wrapper: WrappedReference?
     
@@ -161,19 +167,8 @@ open class Wrapped: Equatable, Identifiable, Hashable {
     public static var fcallbacks = OpaquePointer (UnsafeRawPointer (&Wrapped.frameworkTypeBindingCallback))
     public static var ucallbacks = OpaquePointer (UnsafeRawPointer (&Wrapped.userTypeBindingCallback))
     #endif
-    public static var deferred: Callable? = nil
+    nonisolated(unsafe) public static var deferred: Callable? = nil
 
-    /// Conformance to Identifiable by using the native handle to the object
-    public var id: Int { Int (bitPattern: handle) }
-    
-    public static func == (lhs: Wrapped, rhs: Wrapped) -> Bool {
-        return lhs.handle == rhs.handle
-    }
-    
-    public func hash(into hasher: inout Hasher) {
-        hasher.combine(handle)
-    }
-    
     /// This method returns the list of StringNames for methods that the class overwrites, and
     /// is necessary to ensure that Godot knows which methods have been overwritten, and which
     /// ones Godot will provide a default behavior for.
@@ -236,8 +231,8 @@ open class Wrapped: Equatable, Identifiable, Hashable {
             if self is RefCounted {
                 // Godot may already have consumed the final native reference before
                 // the Swift wrapper is torn down, especially for editor-managed resources.
-                if let refCounted = self as? RefCounted, refCounted.getReferenceCount() <= 0 {
-		    print("RefCounted: it was already zero, flagging as deinited.");
+                if let refCounted = self as? RefCounted, MainActor.assumeIsolated({ refCounted.getReferenceCount() <= 0 }) {
+                    print("RefCounted: it was already zero, flagging as deinited.")
                     extensionInterface.objectDeinited(object: self)
                     return
                 }
@@ -405,26 +400,46 @@ open class Wrapped: Equatable, Identifiable, Hashable {
     nonisolated open class var classInitializationLevel: ExtensionInitializationLevel { .scene }
 }
 
+extension Wrapped: Equatable {
+    /// Equality is based on object identity.
+    nonisolated public static func == (lhs: Wrapped, rhs: Wrapped) -> Bool {
+        return lhs === rhs
+    }
+}
+
+extension Wrapped: Hashable {
+    nonisolated public func hash(into hasher: inout Hasher) {
+        hasher.combine(ObjectIdentifier(self))
+    }
+}
+
+extension Wrapped: Identifiable {
+    /// Conformance to Identifiable by using the pointer to the object.
+    nonisolated public var id: Int {
+        Int(bitPattern: Unmanaged.passUnretained(self).toOpaque())
+    }
+}
+
 /// We can't simply extend `Wrapped`, because `convenience init` do not keep polymorphic `Self`.
 public extension _GodotBridgeable where Self: Wrapped {
     /// Initialize a new object.
-    init() {
+    @MainActor init() {
         guard let nativeHandle = gi.classdb_construct_object(&Self.godotClassName.content) else {
             fatalError("SWIFT: It was not possible to construct a \(Self.godotClassName.description)")
         }
-       
+
         self.init(InitContext(handle: nativeHandle, origin: .swift))
     }
-    
+
     /// Delicate API.
     /// Initialize a new object from a raw handle.
-    init(nativeHandle: GodotNativeObjectPointer) {
+    @MainActor init(nativeHandle: GodotNativeObjectPointer) {
         self.init(InitContext(handle: nativeHandle, origin: .swift))
     }
 }
 
 #if SWIFTGODOT_WITH_MULTI_PROCESS
-func bindSwiftObject(_ object: some Wrapped, _ context: InitContext) {
+@MainActor func bindSwiftObject(_ object: some Wrapped, _ context: InitContext) {
     let name = object.self.godotClassName
     let thisTypeName = StringName (stringLiteral: String (describing: Swift.type(of: object)))
     let frameworkType = thisTypeName == name
@@ -463,7 +478,7 @@ func bindSwiftObject(_ object: some Wrapped, _ context: InitContext) {
     }
 }
 #else
-func bindSwiftObject(_ instance: some Wrapped, toGodot handle: GodotNativeObjectPointer) {
+@MainActor func bindSwiftObject(_ instance: some Wrapped, toGodot handle: GodotNativeObjectPointer) {
     let name = instance.self.godotClassName
     let thisTypeName = StringName (stringLiteral: String (describing: Swift.type(of: instance)))
     let frameworkType = thisTypeName == name
@@ -509,10 +524,10 @@ func bindSwiftObject(_ instance: some Wrapped, toGodot handle: GodotNativeObject
 }
 #endif
 
-var userTypes: [String: Object.Type] = [:]
+nonisolated(unsafe) var userTypes: [String: Object.Type] = [:]
 
 @_spi(SwiftGodotRuntimePrivate) public
-var duplicateClassNameDetected: (_ name: StringName, _ type: Object.Type) -> Void = { name, type in
+nonisolated(unsafe) var duplicateClassNameDetected: (_ name: StringName, _ type: Object.Type) -> Void = { name, type in
     preconditionFailure(
                 """
                 Godot already has a class named \(name), so I cannot register \(type) using that name. This is a fatal error because the only way I can tell whether Godot is handing me a pointer to a class I'm responsible for is by checking the class name.
@@ -531,8 +546,13 @@ func register<T: Object>(type name: StringName, parent: StringName, type: T.Type
     }
 
     nonisolated func getVirtual(_ userData: UnsafeMutableRawPointer?, _ name: GDExtensionConstStringNamePtr?) ->  GDExtensionClassCallVirtual? {
-        MainActor.assumeIsolated {
-            let typeAny = Unmanaged<AnyObject>.fromOpaque(userData!).takeUnretainedValue()
+        let userDataInt = userData.map { Int(bitPattern: $0) }
+        let nameInt = name.map { Int(bitPattern: $0) }
+        return MainActor.assumeIsolated {
+            guard let userDataInt else { return nil }
+            let userData = UnsafeMutableRawPointer(bitPattern: userDataInt)!
+            let name = nameInt.flatMap { UnsafeRawPointer(bitPattern: $0) }
+            let typeAny = Unmanaged<AnyObject>.fromOpaque(userData).takeUnretainedValue()
             guard let type  = typeAny as? Object.Type else {
                 pd ("The wrapped value did not contain a type: \(typeAny)")
                 return nil
@@ -705,8 +725,8 @@ public func unregister<T: Object>(type: T.Type) {
 
 /// Currently contains all instantiated objects, but might want to separate those
 /// (or find a way of easily telling appart) framework objects from user subtypes
-var liveFrameworkObjects: [GodotNativeObjectPointer: WrappedReference] = [:]
-var liveSubtypedObjects: [GodotNativeObjectPointer: WrappedReference] = [:]
+nonisolated(unsafe) var liveFrameworkObjects: [GodotNativeObjectPointer: WrappedReference] = [:]
+nonisolated(unsafe) var liveSubtypedObjects: [GodotNativeObjectPointer: WrappedReference] = [:]
 
 public func printSwiftGodotStats() {
     print("User types: \(userTypes.count)")
@@ -716,14 +736,14 @@ public func printSwiftGodotStats() {
 }
 
 // Lock for accessing the above
-var tableLock = NIOLock()
+nonisolated(unsafe) var tableLock = NIOLock()
 
 // Lock for the pending free list
-var freeLock = NIOLock()
+nonisolated(unsafe) var freeLock = NIOLock()
 #if SWIFTGODOT_WITH_MULTI_PROCESS
-var pendingReleaseHandles: [UInt8: [GodotNativeObjectPointer]] = [:]
+nonisolated(unsafe) var pendingReleaseHandles: [UInt8: [GodotNativeObjectPointer]] = [:]
 #else
-var pendingReleaseHandles: [GodotNativeObjectPointer] = []
+nonisolated(unsafe) var pendingReleaseHandles: [GodotNativeObjectPointer] = []
 #endif
 
 private func objectClassName(_ handle: GodotNativeObjectPointer) -> String {
@@ -880,7 +900,7 @@ public enum ReturnedObjectOwnership {
 // - refWrapper: Godot returned an owned Ref<> wrapper that Swift must consume.
 // - godotApiReturn: Godot returned the object through a standard API return slot, so
 //   Swift should adopt that lifetime without adding or consuming another reference.
-func handleReturnedObject<T: Wrapped>(
+@MainActor func handleReturnedObject<T: Wrapped>(
     staticType: T.Type,
     object: Wrapped?,
     ownership: ReturnedObjectOwnership,
@@ -919,7 +939,7 @@ final class ReferenceArray<Element> {
 
 let SwiftGodot_has_instance_binding = "SwiftGodot_has_instance_binding"
 
-public func getOrInitSwiftObject<T: Object>(nativeHandle: GodotNativeObjectPointer, ownership: ReturnedObjectOwnership) -> T? {
+@MainActor public func getOrInitSwiftObject<T: Object>(nativeHandle: GodotNativeObjectPointer, ownership: ReturnedObjectOwnership) -> T? {
     var hasInstanceBinding = Foundation.Thread.current.threadDictionary.object(forKey: SwiftGodot_has_instance_binding) as? ReferenceArray<Bool>
     if hasInstanceBinding == nil {
         hasInstanceBinding = ReferenceArray<Bool>()
@@ -967,7 +987,7 @@ func createSwiftObject(nativeHandle: GodotNativeObjectPointer) -> Object? {
     return nil
 }
 #else
-public func getOrInitSwiftObject<T: Object>(nativeHandle: GodotNativeObjectPointer, ownership: ReturnedObjectOwnership) -> T? {
+@MainActor public func getOrInitSwiftObject<T: Object>(nativeHandle: GodotNativeObjectPointer, ownership: ReturnedObjectOwnership) -> T? {
     if let object = existingSwiftObject(for: nativeHandle) {
         handleReturnedObject(staticType: T.self, object: object, ownership: ownership, isExistingWrapper: true)
         return object as? T
@@ -1026,12 +1046,14 @@ nonisolated func unreferenceFunc(_ userData: UnsafeMutableRawPointer) {
 /// This one is invoked by Godot when an instance of one of our types is created, and we need
 /// to instantiate it.   Notice that this is different that direct instantiation from our API
 nonisolated func createFunc(_ userData: UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer? {
-    MainActor.assumeIsolated {
+    let userDataInt = userData.map { Int(bitPattern: $0) }
+    let handleInt: Int? = MainActor.assumeIsolated {
         //print ("SWIFT: Creating object userData:\(String(describing: userData))")
-        guard let userData else {
+        guard let userDataInt else {
             print ("SwiftGodot.createFunc: Got a nil userData")
             return nil
         }
+        let userData = UnsafeMutableRawPointer(bitPattern: userDataInt)!
 
         let typeAny = Unmanaged<AnyObject>.fromOpaque(userData).takeUnretainedValue()
         guard let type  = typeAny as? Wrapped.Type else {
@@ -1058,21 +1080,26 @@ nonisolated func createFunc(_ userData: UnsafeMutableRawPointer?) -> UnsafeMutab
         wrapper.strongify()
         #endif
 
-        return handle
+        return Int(bitPattern: handle)
     }
+    return handleInt.flatMap { UnsafeMutableRawPointer(bitPattern: $0) }
 }
 
 nonisolated func recreateFunc(_ userData: UnsafeMutableRawPointer?, godotObjectHandle: UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer? {
-    MainActor.assumeIsolated {
+    let userDataInt = userData.map { Int(bitPattern: $0) }
+    let godotObjectHandleInt = godotObjectHandle.map { Int(bitPattern: $0) }
+    let resultInt: Int? = MainActor.assumeIsolated {
         //print ("SWIFT: Recreate object userData:\(String(describing: userData))")
-        guard let userData else {
+        guard let userDataInt else {
             print ("Got a nil userData")
             return nil
         }
+        let userData = UnsafeMutableRawPointer(bitPattern: userDataInt)!
 
-        guard let godotObjectHandle else {
+        guard let godotObjectHandleInt else {
             return nil
         }
+        let godotObjectHandle = UnsafeMutableRawPointer(bitPattern: godotObjectHandleInt)!
 
         let typeAny = Unmanaged<AnyObject>.fromOpaque(userData).takeUnretainedValue()
         guard let type  = typeAny as? Wrapped.Type else {
@@ -1094,34 +1121,29 @@ nonisolated func recreateFunc(_ userData: UnsafeMutableRawPointer?, godotObjectH
         wrapper.strongify()
         #endif
 
-        return godotObjectHandle
+        return Int(bitPattern: godotObjectHandle)
     }
+    return resultInt.flatMap { UnsafeMutableRawPointer(bitPattern: $0) }
 }
 
 //
 // This is invoked to release any Subtyped objects we created
 //
 nonisolated func freeFunc (_ userData: UnsafeMutableRawPointer?, _ objectHandle: UnsafeMutableRawPointer?) {
+    let objectHandleInt = objectHandle.map { Int(bitPattern: $0) }
     MainActor.assumeIsolated {
-//    #if true
-//    // Just needed for debugging
-//    let typeAny = Unmanaged<AnyObject>.fromOpaque(userData!).takeUnretainedValue()
-//    guard let type  = typeAny as? Wrapped.Type else {
-//        print ("SWIFT: FreeFunc wrapped value did not contain a type: \(typeAny)")
-//        return
-//    }
-//    print ("SWIFT: Destroying object, userData: \(typeAny) objectHandle: \(objectHandle)")
-//    #endif
-
-        guard let objectHandle else { return }
+        guard let objectHandleInt else { return }
+        let objectHandle = UnsafeMutableRawPointer(bitPattern: objectHandleInt)!
         // Release the unmanaged reference that was retained in bindGodotInstance()
         Unmanaged<WrappedReference>.fromOpaque(objectHandle).release()
     }
 }
 
 nonisolated func notificationFunc (ptr: UnsafeMutableRawPointer?, code: Int32, reversed: UInt8) {
+    let ptrInt = ptr.map { Int(bitPattern: $0) }
     MainActor.assumeIsolated {
-        guard let ptr else { return }
+        guard let ptrInt else { return }
+        let ptr = UnsafeMutableRawPointer(bitPattern: ptrInt)!
         let original = Unmanaged<WrappedReference>.fromOpaque(ptr).takeUnretainedValue()
         guard let instance = original.value else { return }
         instance._notification(code: Int(code), reversed: reversed != 0)
@@ -1129,11 +1151,15 @@ nonisolated func notificationFunc (ptr: UnsafeMutableRawPointer?, code: Int32, r
 }
 
 nonisolated func validatePropertyFunc(ptr: UnsafeMutableRawPointer?, _info: UnsafeMutablePointer<GDExtensionPropertyInfo>?) -> UInt8 {
-    MainActor.assumeIsolated {
-        guard let ptr else { return 0 }
+    let ptrInt = ptr.map { Int(bitPattern: $0) }
+    let infoInt = _info.map { Int(bitPattern: $0) }
+    return MainActor.assumeIsolated {
+        guard let ptrInt else { return 0 }
+        let ptr = UnsafeMutableRawPointer(bitPattern: ptrInt)!
         let original = Unmanaged<WrappedReference>.fromOpaque(ptr).takeUnretainedValue()
         guard let instance = original.value else { return 0 }
-        guard let info = _info?.pointee else { return 0 }
+        guard let infoPtr = infoInt.flatMap({ UnsafeMutablePointer<GDExtensionPropertyInfo>(bitPattern: $0) }) else { return 0 }
+        let info = infoPtr.pointee
         guard let namePtr = info.name,
               let classNamePtr = info.class_name,
               let infoHintPtr = info.hint_string else {
@@ -1153,9 +1179,9 @@ nonisolated func validatePropertyFunc(ptr: UnsafeMutableRawPointer?, _info: Unsa
             //
             // For now, we just update the usage, type and hint but we need to find a solution for those other fields
             //let native = pinfo.makeNativeStruct()
-            _info?.pointee.usage = UInt32(pinfo.usage.rawValue)
-            _info?.pointee.hint = UInt32(pinfo.hint.rawValue)
-            _info?.pointee.type = GDExtensionVariantType(GDExtensionVariantType.RawValue (pinfo.propertyType.rawValue))
+            infoPtr.pointee.usage = UInt32(pinfo.usage.rawValue)
+            infoPtr.pointee.hint = UInt32(pinfo.hint.rawValue)
+            infoPtr.pointee.type = GDExtensionVariantType(GDExtensionVariantType.RawValue (pinfo.propertyType.rawValue))
 
             return 1
         }
@@ -1167,8 +1193,10 @@ nonisolated func validatePropertyFunc(ptr: UnsafeMutableRawPointer?, _info: Unsa
 // This is invoked to take a reference on the object and ensure our Swift-land object
 // does not go away while the object is in use.
 nonisolated func bindingReference(_ token: UnsafeMutableRawPointer?, _ binding: UnsafeMutableRawPointer?, _ reference: UInt8) -> UInt8 {
-    MainActor.assumeIsolated {
-        guard let binding else { return 0 }
+    let bindingInt = binding.map { Int(bitPattern: $0) }
+    return MainActor.assumeIsolated {
+        guard let bindingInt else { return 0 }
+        let binding = UnsafeMutableRawPointer(bitPattern: bindingInt)!
         let ref = Unmanaged<WrappedReference>.fromOpaque(binding).takeUnretainedValue()
         weak var refCounted = ref.value as? RefCounted
 
@@ -1199,8 +1227,10 @@ nonisolated func bindingReference(_ token: UnsafeMutableRawPointer?, _ binding: 
 }
 
 nonisolated func bindingCreate (_ token: UnsafeMutableRawPointer?, _ instance: UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer? {
-    MainActor.assumeIsolated {
-        guard let instance else { return nil }
+    let instanceInt = instance.map { Int(bitPattern: $0) }
+    let resultInt: Int? = MainActor.assumeIsolated {
+        guard let instanceInt else { return nil }
+        let instance = UnsafeMutableRawPointer(bitPattern: instanceInt)!
         guard let object = createSwiftObject(nativeHandle: instance) else { return nil }
         guard let reference = object.wrapper else {
             fatalError("WrappedReference is not created for object.")
@@ -1222,13 +1252,17 @@ nonisolated func bindingCreate (_ token: UnsafeMutableRawPointer?, _ instance: U
         }
         hasInstanceBinding.items[hasInstanceBinding.items.count - 1] = false
 
-        return Unmanaged<WrappedReference>.passUnretained(reference).toOpaque()
+        return Int(bitPattern: Unmanaged<WrappedReference>.passUnretained(reference).toOpaque())
     }
+    return resultInt.flatMap { UnsafeMutableRawPointer(bitPattern: $0) }
 }
 
 nonisolated func bindingFree (_ token: UnsafeMutableRawPointer?, _ instance: UnsafeMutableRawPointer?, _ binding: UnsafeMutableRawPointer?) {
+    let instanceInt = instance.map { Int(bitPattern: $0) }
+    let bindingInt = binding.map { Int(bitPattern: $0) }
     MainActor.assumeIsolated {
-        guard let binding else { return }
+        guard let bindingInt else { return }
+        let binding = UnsafeMutableRawPointer(bitPattern: bindingInt)!
         let reference = Unmanaged<WrappedReference>.fromOpaque(binding).takeUnretainedValue()
 
         if let obj = reference.value {
@@ -1241,7 +1275,8 @@ nonisolated func bindingFree (_ token: UnsafeMutableRawPointer?, _ instance: Uns
                 removePendingReleaseHandle(handle)
             }
             obj.handle = nil
-        } else if let instance {
+        } else if let instanceInt {
+            let instance = UnsafeMutableRawPointer(bitPattern: instanceInt)!
             tableLock.withLockVoid {
                 if liveFrameworkObjects.removeValue(forKey: instance) == nil {
                     _ = liveSubtypedObjects.removeValue(forKey: instance)
@@ -1261,8 +1296,10 @@ nonisolated func userTypeBindingCreate (_ token: UnsafeMutableRawPointer?, _ ins
 }
 
 nonisolated func userTypeBindingFree (_ token: UnsafeMutableRawPointer?, _ instance: UnsafeMutableRawPointer?, _ binding: UnsafeMutableRawPointer?) {
+    let bindingInt = binding.map { Int(bitPattern: $0) }
     MainActor.assumeIsolated {
-        if let binding {
+        if let bindingInt {
+            let binding = UnsafeMutableRawPointer(bitPattern: bindingInt)!
             let reference = Unmanaged<WrappedReference>.fromOpaque(binding).takeUnretainedValue()
             guard let obj = reference.value else { return }
             let handle = obj.handle
@@ -1290,8 +1327,10 @@ nonisolated func userTypeBindingFree (_ token: UnsafeMutableRawPointer?, _ insta
 // This is invoked to take a reference on the object and ensure our Swift-land object
 // does not go away while the object is in use.
 nonisolated func userTypeBindingReference(_ token: UnsafeMutableRawPointer?, _ binding: UnsafeMutableRawPointer?, _ reference: UInt8) -> UInt8 {
-    MainActor.assumeIsolated {
-        guard let binding else { return 0 }
+    let bindingInt = binding.map { Int(bitPattern: $0) }
+    return MainActor.assumeIsolated {
+        guard let bindingInt else { return 0 }
+        let binding = UnsafeMutableRawPointer(bitPattern: bindingInt)!
         let ref = Unmanaged<WrappedReference>.fromOpaque(binding).takeUnretainedValue()
         weak var refCounted = ref.value as? RefCounted
 
@@ -1322,9 +1361,10 @@ nonisolated func userTypeBindingReference(_ token: UnsafeMutableRawPointer?, _ b
 }
 
 nonisolated func frameworkTypeBindingReference(_ token: UnsafeMutableRawPointer?, _ binding: UnsafeMutableRawPointer?, _ reference: UInt8) -> UInt8 {
-    MainActor.assumeIsolated {
-        guard let binding else { return 0 }
-
+    let bindingInt = binding.map { Int(bitPattern: $0) }
+    return MainActor.assumeIsolated {
+        guard let bindingInt else { return 0 }
+        let binding = UnsafeMutableRawPointer(bitPattern: bindingInt)!
         let ref = Unmanaged<WrappedReference>.fromOpaque(binding).takeUnretainedValue()
         weak var refCounted = ref.value as? RefCounted
         guard let rc = refCounted?.getReferenceCount() else {
@@ -1359,8 +1399,11 @@ nonisolated func frameworkTypeBindingCreate (_ token: UnsafeMutableRawPointer?, 
 }
 
 nonisolated func frameworkTypeBindingFree (_ token: UnsafeMutableRawPointer?, _ instance: UnsafeMutableRawPointer?, _ binding: UnsafeMutableRawPointer?) {
+    let instanceInt = instance.map { Int(bitPattern: $0) }
+    let bindingInt = binding.map { Int(bitPattern: $0) }
     MainActor.assumeIsolated {
-        if let binding {
+        if let bindingInt {
+            let binding = UnsafeMutableRawPointer(bitPattern: bindingInt)!
             let reference = Unmanaged<WrappedReference>.fromOpaque(binding).takeUnretainedValue()
 
             if let obj = reference.value {
@@ -1382,7 +1425,8 @@ nonisolated func frameworkTypeBindingFree (_ token: UnsafeMutableRawPointer?, _ 
                     removePendingReleaseHandle(handle)
                 }
                 obj.handle = nil
-            } else if let instance {
+            } else if let instanceInt {
+                let instance = UnsafeMutableRawPointer(bitPattern: instanceInt)!
                 // For RefCounted objects, the call to `reference.value` will already be nil,
                 // we can just remove the handle.
                 tableLock.withLockVoid {
@@ -1404,8 +1448,16 @@ nonisolated func frameworkTypeBindingFree (_ token: UnsafeMutableRawPointer?, _ 
 /// pointer to Variants, an argument count, and a way of returing an error.
 /// We extract the arguments and call  the CallableWrapper.invoke.
 nonisolated func invokeWrappedCallable(wrapperPtr: UnsafeMutableRawPointer?, pargs: UnsafePointer<UnsafeRawPointer?>?, argc: Int64, retPtr: UnsafeMutableRawPointer?, err: UnsafeMutablePointer<GDExtensionCallError>?) {
+    let wrapperPtrInt = wrapperPtr.map { Int(bitPattern: $0) }
+    let pargsInt = pargs.map { Int(bitPattern: $0) }
+    let retPtrInt = retPtr.map { Int(bitPattern: $0) }
+    let errInt = err.map { Int(bitPattern: $0) }
     MainActor.assumeIsolated {
-        guard let wrapperPtr else { return }
+        guard let wrapperPtrInt else { return }
+        let wrapperPtr = UnsafeMutableRawPointer(bitPattern: wrapperPtrInt)!
+        let pargs = pargsInt.flatMap { UnsafePointer<UnsafeRawPointer?>(bitPattern: $0) }
+        let retPtr = retPtrInt.flatMap { UnsafeMutableRawPointer(bitPattern: $0) }
+        let err = errInt.flatMap { UnsafeMutablePointer<GDExtensionCallError>(bitPattern: $0) }
 
         withArguments(pargs: pargs, argc: argc) { arguments in
             wrapperPtr

@@ -98,11 +98,11 @@ class Printer: @unchecked Sendable {
         if !visibility.isEmpty {
             visibility = "\(visibility) "
         }
-        
+
         if noStaticCaches || !isStored {
             b("\(visibility)static var \(name): \(type)", suffix: "", block: block)
         } else {
-            b("\(visibility)static let \(name): \(type) =", suffix: "()", block: block)
+            b("\(visibility)nonisolated(unsafe) static let \(name): \(type) =", suffix: "()", block: block)
         }
     }
 

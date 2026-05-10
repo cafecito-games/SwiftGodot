@@ -281,7 +281,7 @@ public struct PropInfo: CustomDebugStringConvertible {
     }
 }
 
-func bind_call (_ udata: UnsafeMutableRawPointer?,
+nonisolated func bind_call (_ udata: UnsafeMutableRawPointer?,
                 classInstance: UnsafeMutableRawPointer?,
                 variantArgs: UnsafePointer<UnsafeRawPointer?>?,
                 argc: Int64,
@@ -289,36 +289,44 @@ func bind_call (_ udata: UnsafeMutableRawPointer?,
                 r_error: UnsafeMutablePointer<GDExtensionCallError>?){
     guard let udata else { return }
     guard let classInstance else { return }
-        
-    let finfo = udata.assumingMemoryBound(to: ClassInfo.FunctionInfo.self).pointee
-    let ref = Unmanaged<WrappedReference>.fromOpaque(classInstance).takeUnretainedValue()
-    guard let object = ref.value as? Object else { return }
-    
-    let ret = withArguments(pargs: variantArgs, argc: argc) { arguments in
-        let bound = finfo.function(object)
-        return bound(arguments)
-    }
 
-    if let returnValue, let ret {
-        // If returnValue is not nil and `retType` is ".nil", then it means we are expecting a `Variant` and don't care
-        // which types are stored in it.
-        // See https://github.com/godotengine/godot/issues/67544#issuecomment-1382229216
-        if finfo.retType != .nil && ret.gtype != finfo.retType {
-            print ("Function is expected to return \(String(describing: finfo.retType)), returned \(ret.gtype) instead")
-            if let rError = r_error {
-                rError.pointee.error = GDEXTENSION_CALL_ERROR_INVALID_METHOD
-            }
-            return
+    let finfo = UnsafeSendable(value: udata.assumingMemoryBound(to: ClassInfo.FunctionInfo.self).pointee)
+    let ref = UnsafeSendable(value: Unmanaged<WrappedReference>.fromOpaque(classInstance).takeUnretainedValue())
+    let variantArgsInt = variantArgs.map { Int(bitPattern: $0) }
+    let returnValueInt = returnValue.map { Int(bitPattern: $0) }
+    let rErrorInt = r_error.map { Int(bitPattern: $0) }
+
+    MainActor.assumeIsolated {
+        guard let object = ref.value.value as? Object else { return }
+        let variantArgs = variantArgsInt.flatMap { UnsafePointer<UnsafeRawPointer?>(bitPattern: $0) }
+        let ret = withArguments(pargs: variantArgs, argc: argc) { arguments in
+            let bound = finfo.value.function(object)
+            return bound(arguments)
         }
-        let retContent = returnValue.assumingMemoryBound(to: Variant.ContentType.self)
-        retContent.pointee = ret.content
-        
-        // Since we are giving control to Godot of this variant, we need to make sure that
-        // the destructor does not get invoked here.
-        //
-        // Another instance of the problem fixed here:
-        // 5deb4affbc9cbaa7ca86066cac4a9d87f33e60e6
-        ret.content = Variant.zero
+
+        if let returnValueInt, let ret {
+            let returnValue = UnsafeMutableRawPointer(bitPattern: returnValueInt)!
+            // If returnValue is not nil and `retType` is ".nil", then it means we are expecting a `Variant` and don't care
+            // which types are stored in it.
+            // See https://github.com/godotengine/godot/issues/67544#issuecomment-1382229216
+            if finfo.value.retType != .nil && ret.gtype != finfo.value.retType {
+                print ("Function is expected to return \(String(describing: finfo.value.retType)), returned \(ret.gtype) instead")
+                if let rErrorInt {
+                    let rError = UnsafeMutablePointer<GDExtensionCallError>(bitPattern: rErrorInt)!
+                    rError.pointee.error = GDEXTENSION_CALL_ERROR_INVALID_METHOD
+                }
+                return
+            }
+            let retContent = returnValue.assumingMemoryBound(to: Variant.ContentType.self)
+            retContent.pointee = ret.content
+
+            // Since we are giving control to Godot of this variant, we need to make sure that
+            // the destructor does not get invoked here.
+            //
+            // Another instance of the problem fixed here:
+            // 5deb4affbc9cbaa7ca86066cac4a9d87f33e60e6
+            ret.content = Variant.zero
+        }
     }
 }
 

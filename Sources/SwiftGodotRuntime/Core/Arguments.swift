@@ -405,7 +405,7 @@ public struct Arguments: ~Copyable {
 /// expected to be correct, and they will not be checked.
 ///
 /// You should generally not use this in your code
-public struct RawArguments: Sendable {
+public struct RawArguments: @unchecked Sendable {
     public var args: UnsafePointer<UnsafeRawPointer?>
     public init (args: UnsafePointer<UnsafeRawPointer?>) {
         self.args = args
@@ -456,7 +456,8 @@ public struct RawArguments: Sendable {
             if let value = lookup as? T {
                 return value
             } else {
-                throw ArgumentAccessError.variantConversionError(VariantConversionError.unexpectedContent(requestedType: T.self, actualContent: lookup.godotClassName.description))
+                let className = MainActor.assumeIsolated { lookup.godotClassName.description }
+                throw ArgumentAccessError.variantConversionError(VariantConversionError.unexpectedContent(requestedType: T.self, actualContent: className))
             }
         } else {
             throw ArgumentAccessError.couldNotSurfaceObject
@@ -744,7 +745,7 @@ public struct RawReturnWriter {
         // No return
     }
 
-    public static func writeResult(_ target: UnsafeMutableRawPointer?, _ object: Wrapped?) {
+    @MainActor public static func writeResult(_ target: UnsafeMutableRawPointer?, _ object: Wrapped?) {
         if let object, let handle = object.handle {
             if let rc = object as? RefCounted {
                 rc.reference()

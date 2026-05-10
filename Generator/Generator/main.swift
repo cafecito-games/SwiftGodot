@@ -273,12 +273,11 @@ if combineOutput {
     }
 }
 
-let semaphore = DispatchSemaphore(value: 0)
 let _ = Task { @MainActor in
     let generator = Generator()
     try! await generator.run()
-    semaphore.signal()
+    exit(0)
 }
-semaphore.wait()
+RunLoop.main.run()
 
 //print ("Done")

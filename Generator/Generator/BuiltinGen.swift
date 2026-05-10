@@ -115,11 +115,12 @@ extension JGodotTypeEnum {
             gip("gi.variant_get_ptr_constructor(\(typeEnum), \(m.index))!")
         }
             
+        let hasObjectArg = m.arguments?.contains(where: { $0.type == "Object" }) ?? false
         for arg in m.arguments ?? [] {
             if args != "" { args += ", " }
             args += getArgumentDeclaration(arg, omitLabel: false, kind: .builtInField, isOptional: arg.type == "Variant")
         }
-        
+
         if let desc = m.description, desc != "" {
             doc (p, bc, desc)
         }
@@ -128,8 +129,9 @@ extension JGodotTypeEnum {
                 visibility.append(" required")
             }
         }
-        
-        p ("\(visibility) init(\(args))") {
+
+        let mainActorPrefix = hasObjectArg ? "@MainActor " : ""
+        p ("\(mainActorPrefix)\(visibility) init(\(args))") {
             // Determine if we have a constructors whose sole job is to initialize the members
             // of the struct, in that case, just do that, do not call into Godot.
             if let margs = m.arguments, let members, margs.count == members.count {
@@ -390,7 +392,8 @@ private struct MethodSignature: Hashable, ExpressibleByStringLiteral {
                 p ("@_disfavoredOverload")
             }
 
-            p ("public static func \(swiftOperator)(lhs: \(lhsTypeName), rhs: \(rhsTypeName)) -> \(retType) "){
+            let operatorMainActorPrefix = (right == "Object" || godotTypeName == "Object") ? "@MainActor " : ""
+            p ("\(operatorMainActorPrefix)public static func \(swiftOperator)(lhs: \(lhsTypeName), rhs: \(rhsTypeName)) -> \(retType) "){
                 if customImplementation != nil {
                     p("#if !CUSTOM_BUILTIN_IMPLEMENTATIONS")
                 }

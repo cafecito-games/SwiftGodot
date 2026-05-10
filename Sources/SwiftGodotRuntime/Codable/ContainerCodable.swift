@@ -8,7 +8,7 @@
 
 // MARK: - VariantArray
 
-extension VariantArray: @retroactive Encodable {
+extension VariantArray: Encodable {
     public func encode(to encoder: Encoder) throws {
         var container = encoder.unkeyedContainer()
         for i in 0..<Int(size()) {
@@ -22,7 +22,7 @@ extension VariantArray: @retroactive Encodable {
     }
 }
 
-extension VariantArray: @retroactive Decodable {
+extension VariantArray: Decodable {
     public convenience init(from decoder: Decoder) throws {
         self.init()
         var container = try decoder.unkeyedContainer()
@@ -46,7 +46,7 @@ extension VariantDictionary {
     }
 }
 
-extension VariantDictionary: @retroactive Encodable {
+extension VariantDictionary: Encodable {
     public func encode(to encoder: Encoder) throws {
         let allKeys = keys()
         var container = encoder.unkeyedContainer()
@@ -63,7 +63,7 @@ extension VariantDictionary: @retroactive Encodable {
     }
 }
 
-extension VariantDictionary: @retroactive Decodable {
+extension VariantDictionary: Decodable {
     public convenience init(from decoder: Decoder) throws {
         self.init()
         var container = try decoder.unkeyedContainer()

@@ -59,7 +59,7 @@ public struct SignalWithArguments<each T: _GodotBridgeable> {
     /// }
     /// ```
     @discardableResult
-    public func connect(flags: Object.ConnectFlags = [], _ callback: @escaping (_ t: repeat each T) -> Void) -> Callable {
+    @MainActor public func connect(flags: Object.ConnectFlags = [], _ callback: @escaping (_ t: repeat each T) -> Void) -> Callable {
         let callable = Callable(callback)
         _ = target?.connect(signal: signalName, callable: callable, flags: UInt32(flags.rawValue))
         return callable
@@ -67,13 +67,13 @@ public struct SignalWithArguments<each T: _GodotBridgeable> {
 
     /// Disconnects a signal that was previously connected, the return value from calling
     /// ``connect(flags:_:)``
-    public func disconnect(_ token: Callable) {
+    @MainActor public func disconnect(_ token: Callable) {
         target?.disconnect(signal: signalName, callable: token)
     }
 
     /// Emit the signal (with required arguments, if there are any)
     @discardableResult /* discardable per discardableList: Object, emit_signal */
-    public func emit(_ t: repeat each T) -> GodotError {
+    @MainActor public func emit(_ t: repeat each T) -> GodotError {
         // NOTE:
         // Ideally we should be able to expand the arguments and pass them
         // into a call to the native emitSignal; something like this:
@@ -102,19 +102,21 @@ public struct SignalWithArguments<each T: _GodotBridgeable> {
 
     /// You can await this property to wait for the signal to be emitted once.
     @available(*, deprecated, message: "This is inherently unsafe because if the signal never fires the coroutine state of `async` function leaks, capturing all its context required for next continuation forever, use callbacks instead")
-    public var emitted: Void {
+    @MainActor public var emitted: Void {
         get async {
+            let capturedTarget = target
+            let capturedSignalName = signalName
             await withCheckedContinuation { c in
                 let signalProxy = SignalProxy()
                 signalProxy.proxy = { _ in c.resume() }
                 let callable = Callable(object: signalProxy, method: SignalProxy.proxyName)
-                
-                guard let target else {
+
+                guard let capturedTarget else {
                     c.resume()
                     return
                 }
-                
-                let r = target.connect(signal: signalName, callable: callable, flags: UInt32(Object.ConnectFlags.oneShot.rawValue))
+
+                let r = capturedTarget.connect(signal: capturedSignalName, callable: callable, flags: UInt32(Object.ConnectFlags.oneShot.rawValue))
                 if r != .ok { print("Warning, error connecting to signal, code: \(r)") }
             }
         }

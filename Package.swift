@@ -203,13 +203,12 @@ var targets: [Target] = [
             .define("SWIFTGODOT_WITH_MULTI_PROCESS", .when(traits: [withMultiProcessTrait])),
             .unsafeFlags(
                 [
-                    "-suppress-warnings",
                     "-Xfrontend", "-conditional-runtime-records",
                     "-Xfrontend", "-internalize-at-link",
                     "-Xfrontend", "-lto=llvm-full",
                 ]
             ),
-            .swiftLanguageMode(.v5),
+            .swiftLanguageMode(.v6),
         ],
         plugins: ["CodeGeneratorPlugin", "SwiftGodotMacroLibrary"]
     ),

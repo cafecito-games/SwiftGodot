@@ -89,11 +89,17 @@ import ExtensionApi
         virtRet = nil
     }
     p ("nonisolated func _\(cdef.name)_proxy\(method.name) (instance: UnsafeMutableRawPointer?, args: UnsafePointer<UnsafeRawPointer?>?, retPtr: UnsafeMutableRawPointer?)") {
+        p ("let instanceInt = instance.map { Int(bitPattern: $0) }")
+        p ("let argsInt = args.map { Int(bitPattern: $0) }")
+        p ("let retPtrInt = retPtr.map { Int(bitPattern: $0) }")
         p ("MainActor.assumeIsolated") {
-            p ("guard let instance else { return }")
+            p ("guard let instanceInt else { return }")
+            p ("let instance = UnsafeMutableRawPointer(bitPattern: instanceInt)!")
             if let arguments = method.arguments, arguments.count > 0 {
-                p ("guard let args else { return }")
+                p ("guard let argsInt else { return }")
+                p ("let args = UnsafePointer<UnsafeRawPointer?>(bitPattern: argsInt)!")
             }
+            p ("let retPtr = retPtrInt.flatMap { UnsafeMutableRawPointer(bitPattern: $0) }")
             p ("let reference = Unmanaged<WrappedReference>.fromOpaque(instance).takeUnretainedValue()")
             p ("guard let swiftObject = reference.value as? \(cdef.name) else { return }")
 
@@ -625,7 +631,7 @@ let objectInherits = "Wrapped, _GodotBridgeable, _GodotNullableBridgeable"
         if noStaticCaches {
             p ("nonisolated override open class var godotClassName: StringName { \"\(cdef.name)\" }")
         } else {
-            p ("private static var className = StringName(\"\(cdef.name)\")")
+            p ("nonisolated(unsafe) private static var className = StringName(\"\(cdef.name)\")")
             p ("nonisolated override open class var godotClassName: StringName { className }")
         }
 
@@ -696,60 +702,60 @@ let objectInherits = "Wrapped, _GodotBridgeable, _GodotNullableBridgeable"
             /// Wrap ``\(cdef.name)`` into a ``Variant``
             @inline(__always)
             @inlinable
-            public func toVariant() -> Variant {
-                Variant(self)                
+            nonisolated public func toVariant() -> Variant {
+                Variant(self)
             }
-            
+
             /// Wrap ``\(cdef.name)`` into a ``Variant?``
             @inline(__always)
             @inlinable
             @_disfavoredOverload
-            public func toVariant() -> Variant? {
-                Variant(self)                
+            nonisolated public func toVariant() -> Variant? {
+                Variant(self)
             }
-            
+
             /// Extract ``\(cdef.name)`` from a ``Variant``. Throws `VariantConversionError` if it's not possible.
             @inline(__always)
             @inlinable
-            public static func fromVariantOrThrow(_ variant: Variant) throws(VariantConversionError) -> Self {                
+            nonisolated public static func fromVariantOrThrow(_ variant: Variant) throws(VariantConversionError) -> Self {
                 guard let value = variant.asObject(Self.self) else {
                     throw .unexpectedContent(parsing: self, from: variant)
                 }
-                return value                
+                return value
             }
-            
+
             /// Wrap ``\(cdef.name)`` into a ``FastVariant``
             @inline(__always)
             @inlinable
-            public func toFastVariant() -> FastVariant {
-                FastVariant(self)                
+            nonisolated public func toFastVariant() -> FastVariant {
+                FastVariant(self)
             }
-            
+
             /// Wrap ``\(cdef.name)`` into a ``FastVariant?``
             @inline(__always)
             @inlinable
             @_disfavoredOverload
-            public func toFastVariant() -> FastVariant? {
-                FastVariant(self)                
+            nonisolated public func toFastVariant() -> FastVariant? {
+                FastVariant(self)
             }
-            
+
             /// Extract ``\(cdef.name)`` from a ``FastVariant``. Throws `VariantConversionError` if it's not possible.
             @inline(__always)
             @inlinable
-            public static func fromFastVariantOrThrow(_ variant: borrowing FastVariant) throws(VariantConversionError) -> Self {                
+            nonisolated public static func fromFastVariantOrThrow(_ variant: borrowing FastVariant) throws(VariantConversionError) -> Self {
                 guard let value = variant.to(self) else {
                     throw .unexpectedContent(parsing: self, from: variant)
                 }
-                return value                
+                return value
             }
-            
+
             /// Internal API
-            public func _macroRcRef() {
+            nonisolated public func _macroRcRef() {
                 // no-op, needed for virtual dispatch when RefCounted is stored as Object
             }
-            
+
             /// Internal API
-            public func _macroRcUnref() {
+            nonisolated public func _macroRcUnref() {
                 // no-op, needed for virtual dispatch when RefCounted is stored as Object
             }
             """)
@@ -757,13 +763,13 @@ let objectInherits = "Wrapped, _GodotBridgeable, _GodotNullableBridgeable"
         
         if cdef.name == "RefCounted" {
             p("/// Internal API")
-            p("public final override func _macroRcRef()") {
-                p("reference()")
+            p("nonisolated public final override func _macroRcRef()") {
+                p("MainActor.assumeIsolated { reference() }")
             }
-            
+
             p("/// Internal API")
-            p("public final override func _macroRcUnref()") {
-                p("unreference()")
+            p("nonisolated public final override func _macroRcUnref()") {
+                p("MainActor.assumeIsolated { unreference() }")
             }
         }
         

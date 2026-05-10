@@ -6,7 +6,7 @@
 //
 
 extension Object: CustomStringConvertible {
-    public var description: String {
-        return toString().description
+    nonisolated public var description: String {
+        MainActor.assumeIsolated { toString().description }
     }
 }

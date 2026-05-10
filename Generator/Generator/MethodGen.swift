@@ -702,17 +702,20 @@ typealias CallArgsRef = String
     ]
         .compactMap { $0 }
         .joined(separator: " ")
-    
+
     let argumentsList = signatureArgs.joined(separator: ", ")
-    
+
     let returnClause: String
     if returnType.isEmpty {
         returnClause = ""
     } else {
         returnClause = " -> \(returnType)"
     }
-    
-    p ("\(declarationTokens)(\(argumentsList))\(returnClause)") {
+
+    // Functions that return Object types call getOrInitSwiftObject which is @MainActor
+    let mainActorAttribute = frameworkType ? "@MainActor " : ""
+
+    p ("\(mainActorAttribute)\(declarationTokens)(\(argumentsList))\(returnClause)") {
         if staticAttribute == nil {
             p("if handle == nil { Wrapped.attemptToUseObjectFreedByGodot() }")
         }
