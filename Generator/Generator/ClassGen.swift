@@ -776,12 +776,12 @@ let objectInherits = "Wrapped, _GodotBridgeable, _GodotNullableBridgeable"
         if cdef.name == "RefCounted" {
             p("/// Internal API")
             p("nonisolated public final override func _macroRcRef()") {
-                p("MainActor.assumeIsolated { reference() }")
+                p("_ = MainActor.assumeIsolated { reference() }")
             }
 
             p("/// Internal API")
             p("nonisolated public final override func _macroRcUnref()") {
-                p("MainActor.assumeIsolated { unreference() }")
+                p("_ = MainActor.assumeIsolated { unreference() }")
             }
         }
         

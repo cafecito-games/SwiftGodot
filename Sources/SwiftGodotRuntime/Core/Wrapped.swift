@@ -83,7 +83,7 @@ public struct InitContext {
     /// Creates a new object of the specified className and returns an InitContext that you can
     /// use to call your constructor
     public static func createObject(className: StringName) -> InitContext? {
-        var copy = className
+        let copy = className
         guard let nativeHandle = gi.classdb_construct_object(&copy.content) else {
             return nil
         }
@@ -657,14 +657,14 @@ where T: RawRepresentable & CaseIterable, T.RawValue == Int64 {
         return
     }
 
-    var className = StringName(split[1])
-    var enumName  = StringName(split[2])
+    let className = StringName(split[1])
+    let enumName  = StringName(split[2])
 
     withUnsafePointer(to: &className.content) { classPtr in
         withUnsafePointer(to: &enumName.content) { enumPtr in
             for v in type.allCases {
                 let keyString = String(describing: v)          // e.g. "foo", "bar"
-                var key   = StringName(keyString)
+                let key   = StringName(keyString)
                 let value = v.rawValue                         // Int64
 
                 withUnsafePointer(to: &key.content) { keyPtr in
@@ -691,14 +691,14 @@ where T: RawRepresentable & CaseIterable, T.RawValue == Int {
         return
     }
 
-    var className = StringName(split[1])
-    var enumName  = StringName(split[2])
+    let className = StringName(split[1])
+    let enumName  = StringName(split[2])
 
     withUnsafePointer(to: &className.content) { classPtr in
         withUnsafePointer(to: &enumName.content) { enumPtr in
             for v in type.allCases {
                 let keyString = String(describing: v)          // e.g. "foo", "bar"
-                var key   = StringName(keyString)
+                let key   = StringName(keyString)
                 let value = v.rawValue                         // Int64
 
                 withUnsafePointer(to: &key.content) { keyPtr in
@@ -752,7 +752,7 @@ private func objectClassName(_ handle: GodotNativeObjectPointer) -> String {
     if gi.object_get_class_name(handle, extensionInterface.getLibrary(), &sc) != 0 {
         return String(StringName(content: sc))
     }
-    var result = GString()
+    let result = GString()
     gi.object_method_bind_ptrcall(Object.method_get_class, handle, nil, &result.content)
     return result.description
 }
@@ -1333,7 +1333,7 @@ nonisolated func userTypeBindingReference(_ token: UnsafeMutableRawPointer?, _ b
         guard let bindingInt else { return 0 }
         let binding = UnsafeMutableRawPointer(bitPattern: bindingInt)!
         let ref = Unmanaged<WrappedReference>.fromOpaque(binding).takeUnretainedValue()
-        weak var refCounted = ref.value as? RefCounted
+        let refCounted = ref.value as? RefCounted
 
         guard let rc = refCounted?.getReferenceCount() else {
             // unreference() was called by Wrapped.deinit, so we allow the object to be destroyed.
@@ -1367,7 +1367,7 @@ nonisolated func frameworkTypeBindingReference(_ token: UnsafeMutableRawPointer?
         guard let bindingInt else { return 0 }
         let binding = UnsafeMutableRawPointer(bitPattern: bindingInt)!
         let ref = Unmanaged<WrappedReference>.fromOpaque(binding).takeUnretainedValue()
-        weak var refCounted = ref.value as? RefCounted
+        let refCounted = ref.value as? RefCounted
         guard let rc = refCounted?.getReferenceCount() else {
             // unreference() was called by Wrapper.deinit, so we allow the object to be destroyed.
             return 1
