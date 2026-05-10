@@ -144,6 +144,12 @@ jobs:
             -derivedDataPath "$DERIVED_DATA" \
             -archivePath "$ARCHIVE_PATH" \
             BUILD_LIBRARY_FOR_DISTRIBUTION=YES
+          xcodebuild \
+            -scheme SwiftGodotRuntime \
+            -destination "platform=macOS,arch=x86_64" \
+            -derivedDataPath "$DERIVED_DATA" \
+            -archivePath "$ARCHIVE_PATH" \
+            BUILD_LIBRARY_FOR_DISTRIBUTION=YES
 
       - name: Pack release products
         env:
@@ -226,6 +232,12 @@ jobs:
             -derivedDataPath "$DERIVED_DATA" \
             -archivePath "$ARCHIVE_PATH" \
             BUILD_LIBRARY_FOR_DISTRIBUTION=YES
+          xcodebuild \
+            -scheme SwiftGodotRuntime \
+            -destination "generic/platform=iOS" \
+            -derivedDataPath "$DERIVED_DATA" \
+            -archivePath "$ARCHIVE_PATH" \
+            BUILD_LIBRARY_FOR_DISTRIBUTION=YES
 
       - name: Pack release products
         env:
@@ -304,6 +316,12 @@ jobs:
           cp Package.distribution.swift Package.swift
           xcodebuild \
             -scheme SwiftGodot \
+            -destination "platform=macOS,arch=arm64" \
+            -derivedDataPath "$DERIVED_DATA" \
+            -archivePath "$ARCHIVE_PATH" \
+            BUILD_LIBRARY_FOR_DISTRIBUTION=YES
+          xcodebuild \
+            -scheme SwiftGodotRuntime \
             -destination "platform=macOS,arch=arm64" \
             -derivedDataPath "$DERIVED_DATA" \
             -archivePath "$ARCHIVE_PATH" \

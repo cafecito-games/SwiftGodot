@@ -142,6 +142,13 @@ if [[ -z "${SWIFT_GODOT_SKIP_BUILD:-}" ]]; then
         -archivePath "$archive_path" \
         BUILD_LIBRARY_FOR_DISTRIBUTION=YES \
         > "$build_dir/x86_64.log"
+    xcodebuild \
+        -scheme SwiftGodotRuntime \
+        -destination "platform=macOS,arch=x86_64" \
+        -derivedDataPath "$derived_data" \
+        -archivePath "$archive_path" \
+        BUILD_LIBRARY_FOR_DISTRIBUTION=YES \
+        >> "$build_dir/x86_64.log"
 
     if [[ "$arch" = "arm64" ]]; then
         xcodebuild \
@@ -151,6 +158,13 @@ if [[ -z "${SWIFT_GODOT_SKIP_BUILD:-}" ]]; then
             -archivePath "$archive_path" \
             BUILD_LIBRARY_FOR_DISTRIBUTION=YES \
             > "$build_dir/arm64.log"
+        xcodebuild \
+            -scheme SwiftGodotRuntime \
+            -destination "platform=macOS,arch=arm64" \
+            -derivedDataPath "${derived_data}_arm" \
+            -archivePath "$archive_path" \
+            BUILD_LIBRARY_FOR_DISTRIBUTION=YES \
+            >> "$build_dir/arm64.log"
     fi
 
     xcodebuild \
@@ -160,6 +174,13 @@ if [[ -z "${SWIFT_GODOT_SKIP_BUILD:-}" ]]; then
         -archivePath "$archive_path" \
         BUILD_LIBRARY_FOR_DISTRIBUTION=YES \
         > "$build_dir/ios_arm64.log"
+    xcodebuild \
+        -scheme SwiftGodotRuntime \
+        -destination "generic/platform=iOS" \
+        -derivedDataPath "$derived_data" \
+        -archivePath "$archive_path" \
+        BUILD_LIBRARY_FOR_DISTRIBUTION=YES \
+        >> "$build_dir/ios_arm64.log"
 
     mv Package.swift.original Package.swift
     rm -rf Sources/SwiftGodotRuntime/_generated Sources/SwiftGodot/_generated
