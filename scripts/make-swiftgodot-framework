@@ -1,4 +1,5 @@
-#!/bin/sh
+#!/usr/bin/env bash
+set -euo pipefail
 if test "$2" = ""; then
    echo Usage is: make-swiftgodot-framework ROOT OUTPUT
    echo ROOT is the root directory where Xcode generated your build
@@ -26,7 +27,7 @@ rm -rf "$2"
 bdMac=$1/Build/Products/Debug/
 bdMacArm="$(echo "$1" | rev | cut -c2- | rev)_arm/Build/Products/Debug/"
 bdiOS=$1/Build/Products/Debug-iphoneos/
-mkdir universal
+rm -rf universal && mkdir universal
 cp -af "$bdMac"/PackageFrameworks/SwiftGodot.framework universal/
 if [ "$arch" = "arm64" ]; then
    lipo -create -output ./universal/SwiftGodot.framework/SwiftGodot "$bdMac"/PackageFrameworks/SwiftGodot.framework/SwiftGodot "$bdMacArm"/PackageFrameworks/SwiftGodot.framework/SwiftGodot
@@ -688,7 +689,7 @@ cp "$fd"/Headers/SwiftGodot-Swift.h "$ifd"/Headers/SwiftGodot-Swift.h
 # Create SwiftGodotRuntime.xcframework alongside SwiftGodot.xcframework
 runtime_output=$(dirname "$2")/SwiftGodotRuntime.xcframework
 rm -rf "$runtime_output"
-mkdir universal_runtime
+rm -rf universal_runtime && mkdir universal_runtime
 cp -af "$bdMac"/PackageFrameworks/SwiftGodotRuntime.framework universal_runtime/
 if [ "$arch" = "arm64" ]; then
     lipo -create -output ./universal_runtime/SwiftGodotRuntime.framework/SwiftGodotRuntime \
