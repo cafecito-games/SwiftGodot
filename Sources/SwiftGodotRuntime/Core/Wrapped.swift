@@ -156,7 +156,7 @@ public struct InitContext {
 @MainActor
 open class Wrapped {
     /// Points to the underlying object
-    public nonisolated(unsafe) var handle: GodotNativeObjectPointer?
+    public internal(set) nonisolated(unsafe) var handle: GodotNativeObjectPointer?
     
     weak var wrapper: WrappedReference?
     

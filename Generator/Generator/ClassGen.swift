@@ -706,7 +706,7 @@ let objectInherits = "Wrapped, _GodotBridgeable, _GodotNullableBridgeable"
                 p("gi.get_variant_from_type_constructor(GDEXTENSION_VARIANT_TYPE_OBJECT)!")
             }
             
-            p.staticProperty(isStored: true, name: "selfFromVariant", type: "GDExtensionTypeFromVariantConstructorFunc") {
+            p.staticProperty(visibility: "@usableFromInline", isStored: true, name: "selfFromVariant", type: "GDExtensionTypeFromVariantConstructorFunc") {
                 p("gi.get_variant_to_type_constructor(GDEXTENSION_VARIANT_TYPE_OBJECT)!")
             }
             
@@ -730,7 +730,15 @@ let objectInherits = "Wrapped, _GodotBridgeable, _GodotNullableBridgeable"
             @inline(__always)
             @inlinable
             nonisolated public static func fromVariantOrThrow(_ variant: Variant) throws(VariantConversionError) -> Self {
-                guard let value = variant.asObject(Self.self) else {
+                guard variant.gtype == .object else {
+                    throw .unexpectedContent(parsing: self, from: variant)
+                }
+                var objectHandle: GodotNativeObjectPointer? = GodotNativeObjectPointer(bitPattern: 1)!
+                variant.constructType(into: &objectHandle, constructor: Object.selfFromVariant)
+                guard let objectHandle else {
+                    throw .unexpectedContent(parsing: self, from: variant)
+                }
+                guard let value = MainActor.assumeIsolated({ getOrInitSwiftObject(nativeHandle: objectHandle, ownership: .borrowed) as? Self }) else {
                     throw .unexpectedContent(parsing: self, from: variant)
                 }
                 return value
@@ -755,7 +763,15 @@ let objectInherits = "Wrapped, _GodotBridgeable, _GodotNullableBridgeable"
             @inline(__always)
             @inlinable
             nonisolated public static func fromFastVariantOrThrow(_ variant: borrowing FastVariant) throws(VariantConversionError) -> Self {
-                guard let value = variant.to(self) else {
+                guard variant.gtype == .object else {
+                    throw .unexpectedContent(parsing: self, from: variant)
+                }
+                var objectHandle: GodotNativeObjectPointer? = GodotNativeObjectPointer(bitPattern: 1)!
+                variant.constructType(into: &objectHandle, constructor: Object.selfFromVariant)
+                guard let objectHandle else {
+                    throw .unexpectedContent(parsing: self, from: variant)
+                }
+                guard let value = MainActor.assumeIsolated({ getOrInitSwiftObject(nativeHandle: objectHandle, ownership: .borrowed) as? Self }) else {
                     throw .unexpectedContent(parsing: self, from: variant)
                 }
                 return value

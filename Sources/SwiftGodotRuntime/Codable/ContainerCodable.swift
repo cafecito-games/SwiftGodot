@@ -117,7 +117,7 @@ extension TypedDictionary: Encodable where Key: Encodable, Value: Encodable {
 
 extension TypedDictionary: Decodable where Key: Decodable, Value: Decodable {
     public init(from decoder: Decoder) throws {
-        self.init()
+        self.init(_wrapping: VariantDictionary())
         var container = try decoder.unkeyedContainer()
         while !container.isAtEnd {
             let entryContainer = try container.nestedContainer(keyedBy: TypedDictionaryCodingKeys.self)
