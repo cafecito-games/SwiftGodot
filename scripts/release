@@ -174,14 +174,17 @@ else
     }
 
     require_prebuilt_artifact "$derived_data/Build/Products/Debug/PackageFrameworks/SwiftGodot.framework"
+    require_prebuilt_artifact "$derived_data/Build/Products/Debug/PackageFrameworks/SwiftGodotRuntime.framework"
     require_prebuilt_artifact "$derived_data/Build/Products/Debug/SwiftGodot.swiftmodule"
     require_prebuilt_artifact "$derived_data/Build/Products/Debug/SwiftGodotRuntime.swiftmodule"
     if [[ "$arch" = "arm64" ]]; then
         require_prebuilt_artifact "${derived_data}_arm/Build/Products/Debug/PackageFrameworks/SwiftGodot.framework"
+        require_prebuilt_artifact "${derived_data}_arm/Build/Products/Debug/PackageFrameworks/SwiftGodotRuntime.framework"
         require_prebuilt_artifact "${derived_data}_arm/Build/Products/Debug/SwiftGodot.swiftmodule"
         require_prebuilt_artifact "${derived_data}_arm/Build/Products/Debug/SwiftGodotRuntime.swiftmodule"
     fi
     require_prebuilt_artifact "$derived_data/Build/Products/Debug-iphoneos/PackageFrameworks/SwiftGodot.framework"
+    require_prebuilt_artifact "$derived_data/Build/Products/Debug-iphoneos/PackageFrameworks/SwiftGodotRuntime.framework"
     require_prebuilt_artifact "$derived_data/Build/Products/Debug-iphoneos/SwiftGodot.swiftmodule"
     require_prebuilt_artifact "$derived_data/Build/Products/Debug-iphoneos/SwiftGodotRuntime.swiftmodule"
 fi
@@ -198,7 +201,12 @@ zip_path="$output_dir/SwiftGodot.xcframework.zip"
 checksum=$(swift package compute-checksum "$zip_path")
 asset_url="https://github.com/$source_repo/releases/download/$tag/SwiftGodot.xcframework.zip"
 
-gh release create "$tag" "$zip_path" -R "$source_repo" -F "$release_notes" --target "$commit"
+runtime_zip_path="$output_dir/SwiftGodotRuntime.xcframework.zip"
+(cd "$output_dir"; ditto -c -k --sequesterRsrc --keepParent SwiftGodotRuntime.xcframework SwiftGodotRuntime.xcframework.zip)
+runtime_checksum=$(swift package compute-checksum "$runtime_zip_path")
+runtime_asset_url="https://github.com/$source_repo/releases/download/$tag/SwiftGodotRuntime.xcframework.zip"
+
+gh release create "$tag" "$zip_path" "$runtime_zip_path" -R "$source_repo" -F "$release_notes" --target "$commit"
 
 gdextension_target_dir="$binary_repo_dir/Sources/GDExtension"
 rm -rf "$gdextension_target_dir"
@@ -229,7 +237,7 @@ let package = Package(
     products: [
         .library(
             name: "SwiftGodot",
-            targets: ["SwiftGodot", "GDExtension"]),
+            targets: ["SwiftGodot", "SwiftGodotRuntime", "GDExtension"]),
         .library(
             name: "SwiftGodotMacros",
             targets: ["SwiftGodotMacroLibrary"]),
@@ -242,6 +250,10 @@ let package = Package(
             name: "SwiftGodot",
             url: "$asset_url",
             checksum: "$checksum"),
+        .binaryTarget(
+            name: "SwiftGodotRuntime",
+            url: "$runtime_asset_url",
+            checksum: "$runtime_checksum"),
         .target(
             name: "GDExtension",
             path: "Sources/GDExtension"),
@@ -258,7 +270,7 @@ let package = Package(
             ],
             path: "Sources/SwiftGodotMacroLibrary",
             swiftSettings: [.swiftLanguageMode(.v5)]),
-        .testTarget(name: "SwiftGodotTests", dependencies: ["SwiftGodot", "GDExtension", "SwiftGodotMacroLibrary"]),
+        .testTarget(name: "SwiftGodotTests", dependencies: ["SwiftGodot", "SwiftGodotRuntime", "GDExtension", "SwiftGodotMacroLibrary"]),
     ]
 )
 EOF
