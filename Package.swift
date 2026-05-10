@@ -153,7 +153,7 @@ var targets: [Target] = [
             .product(name: "SwiftParser", package: "swift-syntax"),
             .product(name: "SwiftBasicFormat", package: "swift-syntax"),
         ],
-        swiftSettings: [.swiftLanguageMode(.v5)]
+        swiftSettings: [.swiftLanguageMode(.v6)]
     ),
 
     // Test macro implementations for @SwiftGodotTest and @SwiftGodotTestSuite
@@ -164,7 +164,7 @@ var targets: [Target] = [
             .product(name: "SwiftSyntax", package: "swift-syntax"),
             .product(name: "SwiftCompilerPlugin", package: "swift-syntax"),
         ],
-        swiftSettings: [.swiftLanguageMode(.v5)]
+        swiftSettings: [.swiftLanguageMode(.v6)]
     ),
 
     // Test macro definitions and SwiftGodotTestSuiteProtocol
