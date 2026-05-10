@@ -55,10 +55,10 @@ jobs:
       with:
         xcode-version: "latest-stable"
     - name: Build This Branch
-      run: swift build --target SwiftGodot --scratch-path .build/New
+      run: swift build --target SwiftGodot --scratch-path .build/New -Xswiftc -no-verify-emitted-module-interface
     - name: Checkout Target Branch
       run: git checkout ${{ github.event.pull_request.base.sha }}
     - name: Build Target Branch
-      run: swift build --target SwiftGodot --scratch-path .build/Old
+      run: swift build --target SwiftGodot --scratch-path .build/Old -Xswiftc -no-verify-emitted-module-interface
     - name: Diff generated
       run: diff --recursive --color=auto --minimal .build/New/plugins/outputs/swiftgodot/SwiftGodot/destination/CodeGeneratorPlugin/ .build/Old/plugins/outputs/swiftgodot/SwiftGodot/destination/CodeGeneratorPlugin/ | sed -e 's/diff\(.*\)\/\(.*\).swift/\n\2.swift:/'
