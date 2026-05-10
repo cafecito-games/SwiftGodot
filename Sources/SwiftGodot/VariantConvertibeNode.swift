@@ -29,7 +29,7 @@ public extension _GodotBridgeable where Self: Node {
         return SwiftGodotRuntime.PropInfo(
             propertyType: _variantType,
             propertyName: StringName(name),
-            className: StringName(_builtinOrClassName ?? ""),
+            className: StringName(_builtinOrClassName),
             hint: hint ?? .none,
             hintStr: hintStr.map { GString($0) } ?? GString(),
             usage: usage ?? .default)

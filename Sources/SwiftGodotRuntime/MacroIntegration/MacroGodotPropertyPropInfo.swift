@@ -95,7 +95,7 @@ public func _propInfo<Root, T>(
     )
 }
 
-func makeArrayHint<Element>(_ type: Element.Type) -> String where Element: _GodotContainerTypingParameter {
+@MainActor func makeArrayHint<Element>(_ type: Element.Type) -> String where Element: _GodotContainerTypingParameter {
     let vt = Element._variantType
 
     switch Element._variantType {
@@ -116,7 +116,7 @@ func makeArrayHint<Element>(_ type: Element.Type) -> String where Element: _Godo
     }
 }
 /// Internal API. TypedArray of nullable (usually objects)
-public func _propInfo<Root, Element>(
+@MainActor public func _propInfo<Root, Element>(
     at keyPath: KeyPath<Root, TypedArray<Element?>>,
     name: String,
     userHint: PropertyHint? = nil,
@@ -126,13 +126,13 @@ public func _propInfo<Root, Element>(
     return TypedArray<Element?>._propInfo(
         name: name,
         hint: userHint ?? .arrayType,
-        hintStr: userHintStr ?? makeArrayHint<Element>(Element.self),
+        hintStr: userHintStr ?? makeArrayHint(Element.self),
         usage: userUsage
     )
 }
 
 /// Internal API. TypedArray non-nullablemake
-public func _propInfo<Root, Element>(
+@MainActor public func _propInfo<Root, Element>(
     at keyPath: KeyPath<Root, TypedArray<Element>>,
     name: String,
     userHint: PropertyHint? = nil,
@@ -142,7 +142,7 @@ public func _propInfo<Root, Element>(
     return TypedArray<Element>._propInfo(
         name: name,
         hint: userHint ?? .arrayType,
-        hintStr: userHintStr ?? makeArrayHint<Element>(Element.self),
+        hintStr: userHintStr ?? makeArrayHint(Element.self),
         usage: userUsage,
     )
 }
@@ -169,7 +169,7 @@ public func _propInfo<Root, T>(
 /// Internal API. Object.
 @inline(__always)
 @inlinable
-public func _propInfo<Root, T>(
+@MainActor public func _propInfo<Root, T>(
     at keyPath: KeyPath<Root, T>,
     name: String,
     userHint: PropertyHint? = nil,
@@ -188,7 +188,7 @@ public func _propInfo<Root, T>(
         return PropInfo(
             propertyType: T._variantType,
             propertyName: StringName(name),
-            className: StringName(T._builtinOrClassName ?? ""),
+            className: StringName(T._builtinOrClassName),
             hint: hint ?? .none,
             hintStr: hintStr.map { GString($0) } ?? GString(),
             usage: userUsage ?? .default
@@ -206,7 +206,7 @@ public func _propInfo<Root, T>(
 /// Internal API. Optional Object.
 @inline(__always)
 @inlinable
-public func _propInfo<Root, T>(
+@MainActor public func _propInfo<Root, T>(
     at keyPath: KeyPath<Root, T?>,
     name: String,
     userHint: PropertyHint? = nil,
@@ -225,7 +225,7 @@ public func _propInfo<Root, T>(
         return PropInfo(
             propertyType: T._variantType,
             propertyName: StringName(name),
-            className: StringName(T._builtinOrClassName ?? ""),
+            className: StringName(T._builtinOrClassName),
             hint: hint ?? .none,
             hintStr: hintStr.map { GString($0) } ?? GString(),
             usage: userUsage ?? .default

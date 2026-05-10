@@ -1,9 +1,11 @@
 class Hi: Control {
     override func _hasPoint(_ point: Vector2) -> Bool { false }
 
-    override open class var classInitializer: Void {
+    nonisolated override open class var classInitializer: Void {
         let _ = super.classInitializer
-        return _initializeClass()
+        MainActor.assumeIsolated {
+            _initializeClass()
+        }
     }
 
     private static func _initializeClass() {
@@ -17,7 +19,7 @@ class Hi: Control {
         }
     }
 
-    override open class func implementedOverrides () -> [StringName] {
+    nonisolated override open class func implementedOverrides () -> [StringName] {
         return super.implementedOverrides () + [
             StringName("_has_point"),
         ]

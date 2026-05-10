@@ -89,7 +89,7 @@ class Car: Node {
         return SwiftGodotRuntime._invokeGetter(object.models)
     }
 
-    override open class var classInitializer: Void {
+    nonisolated override open class var classInitializer: Void {
         let _ = super.classInitializer
         return _initializeClass
     }

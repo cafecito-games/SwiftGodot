@@ -8,7 +8,7 @@ import SwiftSyntaxMacros
 
 /// Macro that adds SwiftGodotTestSuiteProtocol conformance and generates allTests property.
 /// Scans the class for methods decorated with @SwiftGodotTest and generates the allTests array.
-public struct SwiftGodotTestSuiteMacro: MemberMacro, ExtensionMacro {
+public struct SwiftGodotTestSuiteMacro: MemberMacro, ExtensionMacro, MemberAttributeMacro {
 
     // MARK: - MemberMacro: Generates allTests property
 
@@ -50,7 +50,7 @@ public struct SwiftGodotTestSuiteMacro: MemberMacro, ExtensionMacro {
         }
 
         let allTestsDecl: DeclSyntax = """
-            var allTests: [SwiftGodotTestInvocation] {
+            @MainActor var allTests: [SwiftGodotTestInvocation] {
                 [
                     \(raw: testEntries)
                 ]
@@ -58,6 +58,28 @@ public struct SwiftGodotTestSuiteMacro: MemberMacro, ExtensionMacro {
             """
 
         return [allTestsDecl]
+    }
+
+    // MARK: - MemberAttributeMacro: Adds @MainActor to @SwiftGodotTest methods
+
+    public static func expansion(
+        of node: AttributeSyntax,
+        attachedTo declaration: some DeclGroupSyntax,
+        providingAttributesFor member: some DeclSyntaxProtocol,
+        in context: some MacroExpansionContext
+    ) throws -> [AttributeSyntax] {
+        guard let funcDecl = member.as(FunctionDeclSyntax.self) else {
+            return []
+        }
+        let hasTestAttribute = funcDecl.attributes.contains { attribute in
+            guard let attr = attribute.as(AttributeSyntax.self),
+                  let identifierType = attr.attributeName.as(IdentifierTypeSyntax.self) else {
+                return false
+            }
+            return identifierType.name.text == "SwiftGodotTest"
+        }
+        guard hasTestAttribute else { return [] }
+        return [AttributeSyntax(attributeName: IdentifierTypeSyntax(name: .identifier("MainActor")))]
     }
 
     // MARK: - ExtensionMacro: Adds protocol conformance

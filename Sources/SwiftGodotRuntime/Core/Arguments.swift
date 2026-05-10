@@ -329,6 +329,13 @@ public struct Arguments: ~Copyable {
     /// - `index` is out of bounds.
     @inline(__always)
     @inlinable
+    @MainActor
+    public func argument<T>(ofType type: T.Type = T.self, at index: Int) throws(ArgumentAccessError) -> T where T: Object {
+        try withBorrowedFastVariant(at: index) { variantOrNil in
+            extract(T.self, from: variantOrNil)
+        }
+    }
+
     public func argument<T>(ofType type: T.Type = T.self, at index: Int) throws(ArgumentAccessError) -> T where T: VariantConvertible {
         try withBorrowedFastVariant(at: index) { variantOrNil in
             extract(T.self, from: variantOrNil)
@@ -405,7 +412,7 @@ public struct Arguments: ~Copyable {
 /// expected to be correct, and they will not be checked.
 ///
 /// You should generally not use this in your code
-public struct RawArguments: Sendable {
+public struct RawArguments: @unchecked Sendable {
     public var args: UnsafePointer<UnsafeRawPointer?>
     public init (args: UnsafePointer<UnsafeRawPointer?>) {
         self.args = args
@@ -456,7 +463,8 @@ public struct RawArguments: Sendable {
             if let value = lookup as? T {
                 return value
             } else {
-                throw ArgumentAccessError.variantConversionError(VariantConversionError.unexpectedContent(requestedType: T.self, actualContent: lookup.godotClassName.description))
+                let className = MainActor.assumeIsolated { lookup.godotClassName.description }
+                throw ArgumentAccessError.variantConversionError(VariantConversionError.unexpectedContent(requestedType: T.self, actualContent: className))
             }
         } else {
             throw ArgumentAccessError.couldNotSurfaceObject
@@ -578,7 +586,7 @@ public struct RawReturnWriter {
     }
 
     public static func writeResult(_ target: UnsafeMutableRawPointer?, _ value: StringName) {
-        var copy = StringName(from: value)
+        let copy = StringName(from: value)
         target!.assumingMemoryBound(to: StringName.ContentType.self).pointee = copy.content
         copy.content = 0
     }
@@ -590,7 +598,7 @@ public struct RawReturnWriter {
     }
 
     public static func writeResult(_ target: UnsafeMutableRawPointer?, _ value: NodePath) {
-        var copy = NodePath(from: value)
+        let copy = NodePath(from: value)
         target!.assumingMemoryBound(to: NodePath.ContentType.self).pointee = copy.content
         copy.content = 0
     }
@@ -600,19 +608,19 @@ public struct RawReturnWriter {
     }
 
     public static func writeResult(_ target: UnsafeMutableRawPointer?, _ value: Callable) {
-        var copy = Callable(from: value)
+        let copy = Callable(from: value)
         target!.assumingMemoryBound(to: Callable.ContentType.self).pointee = copy.content
         copy.content = Callable.zero
     }
 
     public static func writeResult(_ target: UnsafeMutableRawPointer?, _ value: Signal) {
-        var copy = Signal(from: value)
+        let copy = Signal(from: value)
         target!.assumingMemoryBound(to: Signal.ContentType.self).pointee = copy.content
         copy.content = Callable.zero
     }
 
     public static func writeResult(_ target: UnsafeMutableRawPointer?, _ value: Variant) {
-        var copy = Variant(value)
+        let copy = Variant(value)
         target!.assumingMemoryBound(to: Variant.ContentType.self).pointee = copy.content
         copy.content = Variant.zero
     }
@@ -626,7 +634,7 @@ public struct RawReturnWriter {
     }
 
     public static func writeResult(_ target: UnsafeMutableRawPointer?, _ value: VariantDictionary) {
-        var copy = VariantDictionary(from: value)
+        let copy = VariantDictionary(from: value)
         target!.assumingMemoryBound(to: VariantDictionary.ContentType.self).pointee = copy.content
         copy.content = VariantDictionary.zero
     }
@@ -639,7 +647,7 @@ public struct RawReturnWriter {
     }
 
     public static func writeResult(_ target: UnsafeMutableRawPointer?, _ value: VariantArray) {
-        var copy = VariantArray(from: value)
+        let copy = VariantArray(from: value)
         target!.assumingMemoryBound(to: VariantArray.ContentType.self).pointee = copy.content
         copy.content = VariantArray.zero
     }
@@ -656,61 +664,61 @@ public struct RawReturnWriter {
     }
 
     public static func writeResult(_ target: UnsafeMutableRawPointer?, _ value: PackedByteArray) {
-        var copy = PackedByteArray(from: value)
+        let copy = PackedByteArray(from: value)
         target!.assumingMemoryBound(to: PackedByteArray.ContentType.self).pointee = copy.content
         copy.content = PackedByteArray.zero
     }
 
     public static func writeResult(_ target: UnsafeMutableRawPointer?, _ value: PackedInt32Array) {
-        var copy = PackedInt32Array(from: value)
+        let copy = PackedInt32Array(from: value)
         target!.assumingMemoryBound(to: PackedInt32Array.ContentType.self).pointee = copy.content
         copy.content = PackedInt32Array.zero
     }
 
     public static func writeResult(_ target: UnsafeMutableRawPointer?, _ value: PackedInt64Array) {
-        var copy = PackedInt64Array(from: value)
+        let copy = PackedInt64Array(from: value)
         target!.assumingMemoryBound(to: PackedInt64Array.ContentType.self).pointee = copy.content
         copy.content = PackedInt64Array.zero
     }
 
     public static func writeResult(_ target: UnsafeMutableRawPointer?, _ value: PackedFloat32Array) {
-        var copy = PackedFloat32Array(from: value)
+        let copy = PackedFloat32Array(from: value)
         target!.assumingMemoryBound(to: PackedFloat32Array.ContentType.self).pointee = copy.content
         copy.content = PackedFloat32Array.zero
     }
 
     public static func writeResult(_ target: UnsafeMutableRawPointer?, _ value: PackedFloat64Array) {
-        var copy = PackedFloat64Array(from: value)
+        let copy = PackedFloat64Array(from: value)
         target!.assumingMemoryBound(to: PackedFloat64Array.ContentType.self).pointee = copy.content
         copy.content = PackedFloat64Array.zero
     }
 
     public static func writeResult(_ target: UnsafeMutableRawPointer?, _ value: PackedStringArray) {
-        var copy = PackedStringArray(from: value)
+        let copy = PackedStringArray(from: value)
         target!.assumingMemoryBound(to: PackedStringArray.ContentType.self).pointee = copy.content
         copy.content = PackedStringArray.zero
     }
 
     public static func writeResult(_ target: UnsafeMutableRawPointer?, _ value: PackedVector2Array) {
-        var copy = PackedVector2Array(from: value)
+        let copy = PackedVector2Array(from: value)
         target!.assumingMemoryBound(to: PackedVector2Array.ContentType.self).pointee = copy.content
         copy.content = PackedVector2Array.zero
     }
 
     public static func writeResult(_ target: UnsafeMutableRawPointer?, _ value: PackedVector3Array) {
-        var copy = PackedVector3Array(from: value)
+        let copy = PackedVector3Array(from: value)
         target!.assumingMemoryBound(to: PackedVector3Array.ContentType.self).pointee = copy.content
         copy.content = PackedVector3Array.zero
     }
 
     public static func writeResult(_ target: UnsafeMutableRawPointer?, _ value: PackedColorArray) {
-        var copy = PackedColorArray(from: value)
+        let copy = PackedColorArray(from: value)
         target!.assumingMemoryBound(to: PackedColorArray.ContentType.self).pointee = copy.content
         copy.content = PackedColorArray.zero
     }
 
     public static func writeResult(_ target: UnsafeMutableRawPointer?, _ value: PackedVector4Array) {
-        var copy = PackedVector4Array(from: value)
+        let copy = PackedVector4Array(from: value)
         target!.assumingMemoryBound(to: PackedVector4Array.ContentType.self).pointee = copy.content
         copy.content = PackedVector4Array.zero
     }
@@ -744,7 +752,7 @@ public struct RawReturnWriter {
         // No return
     }
 
-    public static func writeResult(_ target: UnsafeMutableRawPointer?, _ object: Wrapped?) {
+    @MainActor public static func writeResult(_ target: UnsafeMutableRawPointer?, _ object: Wrapped?) {
         if let object, let handle = object.handle {
             if let rc = object as? RefCounted {
                 rc.reference()

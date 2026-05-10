@@ -122,7 +122,7 @@ public macro exportSubgroup(_ name: String, prefix: String = "") = #externalMacr
 @freestanding(declaration, names: named(enterExtension))
 public macro initSwiftExtension(cdecl: String,
                                 types: [Wrapped.Type] = [],
-                                enums: [CaseIterable.Type] = [],
+                                enums: [(any CaseIterable).Type] = [],
                                 registerDocs: Bool = false,
                                 hookMethod: ((ExtensionInitializationLevel, Bool)->())? = nil
 ) = #externalMacro(module: "SwiftGodotMacroLibrary",
@@ -162,7 +162,7 @@ public macro initSwiftExtension(
     editorTypes: [Object.Type] = [],
     sceneTypes: [Object.Type] = [],
     serverTypes: [Object.Type] = [],
-    enums: [CaseIterable.Type] = [],
+    enums: [(any CaseIterable).Type] = [],
     registerDocs: Bool = false,
     hookMethod: ((ExtensionInitializationLevel, Bool)->())? = nil,
 ) = #externalMacro(

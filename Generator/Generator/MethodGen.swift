@@ -127,7 +127,7 @@ struct MethodArgument {
     let name: String
     let translation: Translation
     
-    init(from src: JGodotArgument, typeName: String, methodName: String, options: TranslationOptions) throws {
+    @MainActor init(from src: JGodotArgument, typeName: String, methodName: String, options: TranslationOptions) throws {
         func makeError(reason: String) -> MethodGenError {
             MethodGenError.unsupportedArgument(typeName: typeName, methodName: methodName, argumentName: src.name, argumentTypeName: src.type, reason: reason)
         }
@@ -198,7 +198,7 @@ struct MethodArgument {
     }
 }
 
-func preparingArguments(_ p: Printer, arguments: [MethodArgument], body: () -> Void) {
+@MainActor func preparingArguments(_ p: Printer, arguments: [MethodArgument], body: () -> Void) {
     func withNestedUnsafe(index: Int) {
         if index >= arguments.count {
             body()
@@ -242,7 +242,7 @@ func preparingArguments(_ p: Printer, arguments: [MethodArgument], body: () -> V
     withNestedUnsafe(index: 0)
 }
 
-func preparingMandatoryVariadicArguments(_ p: Printer, arguments: [JGodotArgument], body: () -> Void) {
+@MainActor func preparingMandatoryVariadicArguments(_ p: Printer, arguments: [JGodotArgument], body: () -> Void) {
     func temporaryName(from base: String, suffix: String) -> String {
         let trimmed: String
         if base.hasPrefix("`") && base.hasSuffix("`") {
@@ -280,7 +280,7 @@ func preparingMandatoryVariadicArguments(_ p: Printer, arguments: [JGodotArgumen
 
 typealias CallArgsRef = String
 
-func generateMethodCall(_ p: Printer, isVariadic: Bool, arguments: [JGodotArgument], methodArguments: [MethodArgument], call: (CallArgsRef, MarshaledArgumentsCount) -> String) {
+@MainActor func generateMethodCall(_ p: Printer, isVariadic: Bool, arguments: [JGodotArgument], methodArguments: [MethodArgument], call: (CallArgsRef, MarshaledArgumentsCount) -> String) {
     if !isVariadic {
         if methodArguments.isEmpty {
             p(call("nil", .literal(0)))
@@ -373,7 +373,7 @@ func generateMethodCall(_ p: Printer, isVariadic: Bool, arguments: [JGodotArgume
     }
 }
 
-func aggregatingPreparedArguments(_ p: Printer, argumentsCount: Int, body: () -> Void) {
+@MainActor func aggregatingPreparedArguments(_ p: Printer, argumentsCount: Int, body: () -> Void) {
     let argsList = (0..<argumentsCount)
         .map {
             "pArg\($0)"
@@ -409,7 +409,7 @@ func aggregatingPreparedArguments(_ p: Printer, argumentsCount: Int, body: () ->
 ///  - className: the name of the class where this is being generated
 ///  - usedMethods: a set of methods that have been referenced by properties, to determine whether we make this public or private
 /// - Returns: nil, or the method we surfaced that needs to have the virtual supporting infrastructured wired up
-func generateMethod(_ p: Printer, method: MethodDefinition, className: String, cdef: JClassInfo?, usedMethods: Set<String>, generatedMethodKind: GeneratedMethodKind, asSingleton: Bool) throws -> String? {
+@MainActor func generateMethod(_ p: Printer, method: MethodDefinition, className: String, cdef: JClassInfo?, usedMethods: Set<String>, generatedMethodKind: GeneratedMethodKind, asSingleton: Bool) throws -> String? {
     
     let arguments = method.arguments ?? []
     
@@ -554,7 +554,7 @@ func generateMethod(_ p: Printer, method: MethodDefinition, className: String, c
                                 declType = "var"
                             }
                         }
-                        if method.isVirtual {
+                        if method.isVirtual && builtinGodotTypeNames [godotReturnType] != .isClass {
                             declType = "var"
                         }
                         return "\(declType) _result: \(returnType) = \(makeDefaultInit(godotType: godotReturnType))"
@@ -702,17 +702,20 @@ func generateMethod(_ p: Printer, method: MethodDefinition, className: String, c
     ]
         .compactMap { $0 }
         .joined(separator: " ")
-    
+
     let argumentsList = signatureArgs.joined(separator: ", ")
-    
+
     let returnClause: String
     if returnType.isEmpty {
         returnClause = ""
     } else {
         returnClause = " -> \(returnType)"
     }
-    
-    p ("\(declarationTokens)(\(argumentsList))\(returnClause)") {
+
+    // Functions that return Object types call getOrInitSwiftObject which is @MainActor
+    let mainActorAttribute = frameworkType ? "@MainActor " : ""
+
+    p ("\(mainActorAttribute)\(declarationTokens)(\(argumentsList))\(returnClause)") {
         if staticAttribute == nil {
             p("if handle == nil { Wrapped.attemptToUseObjectFreedByGodot() }")
         }

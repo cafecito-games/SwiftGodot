@@ -360,7 +360,7 @@ class GodotEncoder: Encoder {
 final class MemoryLeakTests {
     /// Check that `body` doesn't leak. Or ensure that something is leaking, if `useUnoReverseCard` is true
     @discardableResult
-    func checkLeaks(useUnoReverseCard: Bool = false, _ body: () -> Void) -> Double {
+    @MainActor func checkLeaks(useUnoReverseCard: Bool = false, _ body: () -> Void) -> Double {
         releasePendingObjects()
         let beforeO = Performance.getMonitor(.objectCount)
         let beforeR = Performance.getMonitor(.objectResourceCount)

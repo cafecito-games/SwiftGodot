@@ -2,7 +2,7 @@ import SwiftSyntax
 import SwiftSyntaxBuilder
 
 /// Generate methods to help marshaling arguments to Godot while keeping things civil and on stack
-func generateUnsafePointerHelpers(_ p: Printer) {
+@MainActor func generateUnsafePointerHelpers(_ p: Printer) {
     let maxNestingDepth = 16
     
     for i in 1..<maxNestingDepth {

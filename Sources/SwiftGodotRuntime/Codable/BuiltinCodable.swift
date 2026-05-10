@@ -8,14 +8,14 @@
 
 // MARK: - GString
 
-extension GString: @retroactive Encodable {
+extension GString: Encodable {
     public func encode(to encoder: Encoder) throws {
         var container = encoder.singleValueContainer()
         try container.encode(self.description)
     }
 }
 
-extension GString: @retroactive Decodable {
+extension GString: Decodable {
     public convenience init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
         let string = try container.decode(String.self)
@@ -25,14 +25,14 @@ extension GString: @retroactive Decodable {
 
 // MARK: - StringName
 
-extension StringName: @retroactive Encodable {
+extension StringName: Encodable {
     public func encode(to encoder: Encoder) throws {
         var container = encoder.singleValueContainer()
         try container.encode(self.description)
     }
 }
 
-extension StringName: @retroactive Decodable {
+extension StringName: Decodable {
     public convenience init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
         let string = try container.decode(String.self)
@@ -42,14 +42,14 @@ extension StringName: @retroactive Decodable {
 
 // MARK: - NodePath
 
-extension NodePath: @retroactive Encodable {
+extension NodePath: Encodable {
     public func encode(to encoder: Encoder) throws {
         var container = encoder.singleValueContainer()
         try container.encode(self.description)
     }
 }
 
-extension NodePath: @retroactive Decodable {
+extension NodePath: Decodable {
     public convenience init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
         let string = try container.decode(String.self)
@@ -59,7 +59,7 @@ extension NodePath: @retroactive Decodable {
 
 // MARK: - PackedByteArray
 
-extension PackedByteArray: @retroactive Encodable {
+extension PackedByteArray: Encodable {
     public func encode(to encoder: Encoder) throws {
         var container = encoder.unkeyedContainer()
         for i in 0..<Int(size()) {
@@ -68,7 +68,7 @@ extension PackedByteArray: @retroactive Encodable {
     }
 }
 
-extension PackedByteArray: @retroactive Decodable {
+extension PackedByteArray: Decodable {
     public convenience init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()
         var elements: [UInt8] = []
@@ -81,7 +81,7 @@ extension PackedByteArray: @retroactive Decodable {
 
 // MARK: - PackedInt32Array
 
-extension PackedInt32Array: @retroactive Encodable {
+extension PackedInt32Array: Encodable {
     public func encode(to encoder: Encoder) throws {
         var container = encoder.unkeyedContainer()
         for i in 0..<Int(size()) {
@@ -90,7 +90,7 @@ extension PackedInt32Array: @retroactive Encodable {
     }
 }
 
-extension PackedInt32Array: @retroactive Decodable {
+extension PackedInt32Array: Decodable {
     public convenience init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()
         var elements: [Int32] = []
@@ -103,7 +103,7 @@ extension PackedInt32Array: @retroactive Decodable {
 
 // MARK: - PackedInt64Array
 
-extension PackedInt64Array: @retroactive Encodable {
+extension PackedInt64Array: Encodable {
     public func encode(to encoder: Encoder) throws {
         var container = encoder.unkeyedContainer()
         for i in 0..<Int(size()) {
@@ -112,7 +112,7 @@ extension PackedInt64Array: @retroactive Encodable {
     }
 }
 
-extension PackedInt64Array: @retroactive Decodable {
+extension PackedInt64Array: Decodable {
     public convenience init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()
         var elements: [Int64] = []
@@ -125,7 +125,7 @@ extension PackedInt64Array: @retroactive Decodable {
 
 // MARK: - PackedFloat32Array
 
-extension PackedFloat32Array: @retroactive Encodable {
+extension PackedFloat32Array: Encodable {
     public func encode(to encoder: Encoder) throws {
         var container = encoder.unkeyedContainer()
         for i in 0..<Int(size()) {
@@ -134,7 +134,7 @@ extension PackedFloat32Array: @retroactive Encodable {
     }
 }
 
-extension PackedFloat32Array: @retroactive Decodable {
+extension PackedFloat32Array: Decodable {
     public convenience init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()
         var elements: [Float] = []
@@ -147,7 +147,7 @@ extension PackedFloat32Array: @retroactive Decodable {
 
 // MARK: - PackedFloat64Array
 
-extension PackedFloat64Array: @retroactive Encodable {
+extension PackedFloat64Array: Encodable {
     public func encode(to encoder: Encoder) throws {
         var container = encoder.unkeyedContainer()
         for i in 0..<Int(size()) {
@@ -156,7 +156,7 @@ extension PackedFloat64Array: @retroactive Encodable {
     }
 }
 
-extension PackedFloat64Array: @retroactive Decodable {
+extension PackedFloat64Array: Decodable {
     public convenience init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()
         var elements: [Double] = []
@@ -169,7 +169,7 @@ extension PackedFloat64Array: @retroactive Decodable {
 
 // MARK: - PackedStringArray
 
-extension PackedStringArray: @retroactive Encodable {
+extension PackedStringArray: Encodable {
     public func encode(to encoder: Encoder) throws {
         var container = encoder.unkeyedContainer()
         for i in 0..<Int(size()) {
@@ -178,7 +178,7 @@ extension PackedStringArray: @retroactive Encodable {
     }
 }
 
-extension PackedStringArray: @retroactive Decodable {
+extension PackedStringArray: Decodable {
     public convenience init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()
         var elements: [String] = []
@@ -191,7 +191,7 @@ extension PackedStringArray: @retroactive Decodable {
 
 // MARK: - PackedVector2Array
 
-extension PackedVector2Array: @retroactive Encodable {
+extension PackedVector2Array: Encodable {
     public func encode(to encoder: Encoder) throws {
         var container = encoder.unkeyedContainer()
         for i in 0..<Int(size()) {
@@ -200,7 +200,7 @@ extension PackedVector2Array: @retroactive Encodable {
     }
 }
 
-extension PackedVector2Array: @retroactive Decodable {
+extension PackedVector2Array: Decodable {
     public convenience init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()
         var elements: [Vector2] = []
@@ -213,7 +213,7 @@ extension PackedVector2Array: @retroactive Decodable {
 
 // MARK: - PackedVector3Array
 
-extension PackedVector3Array: @retroactive Encodable {
+extension PackedVector3Array: Encodable {
     public func encode(to encoder: Encoder) throws {
         var container = encoder.unkeyedContainer()
         for i in 0..<Int(size()) {
@@ -222,7 +222,7 @@ extension PackedVector3Array: @retroactive Encodable {
     }
 }
 
-extension PackedVector3Array: @retroactive Decodable {
+extension PackedVector3Array: Decodable {
     public convenience init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()
         var elements: [Vector3] = []
@@ -235,7 +235,7 @@ extension PackedVector3Array: @retroactive Decodable {
 
 // MARK: - PackedColorArray
 
-extension PackedColorArray: @retroactive Encodable {
+extension PackedColorArray: Encodable {
     public func encode(to encoder: Encoder) throws {
         var container = encoder.unkeyedContainer()
         for i in 0..<Int(size()) {
@@ -244,7 +244,7 @@ extension PackedColorArray: @retroactive Encodable {
     }
 }
 
-extension PackedColorArray: @retroactive Decodable {
+extension PackedColorArray: Decodable {
     public convenience init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()
         var elements: [Color] = []
@@ -257,7 +257,7 @@ extension PackedColorArray: @retroactive Decodable {
 
 // MARK: - PackedVector4Array
 
-extension PackedVector4Array: @retroactive Encodable {
+extension PackedVector4Array: Encodable {
     public func encode(to encoder: Encoder) throws {
         var container = encoder.unkeyedContainer()
         for i in 0..<Int(size()) {
@@ -266,7 +266,7 @@ extension PackedVector4Array: @retroactive Encodable {
     }
 }
 
-extension PackedVector4Array: @retroactive Decodable {
+extension PackedVector4Array: Decodable {
     public convenience init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()
         var elements: [Vector4] = []

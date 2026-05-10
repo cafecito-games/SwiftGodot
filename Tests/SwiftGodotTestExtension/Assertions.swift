@@ -10,6 +10,7 @@ import SwiftGodot
 // MARK: - Core Assertions
 
 /// Assert that a condition is true
+@MainActor
 public func assertTrue(
     _ condition: Bool,
     _ message: String = "",
@@ -26,6 +27,7 @@ public func assertTrue(
 }
 
 /// Assert that a condition is false
+@MainActor
 public func assertFalse(
     _ condition: Bool,
     _ message: String = "",
@@ -36,6 +38,7 @@ public func assertFalse(
 }
 
 /// Assert that two values are equal
+@MainActor
 public func assertEqual<T: Equatable>(
     _ a: T?,
     _ b: T?,
@@ -53,6 +56,7 @@ public func assertEqual<T: Equatable>(
 }
 
 /// Assert that two values are not equal
+@MainActor
 public func assertNotEqual<T: Equatable>(
     _ a: T?,
     _ b: T?,
@@ -70,6 +74,7 @@ public func assertNotEqual<T: Equatable>(
 }
 
 /// Assert that a value is nil
+@MainActor
 public func assertNil<T>(
     _ value: T?,
     _ message: String = "",
@@ -86,6 +91,7 @@ public func assertNil<T>(
 }
 
 /// Assert that a value is not nil
+@MainActor
 public func assertNotNil<T>(
     _ value: T?,
     _ message: String = "",
@@ -102,6 +108,7 @@ public func assertNotNil<T>(
 }
 
 /// Unconditionally fail the test
+@MainActor
 public func fail(
     _ message: String = "Test failed",
     file: StaticString = #file,
@@ -115,6 +122,7 @@ public func fail(
 }
 
 /// Assert that a value is greater than another
+@MainActor
 public func assertGreaterThan<T: Comparable>(
     _ a: T,
     _ b: T,
@@ -132,6 +140,7 @@ public func assertGreaterThan<T: Comparable>(
 }
 
 /// Assert that a value is greater than or equal to another
+@MainActor
 public func assertGreaterThanOrEqual<T: Comparable>(
     _ a: T,
     _ b: T,
@@ -149,6 +158,7 @@ public func assertGreaterThanOrEqual<T: Comparable>(
 }
 
 /// Assert that a value is less than another
+@MainActor
 public func assertLessThan<T: Comparable>(
     _ a: T,
     _ b: T,
@@ -166,6 +176,7 @@ public func assertLessThan<T: Comparable>(
 }
 
 /// Assert that a value is less than or equal to another
+@MainActor
 public func assertLessThanOrEqual<T: Comparable>(
     _ a: T,
     _ b: T,
@@ -185,6 +196,7 @@ public func assertLessThanOrEqual<T: Comparable>(
 // MARK: - Approximate Equality (for floating point)
 
 /// Asserts approximate equality of two floating point values based on Godot's `Math::is_equal_approx`
+@MainActor
 public func assertApproxEqual<T: FloatingPoint & ExpressibleByFloatLiteral>(
     _ a: T?,
     _ b: T?,
@@ -213,6 +225,7 @@ public func assertApproxEqual<T: FloatingPoint & ExpressibleByFloatLiteral>(
 }
 
 /// Asserts approximate equality of two Vector2 by comparing each component
+@MainActor
 public func assertApproxEqual(
     _ a: Vector2?,
     _ b: Vector2?,
@@ -229,6 +242,7 @@ public func assertApproxEqual(
 }
 
 /// Asserts approximate equality of two Vector3 by comparing each component
+@MainActor
 public func assertApproxEqual(
     _ a: Vector3?,
     _ b: Vector3?,
@@ -246,6 +260,7 @@ public func assertApproxEqual(
 }
 
 /// Asserts approximate equality of two Vector4 by comparing each component
+@MainActor
 public func assertApproxEqual(
     _ a: Vector4?,
     _ b: Vector4?,
@@ -264,6 +279,7 @@ public func assertApproxEqual(
 }
 
 /// Asserts approximate equality of two Quaternion by comparing each component
+@MainActor
 public func assertApproxEqual(
     _ a: Quaternion?,
     _ b: Quaternion?,
@@ -282,6 +298,7 @@ public func assertApproxEqual(
 }
 
 /// Asserts approximate equality of two Color by comparing each component
+@MainActor
 public func assertApproxEqual(
     _ a: Color?,
     _ b: Color?,
@@ -302,6 +319,7 @@ public func assertApproxEqual(
 // MARK: - XCTest Compatibility Aliases
 
 /// XCTest compatibility alias for assertTrue
+@MainActor
 public func XCTAssertTrue(
     _ condition: Bool,
     _ message: String = "",
@@ -312,6 +330,7 @@ public func XCTAssertTrue(
 }
 
 /// XCTest compatibility alias for assertFalse
+@MainActor
 public func XCTAssertFalse(
     _ condition: Bool,
     _ message: String = "",
@@ -322,6 +341,7 @@ public func XCTAssertFalse(
 }
 
 /// XCTest compatibility alias for assertEqual
+@MainActor
 public func XCTAssertEqual<T: Equatable>(
     _ a: T?,
     _ b: T?,
@@ -333,6 +353,7 @@ public func XCTAssertEqual<T: Equatable>(
 }
 
 /// XCTest compatibility alias for assertNotEqual
+@MainActor
 public func XCTAssertNotEqual<T: Equatable>(
     _ a: T?,
     _ b: T?,
@@ -344,6 +365,7 @@ public func XCTAssertNotEqual<T: Equatable>(
 }
 
 /// XCTest compatibility alias for assertNil
+@MainActor
 public func XCTAssertNil<T>(
     _ value: T?,
     _ message: String = "",
@@ -354,6 +376,7 @@ public func XCTAssertNil<T>(
 }
 
 /// XCTest compatibility alias for assertNotNil
+@MainActor
 public func XCTAssertNotNil<T>(
     _ value: T?,
     _ message: String = "",
@@ -364,6 +387,7 @@ public func XCTAssertNotNil<T>(
 }
 
 /// XCTest compatibility alias for fail
+@MainActor
 public func XCTFail(
     _ message: String = "Test failed",
     file: StaticString = #file,
@@ -373,6 +397,7 @@ public func XCTFail(
 }
 
 /// XCTest compatibility alias for assertGreaterThan
+@MainActor
 public func XCTAssertGreaterThan<T: Comparable>(
     _ a: T,
     _ b: T,
@@ -384,6 +409,7 @@ public func XCTAssertGreaterThan<T: Comparable>(
 }
 
 /// XCTest compatibility alias for assertGreaterThanOrEqual
+@MainActor
 public func XCTAssertGreaterThanOrEqual<T: Comparable>(
     _ a: T,
     _ b: T,
@@ -395,6 +421,7 @@ public func XCTAssertGreaterThanOrEqual<T: Comparable>(
 }
 
 /// XCTest compatibility alias for assertLessThan
+@MainActor
 public func XCTAssertLessThan<T: Comparable>(
     _ a: T,
     _ b: T,
@@ -406,6 +433,7 @@ public func XCTAssertLessThan<T: Comparable>(
 }
 
 /// XCTest compatibility alias for assertLessThanOrEqual
+@MainActor
 public func XCTAssertLessThanOrEqual<T: Comparable>(
     _ a: T,
     _ b: T,
@@ -417,6 +445,7 @@ public func XCTAssertLessThanOrEqual<T: Comparable>(
 }
 
 /// XCTest compatibility alias for assertTrue (XCTAssert is just XCTAssertTrue)
+@MainActor
 public func XCTAssert(
     _ condition: Bool,
     _ message: String = "",
@@ -427,6 +456,7 @@ public func XCTAssert(
 }
 
 /// XCTest compatibility - assertEqual with accuracy for floating point
+@MainActor
 public func XCTAssertEqual<T: FloatingPoint>(
     _ a: T,
     _ b: T,
@@ -446,6 +476,7 @@ public func XCTAssertEqual<T: FloatingPoint>(
 }
 
 /// XCTest compatibility - unwrap optional or fail
+@MainActor
 public func XCTUnwrap<T>(
     _ value: T?,
     _ message: String = "",

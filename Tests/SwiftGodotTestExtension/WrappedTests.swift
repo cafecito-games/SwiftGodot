@@ -54,7 +54,7 @@ class SubtypedNode: Node { }
 final class ReferenceChecker {
     weak var reference: AnyObject?
 
-    func assertDisposed (file: StaticString = #file, line: UInt = #line) {
+    @MainActor func assertDisposed (file: StaticString = #file, line: UInt = #line) {
         XCTAssertTrue (reference == nil, "Object was not disposed", file: file, line: line)
     }
 }

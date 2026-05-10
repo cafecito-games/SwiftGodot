@@ -52,6 +52,7 @@ public macro SwiftGodotTest() = #externalMacro(
 /// ```
 @attached(member, names: named(allTests))
 @attached(extension, conformances: SwiftGodotTestSuiteProtocol)
+@attached(memberAttribute)
 public macro SwiftGodotTestSuite() = #externalMacro(
     module: "SwiftGodotTestMacrosLibrary",
     type: "SwiftGodotTestSuiteMacro"

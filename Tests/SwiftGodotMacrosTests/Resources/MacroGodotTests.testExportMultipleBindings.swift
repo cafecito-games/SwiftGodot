@@ -1,7 +1,7 @@
 class Hi: Node {
     var one: String = "one", two: Int = 20, three: Int = 50 
 
-    override open class var classInitializer: Void {
+    nonisolated override open class var classInitializer: Void {
         let _ = super.classInitializer
         return _initializeClass
     }

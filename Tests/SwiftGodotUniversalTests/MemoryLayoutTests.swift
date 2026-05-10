@@ -13,7 +13,8 @@ import ExtensionApiJson
 final class MemoryLayoutTests: XCTestCase {
     
     private let buildConfiguration: String = "float_64"
-    private static var metadata: ExtensionMetadata?
+    // XCTest runs tests serially by default; nonisolated(unsafe) is safe here.
+    private nonisolated(unsafe) static var metadata: ExtensionMetadata?
     
     func testAABB () throws {
         let checker = try prepareMemoryChecker (for: AABB.self)
@@ -210,11 +211,11 @@ private extension MemoryLayoutTests {
             self.size = MemoryLayout<T>.size
         }
         
-        func assertSize (file: StaticString = #file, line: UInt = #line) {
+        func assertSize (file: StaticString = #filePath, line: UInt = #line) {
             XCTAssertEqual (size, sizeMetadata.size, "Memory layout doesn't match extected size", file: file, line: line)
         }
         
-        func assert<V> (keyPath: KeyPath<T, V>, member: String? = nil, file: StaticString = #file, line: UInt = #line) {
+        func assert<V> (keyPath: KeyPath<T, V>, member: String? = nil, file: StaticString = #filePath, line: UInt = #line) {
             guard let layoutOffset = MemoryLayout<T>.offset (of: keyPath) else {
                 XCTFail ("\(keyPath) has no memory footprint", file: file, line: line)
                 return
@@ -234,7 +235,7 @@ private extension MemoryLayoutTests {
             checkedSize += MemoryLayout<V>.size
         }
         
-        func assertCheck (file: StaticString = #file, line: UInt = #line) {
+        func assertCheck (file: StaticString = #filePath, line: UInt = #line) {
             XCTAssertEqual (checkedSize, size, "Memory footprint wasn't checked entirely", file: file, line: line)
             let uncheckedMembers = offsetMetadata.members.map({ $0.member }).filter({ !checkedMembers.contains($0) })
             XCTAssertEqual(uncheckedMembers, [], "Not all members were checked", file: file, line: line)

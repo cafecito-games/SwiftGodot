@@ -104,7 +104,7 @@ class LibGodotExtensionInterface: ExtensionInterface {
 }
 
 /// The pointer to the Godot Extension Interface
-var extensionInterface: ExtensionInterface!
+nonisolated(unsafe) var extensionInterface: ExtensionInterface!
 
 public func swiftGodotShouldInitializeClass(type: AnyClass) -> Bool {
     extensionInterface.initClass(type: type)
@@ -112,10 +112,10 @@ public func swiftGodotShouldInitializeClass(type: AnyClass) -> Bool {
 
 /// This variable is used to trigger a reloading of the method definitions in Godot, this is only needed
 /// for scenarios where SwiftGodot is being used with multiple active Godot runtimes in the same process
-public var swiftGodotLibraryGeneration: UInt16 = 0
+public nonisolated(unsafe) var swiftGodotLibraryGeneration: UInt16 = 0
 
-var extensionInitCallbacks: [OpaquePointer: ((ExtensionInitializationLevel) -> Void)] = [:]
-var extensionDeInitCallbacks: [OpaquePointer: ((ExtensionInitializationLevel) -> Void)] = [:]
+nonisolated(unsafe) var extensionInitCallbacks: [OpaquePointer: ((ExtensionInitializationLevel) -> Void)] = [:]
+nonisolated(unsafe) var extensionDeInitCallbacks: [OpaquePointer: ((ExtensionInitializationLevel) -> Void)] = [:]
 
 func loadFunctions(loader: GDExtensionInterfaceGetProcAddress) {
 
@@ -338,7 +338,7 @@ func toCallErrorType(_ godotCallError: GDExtensionCallErrorType) -> CallErrorTyp
     public let editor_help_load_xml_from_utf8_chars_and_len: GDExtensionsInterfaceEditorHelpLoadXmlFromUtf8CharsAndLen?
 }
 
-@_spi(SwiftGodotRuntimePrivate) public var gi: GodotInterface!
+@_spi(SwiftGodotRuntimePrivate) public nonisolated(unsafe) var gi: GodotInterface!
 
 func loadGodotInterface(_ godotGetProcAddrPtr: GDExtensionInterfaceGetProcAddress) {
 

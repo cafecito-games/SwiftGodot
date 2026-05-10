@@ -20,7 +20,7 @@ class SomeNode: Node {
         return nil
     }
 
-    override open class var classInitializer: Void {
+    nonisolated override open class var classInitializer: Void {
         let _ = super.classInitializer
         return _initializeClass
     }

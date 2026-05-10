@@ -34,14 +34,14 @@ public func _wrapCallableResult<T>(_ value: T) -> FastVariant? where T: RawRepre
 /// Internal API. Object.
 @inline(__always)
 @inlinable
-public func _wrapCallableResult<T>(_ value: T) -> FastVariant? where T: Object {
+@MainActor public func _wrapCallableResult<T>(_ value: T) -> FastVariant? where T: Object {
     value.toFastVariant()
 }
 
 /// Internal API. Object?.
 @inline(__always)
 @inlinable
-public func _wrapCallableResult<T>(_ value: T?) -> FastVariant? where T: Object {
+@MainActor public func _wrapCallableResult<T>(_ value: T?) -> FastVariant? where T: Object {
     value.toFastVariant()
 }
 

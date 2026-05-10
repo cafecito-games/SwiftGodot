@@ -41,7 +41,7 @@ public class EditorInterop {
 
     /// Adds the Godot XML documentation to the editor at runtime
     public static func loadHelp(xmlString: String) {
-        GD.print("Loading from \(getLibraryPath())")
+        GD.print("Loading from \(getLibraryPath() ?? "nil")")
         loadHelp(xmlBytes: Array(xmlString.utf8))
     }
 

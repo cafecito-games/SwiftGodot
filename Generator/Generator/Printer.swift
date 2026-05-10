@@ -7,7 +7,7 @@
 
 import Foundation
 
-class Printer {
+class Printer: @unchecked Sendable {
     let name: String
     // Where we accumulate our output for the p/b routines
     var result = ""
@@ -98,11 +98,11 @@ class Printer {
         if !visibility.isEmpty {
             visibility = "\(visibility) "
         }
-        
+
         if noStaticCaches || !isStored {
             b("\(visibility)static var \(name): \(type)", suffix: "", block: block)
         } else {
-            b("\(visibility)static let \(name): \(type) =", suffix: "()", block: block)
+            b("\(visibility)nonisolated(unsafe) static let \(name): \(type) =", suffix: "()", block: block)
         }
     }
 

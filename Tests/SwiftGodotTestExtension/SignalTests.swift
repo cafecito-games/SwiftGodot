@@ -3,11 +3,11 @@
 
 @Godot
 private class TestSignalNode: Node {
-    #signal("mySignal", arguments: ["age": Int.self, "name": String.self])
+    @Signal var mySignal: SignalWithArguments<Int, String>
     @Signal var nuSignal: SignalWithArguments<Int, String>
     var receivedInt: Int? = nil
     var receivedString: String? = nil
-    
+
     @Callable func receiveSignal (_ age: Int, name: String) {
         receivedInt = age
         receivedString = name
@@ -30,8 +30,11 @@ final class SignalTests {
         let node = TestSignalNode()
         defer { freeOrphanNode(node) }
 
-        node.connect (signal: TestSignalNode.mySignal, to: node, method: "receiveSignal")
-        node.emit (signal: TestSignalNode.mySignal, 22, "Joey")
+        node.mySignal.connect { age, name in
+            node.receivedInt = age
+            node.receivedString = name
+        }
+        node.mySignal.emit(22, "Joey")
 
         XCTAssertEqual (node.receivedInt, 22, "Integers should have been the same")
         XCTAssertEqual (node.receivedString, "Joey", "Strings should have been the same")

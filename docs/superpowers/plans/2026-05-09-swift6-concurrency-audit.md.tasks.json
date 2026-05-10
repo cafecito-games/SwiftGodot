@@ -1,0 +1,75 @@
+{
+  "planPath": "docs/superpowers/plans/2026-05-09-swift6-concurrency-audit.md",
+  "tasks": [
+    {
+      "id": 5,
+      "subject": "Task 1: Flip GDExtension to Swift 6",
+      "status": "pending",
+      "description": "**Goal:** Compile the GDExtension target clean under `.swiftLanguageMode(.v6)`.\n\n**Files:**\n- Modify: `Package.swift`\n\n**Acceptance Criteria:**\n- [ ] GDExtension target builds with zero errors and zero warnings under .v6\n\n**Verify:** `swift build --target GDExtension 2>&1 | grep -E \"error:|warning:|complete\"`\n\n```json:metadata\n{\"files\": [\"Package.swift\"], \"verifyCommand\": \"swift build --target GDExtension 2>&1 | grep -E 'error:|warning:|complete'\", \"acceptanceCriteria\": [\"GDExtension builds clean under .v6\"]}\n```"
+    },
+    {
+      "id": 6,
+      "subject": "Task 2: Flip ExtensionApi and ExtensionApiJson to Swift 6",
+      "status": "pending",
+      "blockedBy": [5],
+      "description": "**Goal:** Compile ExtensionApi and ExtensionApiJson clean under `.swiftLanguageMode(.v6)`.\n\n**Files:**\n- Modify: `Package.swift`\n- Modify: `Sources/ExtensionApi/ApiJsonModel.swift`\n\n**Verify:** `swift build --target ExtensionApi 2>&1 | grep -E \"error:|warning:|complete\"`\n\n```json:metadata\n{\"files\": [\"Package.swift\", \"Sources/ExtensionApi/ApiJsonModel.swift\"], \"verifyCommand\": \"swift build --target ExtensionApi 2>&1 | grep -E 'error:|warning:|complete'\", \"acceptanceCriteria\": [\"ExtensionApi builds clean\", \"No @preconcurrency\"]}\n```"
+    },
+    {
+      "id": 7,
+      "subject": "Task 3: Flip macro targets to Swift 6",
+      "status": "pending",
+      "blockedBy": [6],
+      "description": "**Goal:** Compile SwiftGodotMacroLibrary and SwiftGodotTestMacrosLibrary clean under `.v6`.\n\n**Files:**\n- Modify: `Package.swift`\n- Modify: `Sources/SwiftGodotMacroLibrary/*.swift`\n\n**Verify:** `swift build --target SwiftGodotMacroLibrary 2>&1 | grep -E \"error:|warning:|complete\"`\n\n```json:metadata\n{\"files\": [\"Package.swift\", \"Sources/SwiftGodotMacroLibrary/\"], \"verifyCommand\": \"swift build --target SwiftGodotMacroLibrary 2>&1 | grep -E 'error:|warning:|complete'\", \"acceptanceCriteria\": [\"SwiftGodotMacroLibrary builds clean\"]}\n```"
+    },
+    {
+      "id": 8,
+      "subject": "Task 4: Update ClassGen to emit nonisolated annotations, flip Generator targets to Swift 6",
+      "status": "pending",
+      "blockedBy": [6, 7],
+      "description": "**Goal:** Generator emits `nonisolated` on proxy functions, getVirtualDispatcher, and godotClassName; both Generator executables compile clean under .v6.\n\n**Files:**\n- Modify: `Generator/Generator/ClassGen.swift`\n- Modify: `Package.swift`\n\n**Verify:** `swift build --target Generator 2>&1 | grep -E \"error:|warning:|complete\"`\n\n```json:metadata\n{\"files\": [\"Generator/Generator/ClassGen.swift\", \"Package.swift\"], \"verifyCommand\": \"swift build --target Generator 2>&1 | grep -E 'error:|warning:|complete'\", \"acceptanceCriteria\": [\"proxy functions get nonisolated + assumeIsolated\", \"getVirtualDispatcher gets nonisolated\", \"godotClassName gets nonisolated\", \"Generator builds clean\"]}\n```"
+    },
+    {
+      "id": 9,
+      "subject": "Task 5: Remove @preconcurrency from NIOLock.swift",
+      "status": "pending",
+      "blockedBy": [6, 7, 8],
+      "description": "**Goal:** Remove all @preconcurrency import statements from NIOLock.swift.\n\n**Files:**\n- Modify: `Sources/SwiftGodotRuntime/Core/NIOLock.swift`\n\n**Verify:** `grep \"@preconcurrency\" Sources/SwiftGodotRuntime/Core/NIOLock.swift`\n\n```json:metadata\n{\"files\": [\"Sources/SwiftGodotRuntime/Core/NIOLock.swift\"], \"verifyCommand\": \"grep '@preconcurrency' Sources/SwiftGodotRuntime/Core/NIOLock.swift\", \"acceptanceCriteria\": [\"Zero @preconcurrency in NIOLock.swift\"]}\n```"
+    },
+    {
+      "id": 10,
+      "subject": "Task 6: Apply @MainActor to Wrapped and annotate C callback boundaries",
+      "status": "pending",
+      "blockedBy": [9],
+      "description": "**Goal:** Wrapped is @MainActor. Six C callback boundary functions are nonisolated with MainActor.assumeIsolated. Class-level registration hooks are nonisolated.\n\n**Files:**\n- Modify: `Sources/SwiftGodotRuntime/Core/Wrapped.swift`\n\n**Verify:** `swift build --target SwiftGodotRuntime 2>&1 | grep 'error:'`\n\n```json:metadata\n{\"files\": [\"Sources/SwiftGodotRuntime/Core/Wrapped.swift\"], \"verifyCommand\": \"swift build --target SwiftGodotRuntime 2>&1 | grep 'error:'\", \"acceptanceCriteria\": [\"Wrapped is @MainActor\", \"Six C callbacks are nonisolated with assumeIsolated\", \"Registration hooks are nonisolated\"]}\n```"
+    },
+    {
+      "id": 11,
+      "subject": "Task 7: Flip SwiftGodotRuntime to Swift 6, remove -suppress-warnings",
+      "status": "pending",
+      "blockedBy": [9, 10],
+      "description": "**Goal:** SwiftGodotRuntime compiles clean under .swiftLanguageMode(.v6) with zero warnings and without -suppress-warnings.\n\n**Files:**\n- Modify: `Package.swift`\n- Modify: `Sources/SwiftGodotRuntime/Core/*.swift`\n\n**Verify:** `swift build --target SwiftGodotRuntime 2>&1 | grep -E \"error:|warning:|complete\"`\n\n```json:metadata\n{\"files\": [\"Package.swift\", \"Sources/SwiftGodotRuntime/Core/\"], \"verifyCommand\": \"swift build --target SwiftGodotRuntime 2>&1 | grep -E 'error:|warning:|complete'\", \"acceptanceCriteria\": [\"-suppress-warnings removed\", \"zero errors\", \"zero warnings\"]}\n```"
+    },
+    {
+      "id": 12,
+      "subject": "Task 8: Flip SwiftGodot to Swift 6, remove -suppress-warnings",
+      "status": "pending",
+      "blockedBy": [11],
+      "description": "**Goal:** SwiftGodot compiles clean under .swiftLanguageMode(.v6) with zero warnings and without -suppress-warnings.\n\n**Files:**\n- Modify: `Package.swift`\n- Modify: `Sources/SwiftGodot/*.swift`\n- Modify: `Sources/SwiftGodot/Extensions/*.swift`\n\n**Verify:** `swift build --target SwiftGodot 2>&1 | grep -E \"error:|warning:|complete\"`\n\n```json:metadata\n{\"files\": [\"Package.swift\", \"Sources/SwiftGodot/\"], \"verifyCommand\": \"swift build --target SwiftGodot 2>&1 | grep -E 'error:|warning:|complete'\", \"acceptanceCriteria\": [\"-suppress-warnings removed\", \"zero errors\", \"zero warnings\"]}\n```"
+    },
+    {
+      "id": 13,
+      "subject": "Task 9: Flip all remaining targets to Swift 6",
+      "status": "pending",
+      "blockedBy": [12],
+      "description": "**Goal:** All remaining targets compile clean under .v6.\n\n**Files:**\n- Modify: `Package.swift`\n- Modify: `Tests/SwiftGodotTestExtension/*.swift`\n- Modify: `Sources/SimpleExtension/*.swift`\n- Modify: `Sources/ManualExtension/*.swift`\n\n**Verify:** `grep \"swiftLanguageMode(.v5)\" Package.swift`\n\n```json:metadata\n{\"files\": [\"Package.swift\", \"Tests/\", \"Sources/SimpleExtension/\", \"Sources/ManualExtension/\"], \"verifyCommand\": \"grep 'swiftLanguageMode(.v5)' Package.swift\", \"acceptanceCriteria\": [\"Zero .v5 in Package.swift\", \"All targets build clean\"]}\n```"
+    },
+    {
+      "id": 14,
+      "subject": "Task 10: Final verification and PR",
+      "status": "pending",
+      "blockedBy": [13],
+      "description": "**Goal:** Full build and test suite pass clean; PR created.\n\n**Verify:** `swift test 2>&1 | tail -5`\n\n```json:metadata\n{\"files\": [], \"verifyCommand\": \"swift test 2>&1 | tail -5\", \"acceptanceCriteria\": [\"swift build clean\", \"swift test passes\", \"no @preconcurrency\", \"no suppress-warnings\", \"no .v5 language mode\", \"PR created\"]}\n```"
+    }
+  ],
+  "lastUpdated": "2026-05-09T23:10:00Z"
+}

@@ -158,7 +158,7 @@ public final class Variant: Hashable, Equatable, CustomDebugStringConvertible, _
     public convenience init(_ from: Object) {
         self.init(payload: from.handle, constructor: Object.variantFromSelf)
     }
-    
+
     /// Initialize ``Variant`` by wrapping ``Object?``, fails if it's `nil`
     public convenience init?(_ from: Object?) {
         guard let from else {
@@ -236,6 +236,7 @@ public final class Variant: Hashable, Equatable, CustomDebugStringConvertible, _
     }
     
     /// Returns true if the variant is not an object, or the object is missing from the lookup table
+    @MainActor
     public var isNull: Bool {
         return asObject(Object.self) == nil
     }
@@ -247,8 +248,9 @@ public final class Variant: Hashable, Equatable, CustomDebugStringConvertible, _
     ///
     /// - Parameter type: the desired type eg. `.asObject(Node.self)`
     /// - Returns: nil on error, or the type on success
+    @MainActor
     @inline(__always)
-    public func asObject<T: Object> (_ type: T.Type = T.self) -> T? {
+    public func asObject<T: Object>(_ type: T.Type = T.self) -> T? {
         guard gtype == .object else {
             return nil
         }
@@ -258,8 +260,7 @@ public final class Variant: Hashable, Equatable, CustomDebugStringConvertible, _
         guard let objectHandle else {
             return nil
         }
-        let ret: T? = getOrInitSwiftObject(nativeHandle: objectHandle, ownership: .borrowed)
-        return ret
+        return getOrInitSwiftObject(nativeHandle: objectHandle, ownership: .borrowed)
     }
     
     public var description: String {
@@ -463,8 +464,9 @@ public final class Variant: Hashable, Equatable, CustomDebugStringConvertible, _
     }
     
     /// Extract `T: Object` from this ``Variant`` or return nil if unsucessful.
+    @MainActor
     public func to<T>(_ type: T.Type = T.self) -> T? where T: Object {
-        type.fromVariant(self)
+        asObject(type)
     }    
     
     /// Internal API.
@@ -541,10 +543,11 @@ extension Variant? {
     }
     
     /// Extract `T: Object` from this ``Variant?`` or return nil if unsucessful.
+    @MainActor
     @inline(__always)
     @inlinable
     public func to<T>(_ type: T.Type = T.self) -> T? where T: Object {
-        type.fromVariant(self)
+        self?.asObject(type)
     }
     
     public var content: Variant.ContentType {

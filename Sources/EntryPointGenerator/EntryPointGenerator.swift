@@ -22,7 +22,8 @@ struct EntryPointGenerator: ParsableCommand {
     var verbose: Bool = false
 
     mutating func run() throws {
-        let visitor = GodotMacroSearchingVisitor(viewMode: .all, logger: verbose ? logVerbose : nil)
+        let verboseLogger: ((String) -> Void)? = verbose ? { [self] message in logVerbose(message) } : nil
+        let visitor = GodotMacroSearchingVisitor(viewMode: .all, logger: verboseLogger)
         
         logVerbose("Scanning source files...")
         for file in sourceFiles {
@@ -49,7 +50,7 @@ struct EntryPointGenerator: ParsableCommand {
         let count = visitor.classes.count
         logVerbose("Writing \(count) to '\(outputFile)'...")
         let outputURL = URL(fileURLWithPath: outputFile)
-        try source.write(to: outputURL, atomically: true, encoding: .utf8)
+        try source.write(to: outputURL, atomically: true, encoding: String.Encoding.utf8)
         log("Generated swift_entry_point, registering \(count) classes, in \(outputURL.lastPathComponent).")
     }
 

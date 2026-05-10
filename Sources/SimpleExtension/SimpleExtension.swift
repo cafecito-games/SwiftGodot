@@ -7,7 +7,8 @@
 import Foundation
 import SwiftGodot
 
-var sequence = 0
+// Accessed only during @MainActor init; nonisolated(unsafe) avoids a global-actor annotation on sample code.
+nonisolated(unsafe) var sequence = 0
 
 @Godot
 class Rigid: RigidBody2D {

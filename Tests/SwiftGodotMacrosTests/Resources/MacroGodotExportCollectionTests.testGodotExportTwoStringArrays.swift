@@ -45,9 +45,11 @@ class ArrayTest: Node {
        return SwiftGodotRuntime._invokeGetter(object.lastNames)
    }
 
-    override open class var classInitializer: Void {
+    nonisolated override open class var classInitializer: Void {
         let _ = super.classInitializer
-        return _initializeClass()
+        MainActor.assumeIsolated {
+            _initializeClass()
+        }
     }
 
     private static func _initializeClass() {

@@ -6,7 +6,12 @@
 //
 
 extension Object: CustomStringConvertible {
-    public var description: String {
-        return toString().description
+    nonisolated public var description: String {
+        "\(type(of: self))(handle: \(String(describing: handle)))"
+    }
+
+    @MainActor
+    public var godotDescription: String {
+        toString().description
     }
 }

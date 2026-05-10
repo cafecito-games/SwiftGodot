@@ -683,7 +683,7 @@ final class RawArgumentsFetchTests {
     @SwiftGodotTest
     func testFetchPackedByteArray() {
         let node = RawArgumentsTestNode()
-        var array = PackedByteArray()
+        let array = PackedByteArray()
         array.append(1)
         array.append(2)
         array.append(3)
@@ -694,7 +694,7 @@ final class RawArgumentsFetchTests {
     @SwiftGodotTest
     func testFetchPackedInt32Array() {
         let node = RawArgumentsTestNode()
-        var array = PackedInt32Array()
+        let array = PackedInt32Array()
         array.append(1)
         array.append(2)
         let result = node.call(method: "testPackedInt32Array", Variant(array))
@@ -704,7 +704,7 @@ final class RawArgumentsFetchTests {
     @SwiftGodotTest
     func testFetchPackedInt64Array() {
         let node = RawArgumentsTestNode()
-        var array = PackedInt64Array()
+        let array = PackedInt64Array()
         array.append(1)
         array.append(2)
         array.append(3)
@@ -716,7 +716,7 @@ final class RawArgumentsFetchTests {
     @SwiftGodotTest
     func testFetchPackedFloat32Array() {
         let node = RawArgumentsTestNode()
-        var array = PackedFloat32Array()
+        let array = PackedFloat32Array()
         array.append(1.0)
         array.append(2.0)
         let result = node.call(method: "testPackedFloat32Array", Variant(array))
@@ -726,7 +726,7 @@ final class RawArgumentsFetchTests {
     @SwiftGodotTest
     func testFetchPackedFloat64Array() {
         let node = RawArgumentsTestNode()
-        var array = PackedFloat64Array()
+        let array = PackedFloat64Array()
         array.append(1.0)
         array.append(2.0)
         array.append(3.0)
@@ -737,7 +737,7 @@ final class RawArgumentsFetchTests {
     @SwiftGodotTest
     func testFetchPackedStringArray() {
         let node = RawArgumentsTestNode()
-        var array = PackedStringArray()
+        let array = PackedStringArray()
         array.append("a")
         array.append("b")
         let result = node.call(method: "testPackedStringArray", Variant(array))
@@ -747,7 +747,7 @@ final class RawArgumentsFetchTests {
     @SwiftGodotTest
     func testFetchPackedVector2Array() {
         let node = RawArgumentsTestNode()
-        var array = PackedVector2Array()
+        let array = PackedVector2Array()
         array.append(Vector2(x: 1, y: 2))
         let result = node.call(method: "testPackedVector2Array", Variant(array))
         XCTAssertEqual(Int(result), 1)
@@ -756,7 +756,7 @@ final class RawArgumentsFetchTests {
     @SwiftGodotTest
     func testFetchPackedVector3Array() {
         let node = RawArgumentsTestNode()
-        var array = PackedVector3Array()
+        let array = PackedVector3Array()
         array.append(Vector3(x: 1, y: 2, z: 3))
         array.append(Vector3(x: 4, y: 5, z: 6))
         let result = node.call(method: "testPackedVector3Array", Variant(array))
@@ -766,7 +766,7 @@ final class RawArgumentsFetchTests {
     @SwiftGodotTest
     func testFetchPackedVector4Array() {
         let node = RawArgumentsTestNode()
-        var array = PackedVector4Array()
+        let array = PackedVector4Array()
         array.append(value: Vector4(x: 1, y: 2, z: 3, w: 4))
         let result = node.call(method: "testPackedVector4Array", Variant(array))
         XCTAssertEqual(Int(result), 1)
@@ -775,7 +775,7 @@ final class RawArgumentsFetchTests {
     @SwiftGodotTest
     func testFetchPackedColorArray() {
         let node = RawArgumentsTestNode()
-        var array = PackedColorArray()
+        let array = PackedColorArray()
         array.append(Color.red)
         array.append(Color.green)
         array.append(Color.blue)
@@ -994,7 +994,7 @@ final class RawArgumentsFetchTests {
 
         let swiftArray = TypedArray<String>(["a", "b", "c"])
 
-        var packedArray = PackedFloat64Array()
+        let packedArray = PackedFloat64Array()
         packedArray.append(1.0)
 
         // 2 + 3 + 1 = 6

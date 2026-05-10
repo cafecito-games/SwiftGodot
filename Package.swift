@@ -78,14 +78,14 @@ var targets: [Target] = [
             .product(name: "SwiftParser", package: "swift-syntax"),
             .product(name: "ArgumentParser", package: "swift-argument-parser"),
         ],
-        swiftSettings: [.swiftLanguageMode(.v5)]
+        swiftSettings: [.swiftLanguageMode(.v6)]
     ),
 
     // This contains GDExtension's JSON API data models
     .target(
         name: "ExtensionApi",
         exclude: ["ExtensionApiJson.swift", "extension_api.json"],
-        swiftSettings: [.swiftLanguageMode(.v5)]
+        swiftSettings: [.swiftLanguageMode(.v6)]
     ),
 
     // This contains a resource bundle with extension_api.json
@@ -95,7 +95,7 @@ var targets: [Target] = [
         exclude: ["ApiJsonModel.swift", "ApiJsonModel+Extra.swift"],
         sources: ["ExtensionApiJson.swift"],
         resources: [.process("extension_api.json")],
-        swiftSettings: [.swiftLanguageMode(.v5)]
+        swiftSettings: [.swiftLanguageMode(.v6)]
     ),
 
     // The generator takes Godot's JSON-based API description as input and
@@ -110,7 +110,7 @@ var targets: [Target] = [
         path: "Generator",
         exclude: ["README.md"],
         swiftSettings: [
-            .swiftLanguageMode(.v5)
+            .swiftLanguageMode(.v6)
             // Uncomment for using legacy array-based marshalling
             //.define("LEGACY_MARSHALING")
         ]
@@ -136,7 +136,7 @@ var targets: [Target] = [
     // This allows the Swift code to call into the Godot bridge API (GDExtension)
     .target(
         name: "GDExtension",
-        swiftSettings: [.swiftLanguageMode(.v5)]
+        swiftSettings: [.swiftLanguageMode(.v6)]
     ),
 
     // These are macros that can be used by third parties to simplify their
@@ -153,7 +153,7 @@ var targets: [Target] = [
             .product(name: "SwiftParser", package: "swift-syntax"),
             .product(name: "SwiftBasicFormat", package: "swift-syntax"),
         ],
-        swiftSettings: [.swiftLanguageMode(.v5)]
+        swiftSettings: [.swiftLanguageMode(.v6)]
     ),
 
     // Test macro implementations for @SwiftGodotTest and @SwiftGodotTestSuite
@@ -164,14 +164,14 @@ var targets: [Target] = [
             .product(name: "SwiftSyntax", package: "swift-syntax"),
             .product(name: "SwiftCompilerPlugin", package: "swift-syntax"),
         ],
-        swiftSettings: [.swiftLanguageMode(.v5)]
+        swiftSettings: [.swiftLanguageMode(.v6)]
     ),
 
     // Test macro definitions and SwiftGodotTestSuiteProtocol
     .target(
         name: "SwiftGodotTestMacros",
         dependencies: ["SwiftGodot"],
-        swiftSettings: [.swiftLanguageMode(.v5)],
+        swiftSettings: [.swiftLanguageMode(.v6)],
         plugins: ["SwiftGodotTestMacrosLibrary"]
     ),
     // This contains sample code showing how to use the SwiftGodot API
@@ -179,7 +179,7 @@ var targets: [Target] = [
         name: "SimpleExtension",
         dependencies: ["SwiftGodot"],
         exclude: ["SimpleExtension.gdextension", "README.md"],
-        swiftSettings: [.swiftLanguageMode(.v5)],
+        swiftSettings: [.swiftLanguageMode(.v6)],
         plugins: [.plugin(name: "EntryPointGeneratorPlugin")]
     ),
 
@@ -189,7 +189,7 @@ var targets: [Target] = [
         name: "ManualExtension",
         dependencies: ["SwiftGodot"],
         exclude: ["ManualExtension.gdextension", "README.md"],
-        swiftSettings: [.swiftLanguageMode(.v5)]
+        swiftSettings: [.swiftLanguageMode(.v6)]
     ),
 
     // This is the core runtime for SwiftGodot, it only contains the builtins
@@ -203,13 +203,12 @@ var targets: [Target] = [
             .define("SWIFTGODOT_WITH_MULTI_PROCESS", .when(traits: [withMultiProcessTrait])),
             .unsafeFlags(
                 [
-                    "-suppress-warnings",
                     "-Xfrontend", "-conditional-runtime-records",
                     "-Xfrontend", "-internalize-at-link",
                     "-Xfrontend", "-lto=llvm-full",
                 ]
             ),
-            .swiftLanguageMode(.v5),
+            .swiftLanguageMode(.v6),
         ],
         plugins: ["CodeGeneratorPlugin", "SwiftGodotMacroLibrary"]
     ),
@@ -221,10 +220,9 @@ var targets: [Target] = [
         dependencies: ["GDExtension", "SwiftGodotRuntime"],
         exclude: ["_generated"],
         swiftSettings: [
-            .swiftLanguageMode(.v5),
+            .swiftLanguageMode(.v6),
             .define("CUSTOM_BUILTIN_IMPLEMENTATIONS"),
             .define("SWIFTGODOT_WITH_MULTI_PROCESS", .when(traits: [withMultiProcessTrait])),
-            .unsafeFlags(["-suppress-warnings"])
         ],
         plugins: ["CodeGeneratorPlugin"]
     ),
@@ -237,7 +235,7 @@ var targets: [Target] = [
             "ExtensionApi",
             "ExtensionApiJson",
         ],
-        swiftSettings: [.swiftLanguageMode(.v5)]
+        swiftSettings: [.swiftLanguageMode(.v6)]
     ),
 
     // Test runner CLI executable
@@ -245,7 +243,7 @@ var targets: [Target] = [
         name: "SwiftGodotTestRunner",
         dependencies: [],
         path: "Sources/SwiftGodotTestRunner",
-        swiftSettings: [.swiftLanguageMode(.v5)]
+        swiftSettings: [.swiftLanguageMode(.v6)]
     ),
 
     // Test extension (loaded by Godot) - includes all test infrastructure and test suites
@@ -253,7 +251,7 @@ var targets: [Target] = [
         name: "SwiftGodotTestExtension",
         dependencies: ["SwiftGodot", "SwiftGodotTestMacros"],
         path: "Tests/SwiftGodotTestExtension",
-        swiftSettings: [.swiftLanguageMode(.v5)]
+        swiftSettings: [.swiftLanguageMode(.v6)]
     ),
 ]
 
@@ -272,7 +270,7 @@ var targets: [Target] = [
             resources: [
                 .copy("Resources")
             ],
-            swiftSettings: [.swiftLanguageMode(.v5)]
+            swiftSettings: [.swiftLanguageMode(.v6)]
         ))
 #endif
 

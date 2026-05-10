@@ -86,7 +86,7 @@ public func _invokeSetter(
 /// Internal API. Object.
 @inline(__always)
 @inlinable
-public func _invokeSetter<T>(
+@MainActor public func _invokeSetter<T>(
     _ arguments: borrowing Arguments,
     _ name: StaticString,
     _ old: T,
@@ -105,7 +105,7 @@ public func _invokeSetter<T>(
 /// Internal API. Object?.
 @inline(__always)
 @inlinable
-public func _invokeSetter<T>(
+@MainActor public func _invokeSetter<T>(
     _ arguments: borrowing Arguments,
     _ name: StaticString,
     _ old: T?,
@@ -113,14 +113,14 @@ public func _invokeSetter<T>(
 ) where T: Object {
     do {
         let variantOrNil = try arguments.argument(ofType: FastVariant?.self, at: 0)
-        
+
         guard let variant = variantOrNil else {
             // Expected nil, set to nil
             old?._macroRcUnref()
             set(nil)
             return
         }
-                
+
         let value = try T.fromFastVariantOrThrow(variant)
         value._macroRcRef()
         set(value)
