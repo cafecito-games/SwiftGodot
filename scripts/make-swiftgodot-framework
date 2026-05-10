@@ -392,4 +392,5 @@ FOUNDATION_EXPORT const unsigned char SwiftGodotVersionString[];
 EOF
 
 cp "$fd"/Modules/module.modulemap "$ifd"/Modules/module.modulemap
+cp "$fd"/Headers/SwiftGodot.h "$ifd"/Headers/SwiftGodot.h
 cp "$fd"/Headers/SwiftGodot-Swift.h "$ifd"/Headers/SwiftGodot-Swift.h
