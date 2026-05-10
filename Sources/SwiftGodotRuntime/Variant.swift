@@ -258,9 +258,7 @@ public final class Variant: Hashable, Equatable, CustomDebugStringConvertible, _
         guard let objectHandle else {
             return nil
         }
-        nonisolated(unsafe) var result: T? = nil
-        MainActor.assumeIsolated { result = getOrInitSwiftObject(nativeHandle: objectHandle, ownership: .borrowed) }
-        return result
+        return MainActor.assumeIsolated { getOrInitSwiftObject(nativeHandle: objectHandle, ownership: .borrowed) }
     }
     
     public var description: String {

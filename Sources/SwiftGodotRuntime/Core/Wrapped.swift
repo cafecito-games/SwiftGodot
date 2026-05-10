@@ -401,22 +401,23 @@ open class Wrapped {
 }
 
 extension Wrapped: Equatable {
-    /// Equality is based on object identity.
+    /// Equality is based on the underlying Godot native object handle.
+    /// Two distinct Swift wrapper instances wrapping the same Godot object are considered equal.
     nonisolated public static func == (lhs: Wrapped, rhs: Wrapped) -> Bool {
-        return lhs === rhs
+        return lhs.handle == rhs.handle
     }
 }
 
 extension Wrapped: Hashable {
     nonisolated public func hash(into hasher: inout Hasher) {
-        hasher.combine(ObjectIdentifier(self))
+        hasher.combine(handle)
     }
 }
 
 extension Wrapped: Identifiable {
-    /// Conformance to Identifiable by using the pointer to the object.
+    /// Conformance to Identifiable by using the underlying Godot native object pointer.
     nonisolated public var id: Int {
-        Int(bitPattern: Unmanaged.passUnretained(self).toOpaque())
+        Int(bitPattern: handle)
     }
 }
 

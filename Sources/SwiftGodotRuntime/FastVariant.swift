@@ -292,9 +292,7 @@ public struct FastVariant: ~Copyable {
         var objectHandle: GodotNativeObjectPointer? = GodotNativeObjectPointer(bitPattern: 1)!
         constructType(into: &objectHandle, constructor: Object.selfFromVariant)
         guard let objectHandle else { return nil }
-        nonisolated(unsafe) var result: T? = nil
-        MainActor.assumeIsolated { result = getOrInitSwiftObject(nativeHandle: objectHandle, ownership: .borrowed) }
-        return result
+        return MainActor.assumeIsolated { getOrInitSwiftObject(nativeHandle: objectHandle, ownership: .borrowed) }
     }
     
     /// Extract `T` from this ``FastVariant`` or return nil if unsucessful.
