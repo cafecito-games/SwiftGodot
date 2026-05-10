@@ -103,7 +103,7 @@ jobs:
           xcodebuild -version
           swift --version
 
-      - name: Build macOS x86_64
+      - name: Build macOS x86_64 (Phase 1 — generate sources)
         env:
           DERIVED_DATA: ${{ runner.temp }}/swiftgodot-derived
           ARCHIVE_PATH: ${{ runner.temp }}/swiftgodot-archive
@@ -114,6 +114,36 @@ jobs:
             -destination "platform=macOS,arch=x86_64" \
             -derivedDataPath "$DERIVED_DATA" \
             -archivePath "$ARCHIVE_PATH"
+
+      - name: Copy generated sources from Phase 1
+        env:
+          DERIVED_DATA: ${{ runner.temp }}/swiftgodot-derived
+        run: |
+          plugin_intermediates="$DERIVED_DATA/Build/Intermediates.noindex/BuildToolPluginIntermediates"
+          runtime_gen=$(find "$plugin_intermediates" -type d \
+            -path "*/SwiftGodotRuntime/CodeGeneratorPlugin/GeneratedSources/SwiftGodotRuntime" | head -1)
+          swiftgodot_gen=$(find "$plugin_intermediates" -type d \
+            -path "*/SwiftGodot/CodeGeneratorPlugin/GeneratedSources/SwiftGodot" | head -1)
+          if [[ -z "$runtime_gen" || -z "$swiftgodot_gen" ]]; then
+            echo "Error: CodeGeneratorPlugin output not found under $plugin_intermediates"
+            exit 1
+          fi
+          mkdir -p Sources/SwiftGodotRuntime/_generated Sources/SwiftGodot/_generated
+          cp "$runtime_gen/"*.swift Sources/SwiftGodotRuntime/_generated/
+          cp "$swiftgodot_gen/"*.swift Sources/SwiftGodot/_generated/
+
+      - name: Build macOS x86_64 (Phase 2 — BUILD_LIBRARY_FOR_DISTRIBUTION)
+        env:
+          DERIVED_DATA: ${{ runner.temp }}/swiftgodot-derived
+          ARCHIVE_PATH: ${{ runner.temp }}/swiftgodot-archive
+        run: |
+          cp Package.distribution.swift Package.swift
+          xcodebuild \
+            -scheme SwiftGodot \
+            -destination "platform=macOS,arch=x86_64" \
+            -derivedDataPath "$DERIVED_DATA" \
+            -archivePath "$ARCHIVE_PATH" \
+            BUILD_LIBRARY_FOR_DISTRIBUTION=YES
 
       - name: Pack release products
         env:
@@ -154,7 +184,7 @@ jobs:
           xcodebuild -version
           swift --version
 
-      - name: Build iOS
+      - name: Build iOS (Phase 1 — generate sources)
         env:
           DERIVED_DATA: ${{ runner.temp }}/swiftgodot-derived
           ARCHIVE_PATH: ${{ runner.temp }}/swiftgodot-archive
@@ -165,6 +195,36 @@ jobs:
             -destination "generic/platform=iOS" \
             -derivedDataPath "$DERIVED_DATA" \
             -archivePath "$ARCHIVE_PATH"
+
+      - name: Copy generated sources from Phase 1
+        env:
+          DERIVED_DATA: ${{ runner.temp }}/swiftgodot-derived
+        run: |
+          plugin_intermediates="$DERIVED_DATA/Build/Intermediates.noindex/BuildToolPluginIntermediates"
+          runtime_gen=$(find "$plugin_intermediates" -type d \
+            -path "*/SwiftGodotRuntime/CodeGeneratorPlugin/GeneratedSources/SwiftGodotRuntime" | head -1)
+          swiftgodot_gen=$(find "$plugin_intermediates" -type d \
+            -path "*/SwiftGodot/CodeGeneratorPlugin/GeneratedSources/SwiftGodot" | head -1)
+          if [[ -z "$runtime_gen" || -z "$swiftgodot_gen" ]]; then
+            echo "Error: CodeGeneratorPlugin output not found under $plugin_intermediates"
+            exit 1
+          fi
+          mkdir -p Sources/SwiftGodotRuntime/_generated Sources/SwiftGodot/_generated
+          cp "$runtime_gen/"*.swift Sources/SwiftGodotRuntime/_generated/
+          cp "$swiftgodot_gen/"*.swift Sources/SwiftGodot/_generated/
+
+      - name: Build iOS (Phase 2 — BUILD_LIBRARY_FOR_DISTRIBUTION)
+        env:
+          DERIVED_DATA: ${{ runner.temp }}/swiftgodot-derived
+          ARCHIVE_PATH: ${{ runner.temp }}/swiftgodot-archive
+        run: |
+          cp Package.distribution.swift Package.swift
+          xcodebuild \
+            -scheme SwiftGodot \
+            -destination "generic/platform=iOS" \
+            -derivedDataPath "$DERIVED_DATA" \
+            -archivePath "$ARCHIVE_PATH" \
+            BUILD_LIBRARY_FOR_DISTRIBUTION=YES
 
       - name: Pack release products
         env:
@@ -205,7 +265,7 @@ jobs:
           xcodebuild -version
           swift --version
 
-      - name: Build macOS arm64
+      - name: Build macOS arm64 (Phase 1 — generate sources)
         env:
           DERIVED_DATA: ${{ runner.temp }}/swiftgodot-derived
           ARCHIVE_PATH: ${{ runner.temp }}/swiftgodot-archive
@@ -216,6 +276,36 @@ jobs:
             -destination "platform=macOS,arch=arm64" \
             -derivedDataPath "$DERIVED_DATA" \
             -archivePath "$ARCHIVE_PATH"
+
+      - name: Copy generated sources from Phase 1
+        env:
+          DERIVED_DATA: ${{ runner.temp }}/swiftgodot-derived
+        run: |
+          plugin_intermediates="$DERIVED_DATA/Build/Intermediates.noindex/BuildToolPluginIntermediates"
+          runtime_gen=$(find "$plugin_intermediates" -type d \
+            -path "*/SwiftGodotRuntime/CodeGeneratorPlugin/GeneratedSources/SwiftGodotRuntime" | head -1)
+          swiftgodot_gen=$(find "$plugin_intermediates" -type d \
+            -path "*/SwiftGodot/CodeGeneratorPlugin/GeneratedSources/SwiftGodot" | head -1)
+          if [[ -z "$runtime_gen" || -z "$swiftgodot_gen" ]]; then
+            echo "Error: CodeGeneratorPlugin output not found under $plugin_intermediates"
+            exit 1
+          fi
+          mkdir -p Sources/SwiftGodotRuntime/_generated Sources/SwiftGodot/_generated
+          cp "$runtime_gen/"*.swift Sources/SwiftGodotRuntime/_generated/
+          cp "$swiftgodot_gen/"*.swift Sources/SwiftGodot/_generated/
+
+      - name: Build macOS arm64 (Phase 2 — BUILD_LIBRARY_FOR_DISTRIBUTION)
+        env:
+          DERIVED_DATA: ${{ runner.temp }}/swiftgodot-derived
+          ARCHIVE_PATH: ${{ runner.temp }}/swiftgodot-archive
+        run: |
+          cp Package.distribution.swift Package.swift
+          xcodebuild \
+            -scheme SwiftGodot \
+            -destination "platform=macOS,arch=arm64" \
+            -derivedDataPath "$DERIVED_DATA" \
+            -archivePath "$ARCHIVE_PATH" \
+            BUILD_LIBRARY_FOR_DISTRIBUTION=YES
 
       - name: Pack release products
         env:
