@@ -84,7 +84,7 @@ git commit -m "Migrate GDExtension target to Swift 6"
 // ExtensionApi target
 swiftSettings: [.swiftLanguageMode(.v6)]
 
-// ExtensionApiJson target  
+// ExtensionApiJson target
 swiftSettings: [.swiftLanguageMode(.v6)]
 ```
 

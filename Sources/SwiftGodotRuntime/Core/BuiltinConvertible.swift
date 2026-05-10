@@ -136,8 +136,16 @@ extension Dictionary: GodotBuiltinConvertible, _GodotBridgeableBuiltin, _GodotBr
     /// This is O(n) operation.
     ///
     /// Godot dictionary will be created and copied per-element.
+    ///
+    /// - Note: This nonisolated path produces an untyped backing dictionary. To produce a
+    ///   native Godot typed dictionary (Godot 4.4+), use `TypedDictionary.init(_:)` from a
+    ///   `@MainActor` context instead.
     public func toGodotBuiltin() -> TypedDictionary<Key, Value> {
-        TypedDictionary(self)
+        let result = TypedDictionary<Key, Value>(_wrapping: VariantDictionary())
+        for (key, value) in self {
+            _ = result.set(key: key, value: value)
+        }
+        return result
     }
 
     /// Convert `TypedDictionary<Key, Value>` into Swift `[Key: Value]`

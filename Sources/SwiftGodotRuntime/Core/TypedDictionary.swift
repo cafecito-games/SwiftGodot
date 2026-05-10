@@ -27,18 +27,18 @@
 /// You used `YourType?` as `Key` or `Value` generic parameter.
 /// You should use `YourType` instead.
 /// Godot guarantees non-nullability of `SomeType` when used as `Key` or `Value`.
+@MainActor
 fileprivate enum TypedDictionaryRuntimeSupport {
     static let supportsNativeTypedDictionary: Bool = {
-        MainActor.assumeIsolated {
-            let versionInfo = Engine.getVersionInfo()
-            let major = Int(versionInfo["major"]) ?? 0
-            let minor = Int(versionInfo["minor"]) ?? 0
-            return major > 4 || (major == 4 && minor >= 4)
-        }
+        let versionInfo = Engine.getVersionInfo()
+        let major = Int(versionInfo["major"]) ?? 0
+        let minor = Int(versionInfo["minor"]) ?? 0
+        return major > 4 || (major == 4 && minor >= 4)
     }()
 }
 
-public struct TypedDictionary<Key: _GodotContainerTypingParameter, Value: _GodotContainerTypingParameter>: CustomDebugStringConvertible, _GodotBridgeableBuiltin, Sequence, ExpressibleByDictionaryLiteral {
+public struct TypedDictionary<Key: _GodotContainerTypingParameter, Value: _GodotContainerTypingParameter>: CustomDebugStringConvertible, _GodotBridgeableBuiltin, Sequence {
+    @MainActor
     @usableFromInline
     static var supportsNativeTypedDictionary: Bool {
         TypedDictionaryRuntimeSupport.supportsNativeTypedDictionary
@@ -86,27 +86,19 @@ public struct TypedDictionary<Key: _GodotContainerTypingParameter, Value: _Godot
         return true
     }
     
+    @usableFromInline
+    init(_wrapping dictionary: VariantDictionary) {
+        self.dictionary = dictionary
+    }
+
+    @MainActor
     @_spi(SwiftGodotRuntimePrivate)
     public init(takingOver content: VariantDictionary.ContentType) {
         self.init(from: VariantDictionary(takingOver: content))
     }
-    
-    /// Initialise ``TypedDictionary`` from the Swift dictionary literal.
-    /// For example:
-    /// ```
-    /// let typedDictionary: TypedDictionary = [1: 2, 2: 3, 3: 3, 4: 4, 5: 5]
-    /// ```
-    ///
-    /// This operation is O(n) as it requires full copy of Swift dictionary.
-    public init(dictionaryLiteral elements: (Key, Value)...) {
-        self.init()
-        
-        for (key, value) in elements {
-            _ = set(key: key, value: value)
-        }
-    }
-    
+
     /// Initialise an empty ``TypedDictionary``.
+    @MainActor
     public init() {
         if Self.supportsNativeTypedDictionary {
             self.dictionary = VariantDictionary(
@@ -133,11 +125,12 @@ public struct TypedDictionary<Key: _GodotContainerTypingParameter, Value: _Godot
     /// ```
     ///
     /// This operation is O(n) as it requires full copy of Swift dictionary.
+    @MainActor
     @inline(__always)
     @inlinable
     public init(_ dictionary: [Key: Value]) where Key: Hashable {
         self.init()
-        
+
         for (key, value) in dictionary {
             _ = set(key: key, value: value)
         }
@@ -197,6 +190,9 @@ public struct TypedDictionary<Key: _GodotContainerTypingParameter, Value: _Godot
     /// - If dictionary could be converted successfully - it returns a typed dictionary containing the same records.
     /// - If not - it returns an empty typed dictionary.
     /// See: ``VariantDictionary.init(base:keyType:keyClassName:keyScript:valueType:valueClassName:valueScript:)``
+    @MainActor
+    @inline(__always)
+    @inlinable
     public init(from dictionary: VariantDictionary) {
         if Self.isTypingCompatible(with: dictionary) {
             // wrap the existing storage
@@ -218,6 +214,7 @@ public struct TypedDictionary<Key: _GodotContainerTypingParameter, Value: _Godot
     
     // MARK: - _GodotBridgeable
     /// Initialze ``TypedDictionary`` from ``Variant``. Fails if `variant` doesn't contain ``TypedDictionary``
+    @MainActor
     @inline(__always)
     public init?(_ variant: Variant) {
         guard Self._variantType == variant.gtype else { return nil }
@@ -227,8 +224,9 @@ public struct TypedDictionary<Key: _GodotContainerTypingParameter, Value: _Godot
         }
         self.init(takingOver: content)
     }
-    
+
     /// Initialze ``TypedDictionary`` from ``Variant?``. Fails if `variant` doesn't contain ``TypedDictionary`` or is `nil`
+    @MainActor
     @inline(__always)
     @inlinable
     public init?(_ variant: Variant?) {
@@ -237,6 +235,7 @@ public struct TypedDictionary<Key: _GodotContainerTypingParameter, Value: _Godot
     }
     
     /// Initialze ``TypedDictionary`` from ``FastVariant``. Fails if `variant` doesn't contain ``TypedDictionary``
+    @MainActor
     @inline(__always)
     public init?(_ variant: borrowing FastVariant) {
         guard Self._variantType == variant.gtype else { return nil }
@@ -277,16 +276,22 @@ public struct TypedDictionary<Key: _GodotContainerTypingParameter, Value: _Godot
     @inlinable
     public static func fromVariantOrThrow(_ variant: Variant) throws(VariantConversionError) -> Self {
         let dictionary = try VariantDictionary.fromVariantOrThrow(variant)
-        return Self(from: dictionary)
+        guard isTypingCompatible(with: dictionary) else {
+            throw .unexpectedContent(parsing: self, from: variant)
+        }
+        return Self(_wrapping: dictionary)
     }
-    
+
     @inline(__always)
     @inlinable
     public static func fromFastVariantOrThrow(_ variant: borrowing FastVariant) throws(VariantConversionError) -> Self {
         let dictionary = try VariantDictionary.fromFastVariantOrThrow(variant)
-        return Self(from: dictionary)
+        guard isTypingCompatible(with: dictionary) else {
+            throw .unexpectedContent(parsing: self, from: variant)
+        }
+        return Self(_wrapping: dictionary)
     }
-    
+
     public static var _variantType: Variant.GType {
         .dictionary
     }
@@ -294,7 +299,7 @@ public struct TypedDictionary<Key: _GodotContainerTypingParameter, Value: _Godot
     @inline(__always)
     public static func _fromRawArgument(_ ptr: UnsafeRawPointer) throws(ArgumentAccessError) -> Self {
         let content = ptr.assumingMemoryBound(to: VariantDictionary.ContentType.self).pointee
-        return TypedDictionary(from: VariantDictionary(content: content))
+        return Self(_wrapping: VariantDictionary(content: content))
     }
 
     /// Internal API. Returns ``PropInfo`` for when any ``TypedDictionary`` is used in API visible to Godot
@@ -497,7 +502,7 @@ public struct TypedDictionary<Key: _GodotContainerTypingParameter, Value: _Godot
     @inline(__always)
     @inlinable
     public func duplicate(deep: Bool = false) -> Self {
-        Self(from: dictionary.duplicate(deep: deep))
+        Self(_wrapping: dictionary.duplicate(deep: deep))
     }
     
     /// Returns `true` if the dictionary is typed the same as `dictionary`.
@@ -654,6 +659,23 @@ public struct TypedDictionary<Key: _GodotContainerTypingParameter, Value: _Godot
     
     public func makeIterator() -> Iterator {
         Iterator(self)
+    }
+}
+
+extension TypedDictionary: @MainActor ExpressibleByDictionaryLiteral {
+    /// Initialise ``TypedDictionary`` from the Swift dictionary literal.
+    /// For example:
+    /// ```
+    /// let typedDictionary: TypedDictionary = [1: 2, 2: 3, 3: 3, 4: 4, 5: 5]
+    /// ```
+    ///
+    /// This operation is O(n) as it requires full copy of Swift dictionary.
+    @MainActor
+    public init(dictionaryLiteral elements: (Key, Value)...) {
+        self.init()
+        for (key, value) in elements {
+            _ = set(key: key, value: value)
+        }
     }
 }
 

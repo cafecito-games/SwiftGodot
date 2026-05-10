@@ -236,6 +236,7 @@ public final class Variant: Hashable, Equatable, CustomDebugStringConvertible, _
     }
     
     /// Returns true if the variant is not an object, or the object is missing from the lookup table
+    @MainActor
     public var isNull: Bool {
         return asObject(Object.self) == nil
     }
@@ -247,6 +248,7 @@ public final class Variant: Hashable, Equatable, CustomDebugStringConvertible, _
     ///
     /// - Parameter type: the desired type eg. `.asObject(Node.self)`
     /// - Returns: nil on error, or the type on success
+    @MainActor
     @inline(__always)
     public func asObject<T: Object>(_ type: T.Type = T.self) -> T? {
         guard gtype == .object else {
@@ -258,7 +260,7 @@ public final class Variant: Hashable, Equatable, CustomDebugStringConvertible, _
         guard let objectHandle else {
             return nil
         }
-        return MainActor.assumeIsolated { getOrInitSwiftObject(nativeHandle: objectHandle, ownership: .borrowed) }
+        return getOrInitSwiftObject(nativeHandle: objectHandle, ownership: .borrowed)
     }
     
     public var description: String {
@@ -462,8 +464,9 @@ public final class Variant: Hashable, Equatable, CustomDebugStringConvertible, _
     }
     
     /// Extract `T: Object` from this ``Variant`` or return nil if unsucessful.
+    @MainActor
     public func to<T>(_ type: T.Type = T.self) -> T? where T: Object {
-        type.fromVariant(self)
+        asObject(type)
     }    
     
     /// Internal API.
