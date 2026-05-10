@@ -1014,11 +1014,11 @@ public func getOrInitSwiftObject<T: Object>(nativeHandle: GodotNativeObjectPoint
 }
 #endif
 
-func referenceFunc(_ userData: UnsafeMutableRawPointer) {
+nonisolated func referenceFunc(_ userData: UnsafeMutableRawPointer) {
     fatalError()
 }
 
-func unreferenceFunc(_ userData: UnsafeMutableRawPointer) {
+nonisolated func unreferenceFunc(_ userData: UnsafeMutableRawPointer) {
     fatalError()
 }
 
@@ -1119,11 +1119,13 @@ nonisolated func freeFunc (_ userData: UnsafeMutableRawPointer?, _ objectHandle:
     }
 }
 
-func notificationFunc (ptr: UnsafeMutableRawPointer?, code: Int32, reversed: UInt8) {
-    guard let ptr else { return } 
-    let original = Unmanaged<WrappedReference>.fromOpaque(ptr).takeUnretainedValue()
-    guard let instance = original.value else { return }
-    instance._notification(code: Int(code), reversed: reversed != 0)
+nonisolated func notificationFunc (ptr: UnsafeMutableRawPointer?, code: Int32, reversed: UInt8) {
+    MainActor.assumeIsolated {
+        guard let ptr else { return }
+        let original = Unmanaged<WrappedReference>.fromOpaque(ptr).takeUnretainedValue()
+        guard let instance = original.value else { return }
+        instance._notification(code: Int(code), reversed: reversed != 0)
+    }
 }
 
 nonisolated func validatePropertyFunc(ptr: UnsafeMutableRawPointer?, _info: UnsafeMutablePointer<GDExtensionPropertyInfo>?) -> UInt8 {
@@ -1164,221 +1166,235 @@ nonisolated func validatePropertyFunc(ptr: UnsafeMutableRawPointer?, _info: Unsa
 #if SWIFTGODOT_WITH_MULTI_PROCESS
 // This is invoked to take a reference on the object and ensure our Swift-land object
 // does not go away while the object is in use.
-func bindingReference(_ token: UnsafeMutableRawPointer?, _ binding: UnsafeMutableRawPointer?, _ reference: UInt8) -> UInt8 {
-    guard let binding else { return 0 }
-    let ref = Unmanaged<WrappedReference>.fromOpaque(binding).takeUnretainedValue()
-    weak var refCounted = ref.value as? RefCounted
+nonisolated func bindingReference(_ token: UnsafeMutableRawPointer?, _ binding: UnsafeMutableRawPointer?, _ reference: UInt8) -> UInt8 {
+    MainActor.assumeIsolated {
+        guard let binding else { return 0 }
+        let ref = Unmanaged<WrappedReference>.fromOpaque(binding).takeUnretainedValue()
+        weak var refCounted = ref.value as? RefCounted
 
-    guard let rc = refCounted?.getReferenceCount() else {
-        // unreference() was called by Wrapped.deinit, so we allow the object to be destroyed.
-        return 1
-    }
-    
-    if reference != 0 {
-        // In addition to a reference by SwiftGodot, Godot also retained a reference.
-        if rc == 2 {
-            if let refCounted, refCounted.handle != nil {
-                ref.strongify()
-            }
+        guard let rc = refCounted?.getReferenceCount() else {
+            // unreference() was called by Wrapped.deinit, so we allow the object to be destroyed.
+            return 1
         }
-    } else {
-        // Only SwiftGodot holds a reference, so we make the Wrapped's deinit available.
-        if rc == 1 {
-            if let refCounted, refCounted.handle != nil {
-                ref.weakify()
-            }
-        }
-    }
-    
-    // As long as the Wrapped's deinit is not called, we do not allow the object to be destroyed.
-    return 0
-}
 
-func bindingCreate (_ token: UnsafeMutableRawPointer?, _ instance: UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer? {
-    guard let instance else { return nil }
-    guard let object = createSwiftObject(nativeHandle: instance) else { return nil }
-    guard let reference = object.wrapper else {
-        fatalError("WrappedReference is not created for object.")
-    }
-
-    if let handle = object.handle {
-        let frameworkType = String(describing: type(of: object)) == object.godotClassName.description
-        tableLock.withLockVoid {
-            if frameworkType {
-                liveFrameworkObjects[handle] = reference
-            } else {
-                liveSubtypedObjects[handle] = reference
-            }
-        }
-    }
-
-    guard let hasInstanceBinding = Foundation.Thread.current.threadDictionary.object(forKey: SwiftGodot_has_instance_binding) as? ReferenceArray<Bool> else {
-        fatalError("has_instance_binding is not found.")
-    }
-    hasInstanceBinding.items[hasInstanceBinding.items.count - 1] = false
-
-    return Unmanaged<WrappedReference>.passUnretained(reference).toOpaque()
-}
-
-func bindingFree (_ token: UnsafeMutableRawPointer?, _ instance: UnsafeMutableRawPointer?, _ binding: UnsafeMutableRawPointer?) {
-    guard let binding else { return }
-    let reference = Unmanaged<WrappedReference>.fromOpaque(binding).takeUnretainedValue()
-
-    if let obj = reference.value {
-        if let handle = obj.handle {
-            tableLock.withLockVoid {
-                if liveFrameworkObjects.removeValue(forKey: handle) == nil {
-                    _ = liveSubtypedObjects.removeValue(forKey: handle)
+        if reference != 0 {
+            // In addition to a reference by SwiftGodot, Godot also retained a reference.
+            if rc == 2 {
+                if let refCounted, refCounted.handle != nil {
+                    ref.strongify()
                 }
             }
-            removePendingReleaseHandle(handle)
-        }
-        obj.handle = nil
-    } else if let instance {
-        tableLock.withLockVoid {
-            if liveFrameworkObjects.removeValue(forKey: instance) == nil {
-                _ = liveSubtypedObjects.removeValue(forKey: instance)
+        } else {
+            // Only SwiftGodot holds a reference, so we make the Wrapped's deinit available.
+            if rc == 1 {
+                if let refCounted, refCounted.handle != nil {
+                    ref.weakify()
+                }
             }
         }
-        removePendingReleaseHandle(instance)
-    } else {
-        print("bindingFree: instance was nil")
+
+        // As long as the Wrapped's deinit is not called, we do not allow the object to be destroyed.
+        return 0
+    }
+}
+
+nonisolated func bindingCreate (_ token: UnsafeMutableRawPointer?, _ instance: UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer? {
+    MainActor.assumeIsolated {
+        guard let instance else { return nil }
+        guard let object = createSwiftObject(nativeHandle: instance) else { return nil }
+        guard let reference = object.wrapper else {
+            fatalError("WrappedReference is not created for object.")
+        }
+
+        if let handle = object.handle {
+            let frameworkType = String(describing: type(of: object)) == object.godotClassName.description
+            tableLock.withLockVoid {
+                if frameworkType {
+                    liveFrameworkObjects[handle] = reference
+                } else {
+                    liveSubtypedObjects[handle] = reference
+                }
+            }
+        }
+
+        guard let hasInstanceBinding = Foundation.Thread.current.threadDictionary.object(forKey: SwiftGodot_has_instance_binding) as? ReferenceArray<Bool> else {
+            fatalError("has_instance_binding is not found.")
+        }
+        hasInstanceBinding.items[hasInstanceBinding.items.count - 1] = false
+
+        return Unmanaged<WrappedReference>.passUnretained(reference).toOpaque()
+    }
+}
+
+nonisolated func bindingFree (_ token: UnsafeMutableRawPointer?, _ instance: UnsafeMutableRawPointer?, _ binding: UnsafeMutableRawPointer?) {
+    MainActor.assumeIsolated {
+        guard let binding else { return }
+        let reference = Unmanaged<WrappedReference>.fromOpaque(binding).takeUnretainedValue()
+
+        if let obj = reference.value {
+            if let handle = obj.handle {
+                tableLock.withLockVoid {
+                    if liveFrameworkObjects.removeValue(forKey: handle) == nil {
+                        _ = liveSubtypedObjects.removeValue(forKey: handle)
+                    }
+                }
+                removePendingReleaseHandle(handle)
+            }
+            obj.handle = nil
+        } else if let instance {
+            tableLock.withLockVoid {
+                if liveFrameworkObjects.removeValue(forKey: instance) == nil {
+                    _ = liveSubtypedObjects.removeValue(forKey: instance)
+                }
+            }
+            removePendingReleaseHandle(instance)
+        } else {
+            print("bindingFree: instance was nil")
+        }
     }
 }
 #else
-func userTypeBindingCreate (_ token: UnsafeMutableRawPointer?, _ instance: UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer? {
+nonisolated func userTypeBindingCreate (_ token: UnsafeMutableRawPointer?, _ instance: UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer? {
     // Godot-cpp does nothing for user types
     //print ("SWIFT: instanceBindingCreate")
     return nil
 }
 
-func userTypeBindingFree (_ token: UnsafeMutableRawPointer?, _ instance: UnsafeMutableRawPointer?, _ binding: UnsafeMutableRawPointer?) {
-    if let binding {
-        let reference = Unmanaged<WrappedReference>.fromOpaque(binding).takeUnretainedValue()
-        guard let obj = reference.value else { return }
-        let handle = obj.handle
-
-        tableLock.withLockVoid {
-            if let handle {
-                let removed = liveSubtypedObjects.removeValue(forKey: handle)
-                if removed == nil {
-                    print ("SWIFT ERROR: attempt to release user object we were not aware of: \(obj))")
-                }
-            } else {
-                print ("SWIFT ERROR: the object being released already had a nil handle")
-            }
-        }
-
-	// If the object was queued for destruction, remove it from that queue
-        if let handle {
-            removePendingReleaseHandle(handle)
-        }
-        obj.handle = nil
-    }
-}
-
-// This is invoked to take a reference on the object and ensure our Swift-land object
-// does not go away while the object is in use.
-func userTypeBindingReference(_ token: UnsafeMutableRawPointer?, _ binding: UnsafeMutableRawPointer?, _ reference: UInt8) -> UInt8 {
-    guard let binding else { return 0 }
-    let ref = Unmanaged<WrappedReference>.fromOpaque(binding).takeUnretainedValue()
-    weak var refCounted = ref.value as? RefCounted
-
-    guard let rc = refCounted?.getReferenceCount() else {
-        // unreference() was called by Wrapped.deinit, so we allow the object to be destroyed.
-        return 1
-    }
-    
-    if reference != 0 {
-        // In addition to a reference by SwiftGodot, Godot also retained a reference.
-        if rc == 2 {
-            if let refCounted, refCounted.handle != nil {
-                ref.strongify()
-            }
-        }
-    } else {
-        // Only SwiftGodot holds a reference, so we make the Wrapped's deinit available.
-        if rc == 1 {
-            if let refCounted, refCounted.handle != nil {
-                ref.weakify()
-            }
-        }
-    }
-    
-    // As long as the Wrapped's deinit is not called, we do not allow the object to be destroyed.
-    return 0
-}
-
-func frameworkTypeBindingReference(_ token: UnsafeMutableRawPointer?, _ binding: UnsafeMutableRawPointer?, _ reference: UInt8) -> UInt8 {
-    guard let binding else { return 0 }
-
-    let ref = Unmanaged<WrappedReference>.fromOpaque(binding).takeUnretainedValue()
-    weak var refCounted = ref.value as? RefCounted
-    guard let rc = refCounted?.getReferenceCount() else {
-        // unreference() was called by Wrapper.deinit, so we allow the object to be destroyed.
-        return 1
-    }
-    
-    if reference != 0 {
-        // In addition to a reference by SwiftGodot, Godot also retained a reference.
-        if rc == 2 {
-            if let refCounted, refCounted.handle != nil {
-                ref.strongify()
-            }
-        }
-    } else {
-        // Only SwiftGodot holds a reference, so we make the Wrapped's deinit available.
-        if rc == 1 {
-            if let refCounted, refCounted.handle != nil {
-                ref.weakify()
-            }
-        }
-    }
-    
-    // As long as the Wrapped's deinit is not called, we do not allow the object to be destroyed.
-    return 0
-}
-
-func frameworkTypeBindingCreate (_ token: UnsafeMutableRawPointer?, _ instance: UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer? {
-    // This is called from object_get_instance_binding
-    return instance
-}
-
-func frameworkTypeBindingFree (_ token: UnsafeMutableRawPointer?, _ instance: UnsafeMutableRawPointer?, _ binding: UnsafeMutableRawPointer?) {
-    if let binding {
-        let reference = Unmanaged<WrappedReference>.fromOpaque(binding).takeUnretainedValue()
-
-        if let obj = reference.value {
+nonisolated func userTypeBindingFree (_ token: UnsafeMutableRawPointer?, _ instance: UnsafeMutableRawPointer?, _ binding: UnsafeMutableRawPointer?) {
+    MainActor.assumeIsolated {
+        if let binding {
+            let reference = Unmanaged<WrappedReference>.fromOpaque(binding).takeUnretainedValue()
+            guard let obj = reference.value else { return }
             let handle = obj.handle
+
             tableLock.withLockVoid {
                 if let handle {
-                    let removed = liveFrameworkObjects.removeValue(forKey: handle)
+                    let removed = liveSubtypedObjects.removeValue(forKey: handle)
                     if removed == nil {
-                        print ("SWIFT ERROR: attempt to release framework object we were not aware of: \(obj))")
+                        print ("SWIFT ERROR: attempt to release user object we were not aware of: \(obj))")
                     }
                 } else {
                     print ("SWIFT ERROR: the object being released already had a nil handle")
                 }
             }
 
-            // We use this opportunity to clear the handle on the object, to make sure we do not accidentally
-            // invoke methods for objects that have been disposed by Godot.
+            // If the object was queued for destruction, remove it from that queue
             if let handle {
                 removePendingReleaseHandle(handle)
             }
             obj.handle = nil
-        } else if let instance {
-            // For RefCounted objects, the call to `reference.value` will already be nil,
-            // we can just remove the handle.
-            tableLock.withLockVoid {
-                let removed = liveFrameworkObjects.removeValue(forKey: instance)
-                if removed == nil {
-                    print ("SWIFT ERROR: attempt to release object we were not aware of: \(instance))")
+        }
+    }
+}
+
+// This is invoked to take a reference on the object and ensure our Swift-land object
+// does not go away while the object is in use.
+nonisolated func userTypeBindingReference(_ token: UnsafeMutableRawPointer?, _ binding: UnsafeMutableRawPointer?, _ reference: UInt8) -> UInt8 {
+    MainActor.assumeIsolated {
+        guard let binding else { return 0 }
+        let ref = Unmanaged<WrappedReference>.fromOpaque(binding).takeUnretainedValue()
+        weak var refCounted = ref.value as? RefCounted
+
+        guard let rc = refCounted?.getReferenceCount() else {
+            // unreference() was called by Wrapped.deinit, so we allow the object to be destroyed.
+            return 1
+        }
+
+        if reference != 0 {
+            // In addition to a reference by SwiftGodot, Godot also retained a reference.
+            if rc == 2 {
+                if let refCounted, refCounted.handle != nil {
+                    ref.strongify()
                 }
             }
-            removePendingReleaseHandle(instance)
         } else {
-            print("frameworkTypeBindingFree: instance was nil")
+            // Only SwiftGodot holds a reference, so we make the Wrapped's deinit available.
+            if rc == 1 {
+                if let refCounted, refCounted.handle != nil {
+                    ref.weakify()
+                }
+            }
+        }
+
+        // As long as the Wrapped's deinit is not called, we do not allow the object to be destroyed.
+        return 0
+    }
+}
+
+nonisolated func frameworkTypeBindingReference(_ token: UnsafeMutableRawPointer?, _ binding: UnsafeMutableRawPointer?, _ reference: UInt8) -> UInt8 {
+    MainActor.assumeIsolated {
+        guard let binding else { return 0 }
+
+        let ref = Unmanaged<WrappedReference>.fromOpaque(binding).takeUnretainedValue()
+        weak var refCounted = ref.value as? RefCounted
+        guard let rc = refCounted?.getReferenceCount() else {
+            // unreference() was called by Wrapper.deinit, so we allow the object to be destroyed.
+            return 1
+        }
+
+        if reference != 0 {
+            // In addition to a reference by SwiftGodot, Godot also retained a reference.
+            if rc == 2 {
+                if let refCounted, refCounted.handle != nil {
+                    ref.strongify()
+                }
+            }
+        } else {
+            // Only SwiftGodot holds a reference, so we make the Wrapped's deinit available.
+            if rc == 1 {
+                if let refCounted, refCounted.handle != nil {
+                    ref.weakify()
+                }
+            }
+        }
+
+        // As long as the Wrapped's deinit is not called, we do not allow the object to be destroyed.
+        return 0
+    }
+}
+
+nonisolated func frameworkTypeBindingCreate (_ token: UnsafeMutableRawPointer?, _ instance: UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer? {
+    // This is called from object_get_instance_binding
+    return instance
+}
+
+nonisolated func frameworkTypeBindingFree (_ token: UnsafeMutableRawPointer?, _ instance: UnsafeMutableRawPointer?, _ binding: UnsafeMutableRawPointer?) {
+    MainActor.assumeIsolated {
+        if let binding {
+            let reference = Unmanaged<WrappedReference>.fromOpaque(binding).takeUnretainedValue()
+
+            if let obj = reference.value {
+                let handle = obj.handle
+                tableLock.withLockVoid {
+                    if let handle {
+                        let removed = liveFrameworkObjects.removeValue(forKey: handle)
+                        if removed == nil {
+                            print ("SWIFT ERROR: attempt to release framework object we were not aware of: \(obj))")
+                        }
+                    } else {
+                        print ("SWIFT ERROR: the object being released already had a nil handle")
+                    }
+                }
+
+                // We use this opportunity to clear the handle on the object, to make sure we do not accidentally
+                // invoke methods for objects that have been disposed by Godot.
+                if let handle {
+                    removePendingReleaseHandle(handle)
+                }
+                obj.handle = nil
+            } else if let instance {
+                // For RefCounted objects, the call to `reference.value` will already be nil,
+                // we can just remove the handle.
+                tableLock.withLockVoid {
+                    let removed = liveFrameworkObjects.removeValue(forKey: instance)
+                    if removed == nil {
+                        print ("SWIFT ERROR: attempt to release object we were not aware of: \(instance))")
+                    }
+                }
+                removePendingReleaseHandle(instance)
+            } else {
+                print("frameworkTypeBindingFree: instance was nil")
+            }
         }
     }
 }
@@ -1400,7 +1416,7 @@ nonisolated func invokeWrappedCallable(wrapperPtr: UnsafeMutableRawPointer?, par
     }
 }
 
-func freeCallableWrapper(wrapperPtr: UnsafeMutableRawPointer?) {
+nonisolated func freeCallableWrapper(wrapperPtr: UnsafeMutableRawPointer?) {
     guard let wrapperPtr = wrapperPtr?.assumingMemoryBound(to: CallableWrapper.self) else { return }
     wrapperPtr.deinitialize(count: 1)
     wrapperPtr.deallocate()
