@@ -220,10 +220,9 @@ var targets: [Target] = [
         dependencies: ["GDExtension", "SwiftGodotRuntime"],
         exclude: ["_generated"],
         swiftSettings: [
-            .swiftLanguageMode(.v5),
+            .swiftLanguageMode(.v6),
             .define("CUSTOM_BUILTIN_IMPLEMENTATIONS"),
             .define("SWIFTGODOT_WITH_MULTI_PROCESS", .when(traits: [withMultiProcessTrait])),
-            .unsafeFlags(["-suppress-warnings"])
         ],
         plugins: ["CodeGeneratorPlugin"]
     ),

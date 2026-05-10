@@ -25,6 +25,7 @@
 /// or you are developing and things change often, you might use the alternative ``SceneTree``
 /// which allow you to use a nullable value, so you can test at runtime if the node
 /// exists or not.
+@MainActor
 @propertyWrapper
 public struct BindNode<Value: Node> {
     public static subscript<T: Node>(

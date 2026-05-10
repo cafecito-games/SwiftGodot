@@ -554,7 +554,7 @@ typealias CallArgsRef = String
                                 declType = "var"
                             }
                         }
-                        if method.isVirtual {
+                        if method.isVirtual && builtinGodotTypeNames [godotReturnType] != .isClass {
                             declType = "var"
                         }
                         return "\(declType) _result: \(returnType) = \(makeDefaultInit(godotType: godotReturnType))"

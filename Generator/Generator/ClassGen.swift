@@ -90,16 +90,24 @@ import ExtensionApi
     }
     p ("nonisolated func _\(cdef.name)_proxy\(method.name) (instance: UnsafeMutableRawPointer?, args: UnsafePointer<UnsafeRawPointer?>?, retPtr: UnsafeMutableRawPointer?)") {
         p ("let instanceInt = instance.map { Int(bitPattern: $0) }")
-        p ("let argsInt = args.map { Int(bitPattern: $0) }")
-        p ("let retPtrInt = retPtr.map { Int(bitPattern: $0) }")
+        let hasArguments = (method.arguments?.count ?? 0) > 0
+        if hasArguments {
+            p ("let argsInt = args.map { Int(bitPattern: $0) }")
+        }
+        let hasReturnValue = method.returnValue != nil
+        if hasReturnValue {
+            p ("let retPtrInt = retPtr.map { Int(bitPattern: $0) }")
+        }
         p ("MainActor.assumeIsolated") {
             p ("guard let instanceInt else { return }")
             p ("let instance = UnsafeMutableRawPointer(bitPattern: instanceInt)!")
-            if let arguments = method.arguments, arguments.count > 0 {
+            if hasArguments {
                 p ("guard let argsInt else { return }")
                 p ("let args = UnsafePointer<UnsafeRawPointer?>(bitPattern: argsInt)!")
             }
-            p ("let retPtr = retPtrInt.flatMap { UnsafeMutableRawPointer(bitPattern: $0) }")
+            if hasReturnValue {
+                p ("let retPtr = retPtrInt.flatMap { UnsafeMutableRawPointer(bitPattern: $0) }")
+            }
             p ("let reference = Unmanaged<WrappedReference>.fromOpaque(instance).takeUnretainedValue()")
             p ("guard let swiftObject = reference.value as? \(cdef.name) else { return }")
 
@@ -130,7 +138,11 @@ import ExtensionApi
                     }
                     if arg.meta != .required {
                         let ownership = isRefCountedType(arg.type) ? ".refWrapper" : ".borrowed"
-                        argCall += "resolved_\(i) == nil ? nil : getOrInitSwiftObject (nativeHandle: resolved_\(i)!, ownership: \(ownership)) as? \(arg.type)"
+                        if arg.type == "Object" {
+                            argCall += "resolved_\(i) == nil ? nil : getOrInitSwiftObject (nativeHandle: resolved_\(i)!, ownership: \(ownership))"
+                        } else {
+                            argCall += "resolved_\(i) == nil ? nil : getOrInitSwiftObject (nativeHandle: resolved_\(i)!, ownership: \(ownership)) as? \(arg.type)"
+                        }
                     } else {
                         let ownership = isRefCountedType(arg.type) ? ".refWrapper" : ".borrowed"
                         argCall += "getOrInitSwiftObject (nativeHandle: resolved_\(i)!, ownership: \(ownership)) as! \(arg.type)"
