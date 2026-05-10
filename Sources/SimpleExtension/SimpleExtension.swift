@@ -7,7 +7,7 @@
 import Foundation
 import SwiftGodot
 
-var sequence = 0
+nonisolated(unsafe) var sequence = 0
 
 @Godot
 class Rigid: RigidBody2D {

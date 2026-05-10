@@ -510,35 +510,17 @@ public struct GodotMacro: MemberMacro {
                 .contains(.keyword(.final))
 
             let accessControlLevel = isFinal ? "public" : "open"
-            let isMainActor = classDecl.attributes.contains { attr in
-                if let attrIdent = attr.as(AttributeSyntax.self)?.attributeName.as(IdentifierTypeSyntax.self) {
-                    return attrIdent.name.text == "MainActor"
-                }
-                return false
-            }
 
-            let classInitProperty: DeclSyntax
-            if isMainActor {
-                classInitProperty = DeclSyntax(
-                """
-                override \(raw: accessControlLevel) class var classInitializer: Void {
-                    let _ = super.classInitializer
-                    MainActor.assumeIsolated {
-                        _initializeClass()
-                    }
+            let classInitProperty = DeclSyntax(
+            """
+            nonisolated override \(raw: accessControlLevel) class var classInitializer: Void {
+                let _ = super.classInitializer
+                MainActor.assumeIsolated {
+                    _initializeClass()
                 }
-                """
-                )
-            } else {
-                classInitProperty = DeclSyntax(
-                """
-                override \(raw: accessControlLevel) class var classInitializer: Void {
-                    let _ = super.classInitializer
-                    return _initializeClass()
-                }
-                """
-                )
             }
+            """
+            )
             
             var decls = [classInitProperty, DeclSyntax(stringLiteral: classInit)]
 
@@ -560,9 +542,9 @@ public struct GodotMacro: MemberMacro {
                     isTool = expression.trimmedDescription.hasSuffix(".tool")
                 }
                 
-                var implementedOverridesDecl = "override \(accessControlLevel) class func implementedOverrides () -> [StringName] {\n"
+                var implementedOverridesDecl = "nonisolated override \(accessControlLevel) class func implementedOverrides () -> [StringName] {\n"
                 if !isTool {
-                    implementedOverridesDecl += "guard !Engine.isEditorHint () else { return [] }\n"
+                    implementedOverridesDecl += "guard !MainActor.assumeIsolated({ Engine.isEditorHint() }) else { return [] }\n"
                 }
                 implementedOverridesDecl += "return super.implementedOverrides () + [\n"
                 for name in stringNames {

@@ -28,7 +28,7 @@
 /// You should use `YourType` instead.
 /// Godot guarantees non-nullability of `SomeType` when used as `Key` or `Value`.
 fileprivate enum TypedDictionaryRuntimeSupport {
-    nonisolated(unsafe) static let supportsNativeTypedDictionary: Bool = {
+    static let supportsNativeTypedDictionary: Bool = {
         MainActor.assumeIsolated {
             let versionInfo = Engine.getVersionInfo()
             let major = Int(versionInfo["major"]) ?? 0

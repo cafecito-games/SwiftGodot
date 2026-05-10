@@ -8,6 +8,7 @@ import SwiftGodot
 ///
 /// Classes decorated with @SwiftGodotTestSuite automatically conform to this protocol.
 /// The protocol provides default implementations for all optional members.
+@MainActor
 public protocol SwiftGodotTestSuiteProtocol: AnyObject {
     /// The display name of the test suite.
     /// Defaults to the class name.

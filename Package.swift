@@ -171,7 +171,7 @@ var targets: [Target] = [
     .target(
         name: "SwiftGodotTestMacros",
         dependencies: ["SwiftGodot"],
-        swiftSettings: [.swiftLanguageMode(.v5)],
+        swiftSettings: [.swiftLanguageMode(.v6)],
         plugins: ["SwiftGodotTestMacrosLibrary"]
     ),
     // This contains sample code showing how to use the SwiftGodot API
@@ -179,7 +179,7 @@ var targets: [Target] = [
         name: "SimpleExtension",
         dependencies: ["SwiftGodot"],
         exclude: ["SimpleExtension.gdextension", "README.md"],
-        swiftSettings: [.swiftLanguageMode(.v5)],
+        swiftSettings: [.swiftLanguageMode(.v6)],
         plugins: [.plugin(name: "EntryPointGeneratorPlugin")]
     ),
 
@@ -189,7 +189,7 @@ var targets: [Target] = [
         name: "ManualExtension",
         dependencies: ["SwiftGodot"],
         exclude: ["ManualExtension.gdextension", "README.md"],
-        swiftSettings: [.swiftLanguageMode(.v5)]
+        swiftSettings: [.swiftLanguageMode(.v6)]
     ),
 
     // This is the core runtime for SwiftGodot, it only contains the builtins
@@ -235,7 +235,7 @@ var targets: [Target] = [
             "ExtensionApi",
             "ExtensionApiJson",
         ],
-        swiftSettings: [.swiftLanguageMode(.v5)]
+        swiftSettings: [.swiftLanguageMode(.v6)]
     ),
 
     // Test runner CLI executable
@@ -243,7 +243,7 @@ var targets: [Target] = [
         name: "SwiftGodotTestRunner",
         dependencies: [],
         path: "Sources/SwiftGodotTestRunner",
-        swiftSettings: [.swiftLanguageMode(.v5)]
+        swiftSettings: [.swiftLanguageMode(.v6)]
     ),
 
     // Test extension (loaded by Godot) - includes all test infrastructure and test suites
@@ -251,7 +251,7 @@ var targets: [Target] = [
         name: "SwiftGodotTestExtension",
         dependencies: ["SwiftGodot", "SwiftGodotTestMacros"],
         path: "Tests/SwiftGodotTestExtension",
-        swiftSettings: [.swiftLanguageMode(.v5)]
+        swiftSettings: [.swiftLanguageMode(.v6)]
     ),
 ]
 
@@ -270,7 +270,7 @@ var targets: [Target] = [
             resources: [
                 .copy("Resources")
             ],
-            swiftSettings: [.swiftLanguageMode(.v5)]
+            swiftSettings: [.swiftLanguageMode(.v6)]
         ))
 #endif
 

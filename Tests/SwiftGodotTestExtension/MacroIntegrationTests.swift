@@ -29,7 +29,7 @@ final class MacroIntegrationTests {
             }
         }
 
-        class NoMacroExample {
+        @MainActor class NoMacroExample {
             var meshInstance: MeshInstance3D? = nil
             var variant = 1.toVariant()
             var optionalVariant: Variant?

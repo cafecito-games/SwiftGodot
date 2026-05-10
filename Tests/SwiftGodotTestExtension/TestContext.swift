@@ -11,7 +11,7 @@ import Foundation
 /// Each test method gets its own context that collects any assertion failures.
 final class TestContext {
     /// The current test context. Set by the test runner before executing each test.
-    public static var current: TestContext?
+    @MainActor public static var current: TestContext?
 
     /// The name of the test being executed
     public let testName: String

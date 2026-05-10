@@ -188,7 +188,7 @@ public func _propInfo<Root, T>(
         return PropInfo(
             propertyType: T._variantType,
             propertyName: StringName(name),
-            className: StringName(T._builtinOrClassName ?? ""),
+            className: StringName(T._builtinOrClassName),
             hint: hint ?? .none,
             hintStr: hintStr.map { GString($0) } ?? GString(),
             usage: userUsage ?? .default
@@ -225,7 +225,7 @@ public func _propInfo<Root, T>(
         return PropInfo(
             propertyType: T._variantType,
             propertyName: StringName(name),
-            className: StringName(T._builtinOrClassName ?? ""),
+            className: StringName(T._builtinOrClassName),
             hint: hint ?? .none,
             hintStr: hintStr.map { GString($0) } ?? GString(),
             usage: userUsage ?? .default

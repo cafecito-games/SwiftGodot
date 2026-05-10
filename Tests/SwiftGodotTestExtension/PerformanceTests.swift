@@ -9,7 +9,7 @@
 import SwiftGodot
 
 extension Vector2 {
-    static let zero = Vector2(x: 0, y: 0)
+    nonisolated(unsafe) static let zero = Vector2(x: 0, y: 0)
 }
 
 // Note: Performance testing using XCTCPUMetric and measure() is not available

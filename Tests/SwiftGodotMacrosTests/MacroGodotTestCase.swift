@@ -75,7 +75,7 @@ class MacroGodotTestCase: XCTestCase {
     
     /// Compare expansion of `input`  with contents of `TestData/TestCaseClassName.functioName.expected`
     /// If `MacroGodotTestCase.regeneratedResourcesPath` is not `nil`, it will regenerate the expected output into that path instead
-    func assertExpansion(of input: String, file: StaticString = #file, line: UInt = #line, function: String = #function, diagnostics: [DiagnosticSpec] = []) {
+    func assertExpansion(of input: String, file: StaticString = #filePath, line: UInt = #line, function: String = #function, diagnostics: [DiagnosticSpec] = []) {
         let resourceName = "\(Self.self).\(function.dropLast(2))"
         
         if let regeneratedResourcesPath {
@@ -98,7 +98,7 @@ class MacroGodotTestCase: XCTestCase {
     }
     
     /// Runs comparison of expansion of `input` into `output` using `Self.macros`.
-    func assertExpansion(of input: String, into output: String, file: StaticString = #file, line: UInt = #line, diagnostics: [DiagnosticSpec]) {
+    func assertExpansion(of input: String, into output: String, file: StaticString = #filePath, line: UInt = #line, diagnostics: [DiagnosticSpec]) {
         assertMacroExpansion(input, expandedSource: output, diagnostics: diagnostics, macros: Self.macros, file: file, line: line)
     }
 }

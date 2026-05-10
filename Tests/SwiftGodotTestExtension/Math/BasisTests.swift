@@ -25,7 +25,7 @@ final class BasisTests {
     ///
     /// In this way we can assert that both functions: basis to euler / euler to basis
     /// are correct.
-    private func assertRotation (eulerDegrees: Vector3, eulerOrder: EulerOrder, file: StaticString = #file, line: UInt = #line) {
+    @MainActor private func assertRotation (eulerDegrees: Vector3, eulerOrder: EulerOrder, file: StaticString = #file, line: UInt = #line) {
         let rawEulerOrder: Int64 = Int64 (eulerOrder.rawValue)
         
         // Euler to rotation
