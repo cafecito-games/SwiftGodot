@@ -4,11 +4,14 @@
 //
 //  Created by Miguel de Icaza on 3/26/23.
 
-// StringName is generated from the Godot API and has `var content` for C interop,
-// preventing automatic Sendable synthesis. Its logical value is immutable after
-// construction, so @unchecked Sendable is correct.
+// StringName, GString, NodePath, and RID are generated from the Godot API and have
+// `var content` for C interop, preventing automatic Sendable synthesis. Their logical
+// values are immutable after construction, so @unchecked Sendable is correct.
 extension StringName: @unchecked Sendable {}
-//
+extension GString: @unchecked Sendable {}
+extension NodePath: @unchecked Sendable {}
+extension RID: @unchecked Sendable {}
+
 
 import GDExtension
 

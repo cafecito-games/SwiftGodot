@@ -163,7 +163,7 @@ func extension_deinitialize(userData: UnsafeMutableRawPointer?, l: GDExtensionIn
 }
 
 /// Error types returned by Godot when invoking a method
-public enum CallErrorType: Error {
+public enum CallErrorType: Error, Sendable {
     /// No error
     case ok
     case invalidMethod

@@ -335,7 +335,7 @@ func bind_call_ptr () {
 }
 
 /// Error indicating that a ``earlyChild`` is registered before ``lateParent`` due to ``classInitializationLevel`` requirement, despite ``lateParent`` is a super class of ``earlyChild``
-public struct IncorrectInitializationOrderError: Error {
+public struct IncorrectInitializationOrderError: Error, Sendable {
     public let earlyChild: String
     public let lateParent: String
 }
