@@ -118,8 +118,12 @@ if [[ -z "${SWIFT_GODOT_SKIP_BUILD:-}" ]]; then
     fi
 
     mkdir -p Sources/SwiftGodotRuntime/_generated Sources/SwiftGodot/_generated
-    cp "$runtime_gen_src/"*.swift Sources/SwiftGodotRuntime/_generated/
-    cp "$swiftgodot_gen_src/"*.swift Sources/SwiftGodot/_generated/
+    # SwiftGodotRuntime: copy both generated/ and generated-builtin/ (all outputFiles)
+    find "$runtime_gen_src" -name "*.swift" -exec cp {} Sources/SwiftGodotRuntime/_generated/ \;
+    # SwiftGodot: only copy generated/ — generated-builtin/ is written by the generator
+    # as a side-effect but is NOT in the plugin's outputFiles for SwiftGodot (builtinFiles: [])
+    # and must not be compiled again since those types already live in SwiftGodotRuntime.
+    find "$swiftgodot_gen_src/generated" -name "*.swift" -exec cp {} Sources/SwiftGodot/_generated/ \;
     echo "Copied generated sources."
 
     # Swap in Package.distribution.swift (strips Generator/swift-syntax from the

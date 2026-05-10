@@ -129,8 +129,8 @@ jobs:
             exit 1
           fi
           mkdir -p Sources/SwiftGodotRuntime/_generated Sources/SwiftGodot/_generated
-          cp "$runtime_gen/"*.swift Sources/SwiftGodotRuntime/_generated/
-          cp "$swiftgodot_gen/"*.swift Sources/SwiftGodot/_generated/
+          find "$runtime_gen" -name "*.swift" -exec cp {} Sources/SwiftGodotRuntime/_generated/ \;
+          find "$swiftgodot_gen/generated" -name "*.swift" -exec cp {} Sources/SwiftGodot/_generated/ \;
 
       - name: Build macOS x86_64 (Phase 2 — BUILD_LIBRARY_FOR_DISTRIBUTION)
         env:
@@ -210,8 +210,8 @@ jobs:
             exit 1
           fi
           mkdir -p Sources/SwiftGodotRuntime/_generated Sources/SwiftGodot/_generated
-          cp "$runtime_gen/"*.swift Sources/SwiftGodotRuntime/_generated/
-          cp "$swiftgodot_gen/"*.swift Sources/SwiftGodot/_generated/
+          find "$runtime_gen" -name "*.swift" -exec cp {} Sources/SwiftGodotRuntime/_generated/ \;
+          find "$swiftgodot_gen/generated" -name "*.swift" -exec cp {} Sources/SwiftGodot/_generated/ \;
 
       - name: Build iOS (Phase 2 — BUILD_LIBRARY_FOR_DISTRIBUTION)
         env:
@@ -291,8 +291,8 @@ jobs:
             exit 1
           fi
           mkdir -p Sources/SwiftGodotRuntime/_generated Sources/SwiftGodot/_generated
-          cp "$runtime_gen/"*.swift Sources/SwiftGodotRuntime/_generated/
-          cp "$swiftgodot_gen/"*.swift Sources/SwiftGodot/_generated/
+          find "$runtime_gen" -name "*.swift" -exec cp {} Sources/SwiftGodotRuntime/_generated/ \;
+          find "$swiftgodot_gen/generated" -name "*.swift" -exec cp {} Sources/SwiftGodot/_generated/ \;
 
       - name: Build macOS arm64 (Phase 2 — BUILD_LIBRARY_FOR_DISTRIBUTION)
         env:

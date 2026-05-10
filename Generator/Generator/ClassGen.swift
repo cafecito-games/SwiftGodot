@@ -304,7 +304,7 @@ func generateMethods (_ p: Printer,
     }
     
     if virtuals.count > 0 {
-        p ("@_spi(SwiftGodotRuntimePrivate) open override class func getVirtualDispatcher(name: StringName) -> GDExtensionClassCallVirtual?"){
+        p ("@_spi(SwiftGodotRuntimePrivate) open override class func getVirtualDispatcher(name: StringName) -> GodotVirtualDispatchCallback?"){
             p ("guard implementedOverrides().contains(name) else { return nil }")
             p ("switch name.description") {
                 for name in virtuals.keys.sorted() {
