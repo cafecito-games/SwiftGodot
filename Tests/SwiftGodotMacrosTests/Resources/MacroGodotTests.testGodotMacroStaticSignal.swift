@@ -4,9 +4,11 @@ class Hi: Node {
     static let differentInit = SignalWithNoArguments("different_init")
     static let differentInit2 = SignalWithNoArguments("different_init2")
 
-    override open class var classInitializer: Void {
+    nonisolated override open class var classInitializer: Void {
         let _ = super.classInitializer
-        return _initializeClass()
+        MainActor.assumeIsolated {
+            _initializeClass()
+        }
     }
 
     private static func _initializeClass() {

@@ -1,9 +1,11 @@
 final class Hi: Node {
     override func _hasPoint(_ point: Vector2) -> Bool { false }
 
-    override public class var classInitializer: Void {
+    nonisolated override public class var classInitializer: Void {
         let _ = super.classInitializer
-        return _initializeClass()
+        MainActor.assumeIsolated {
+            _initializeClass()
+        }
     }
 
     private static func _initializeClass() {
@@ -17,8 +19,9 @@ final class Hi: Node {
         }
     }
 
-    override public class func implementedOverrides () -> [StringName] {
-        guard !Engine.isEditorHint () else {
+    nonisolated override public class func implementedOverrides () -> [StringName] {
+        guard !MainActor.assumeIsolated({ Engine.isEditorHint()
+            }) else {
             return []
         }
         return super.implementedOverrides () + [

@@ -1,8 +1,10 @@
 final class MyData: Resource {
 
-    override public class var classInitializer: Void {
+    nonisolated override public class var classInitializer: Void {
         let _ = super.classInitializer
-        return _initializeClass()
+        MainActor.assumeIsolated {
+            _initializeClass()
+        }
     }
 
     private static func _initializeClass() {
@@ -40,9 +42,11 @@ final class MyClass: Node {
         return SwiftGodotRuntime._invokeGetter(object.data)
     }
 
-    override public class var classInitializer: Void {
+    nonisolated override public class var classInitializer: Void {
         let _ = super.classInitializer
-        return _initializeClass()
+        MainActor.assumeIsolated {
+            _initializeClass()
+        }
     }
 
     private static func _initializeClass() {
