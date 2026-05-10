@@ -684,3 +684,63 @@ EOF
 cp "$fd"/Modules/module.modulemap "$ifd"/Modules/module.modulemap
 cp "$fd"/Headers/SwiftGodot.h "$ifd"/Headers/SwiftGodot.h
 cp "$fd"/Headers/SwiftGodot-Swift.h "$ifd"/Headers/SwiftGodot-Swift.h
+
+# Create SwiftGodotRuntime.xcframework alongside SwiftGodot.xcframework
+runtime_output=$(dirname "$2")/SwiftGodotRuntime.xcframework
+rm -rf "$runtime_output"
+mkdir universal_runtime
+cp -af "$bdMac"/PackageFrameworks/SwiftGodotRuntime.framework universal_runtime/
+if [ "$arch" = "arm64" ]; then
+    lipo -create -output ./universal_runtime/SwiftGodotRuntime.framework/SwiftGodotRuntime \
+        "$bdMac"/PackageFrameworks/SwiftGodotRuntime.framework/SwiftGodotRuntime \
+        "$bdMacArm"/PackageFrameworks/SwiftGodotRuntime.framework/SwiftGodotRuntime
+    lipo -create -output ./universal_runtime/SwiftGodotRuntime.framework/Versions/A/SwiftGodotRuntime \
+        "$bdMac"/PackageFrameworks/SwiftGodotRuntime.framework/Versions/A/SwiftGodotRuntime \
+        "$bdMacArm"/PackageFrameworks/SwiftGodotRuntime.framework/Versions/A/SwiftGodotRuntime
+fi
+xcodebuild -create-xcframework \
+    -framework ./universal_runtime/SwiftGodotRuntime.framework \
+    -framework "$bdiOS"/PackageFrameworks/SwiftGodotRuntime.framework \
+    -output "$runtime_output"
+rm -rf ./universal_runtime
+
+if [ "$arch" = "arm64" ]; then
+    rfd=$runtime_output/macos-arm64_x86_64/SwiftGodotRuntime.framework
+else
+    rfd=$runtime_output/macos-x86_64/SwiftGodotRuntime.framework
+fi
+rifd=$runtime_output/ios-arm64/SwiftGodotRuntime.framework
+
+(cd "$rfd" || exit; mkdir -p Versions/Current/Headers; ln -sf Versions/Current/Headers .)
+(cd "$rfd" || exit; mkdir -p Versions/Current/Modules; ln -sf Versions/Current/Modules .)
+(cd "$rifd" || exit; mkdir -p Versions/Current/Headers; ln -sf Versions/Current/Headers .)
+(cd "$rifd" || exit; mkdir -p Versions/Current/Modules; ln -sf Versions/Current/Modules .)
+
+rsync -a "$bdMac"/SwiftGodotRuntime.swiftmodule "$rfd"/Versions/Current/Modules/
+if [ "$arch" = "arm64" ]; then
+    rsync -a "$bdMacArm"/SwiftGodotRuntime.swiftmodule "$rfd"/Versions/Current/Modules/
+fi
+rsync -a "$bdiOS"/SwiftGodotRuntime.swiftmodule "$rifd"/Versions/Current/Modules/
+
+cat > "$rfd"/Modules/module.modulemap << EOF
+framework module SwiftGodotRuntime {
+  umbrella header "SwiftGodotRuntime.h"
+  export *
+  module * { export * }
+}
+EOF
+
+cat > "$rfd"/Headers/SwiftGodotRuntime.h << EOF
+//
+//  SwiftGodotRuntime.h
+//  SwiftGodotRuntime
+//
+
+#import <Foundation/Foundation.h>
+
+FOUNDATION_EXPORT double SwiftGodotRuntimeVersionNumber;
+FOUNDATION_EXPORT const unsigned char SwiftGodotRuntimeVersionString[];
+EOF
+
+cp "$rfd"/Modules/module.modulemap "$rifd"/Modules/module.modulemap
+cp "$rfd"/Headers/SwiftGodotRuntime.h "$rifd"/Headers/SwiftGodotRuntime.h

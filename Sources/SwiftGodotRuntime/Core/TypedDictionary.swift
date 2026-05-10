@@ -149,8 +149,6 @@ public struct TypedDictionary<Key: _GodotContainerTypingParameter, Value: _Godot
     /// let dictionary: TypedDictionary<Int, String>
     /// dictionay[10] = nil // will erase a value with key `10` if any
     /// ```
-    @inline(__always)
-    @inlinable
     public subscript(key: Key) -> Value? where Value: _GodotBridgeableBuiltin {
         get {
             let variant = dictionary[key]
@@ -175,8 +173,6 @@ public struct TypedDictionary<Key: _GodotContainerTypingParameter, Value: _Godot
     /// ```
     ///
     /// To erase value from the dictionary use ``erase(key:)``
-    @inline(__always)
-    @inlinable
     public subscript(key: Key) -> Value where Value._NonOptionalType: _GodotNullableBridgeable {
         get {
             let variant = dictionary[key]
@@ -199,8 +195,6 @@ public struct TypedDictionary<Key: _GodotContainerTypingParameter, Value: _Godot
     /// - If dictionary could be converted successfully - it returns a typed dictionary containing the same records.
     /// - If not - it returns an empty typed dictionary.
     /// See: ``VariantDictionary.init(base:keyType:keyClassName:keyScript:valueType:valueClassName:valueScript:)``
-    @inline(__always)
-    @inlinable
     public init(from dictionary: VariantDictionary) {
         if Self.isTypingCompatible(with: dictionary) {
             // wrap the existing storage

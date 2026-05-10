@@ -95,6 +95,46 @@ echo "Binary repo: $binary_repo"
 start=$(date)
 
 if [[ -z "${SWIFT_GODOT_SKIP_BUILD:-}" ]]; then
+    # Phase 1: normal build to run CodeGeneratorPlugin and produce generated sources.
+    echo "Phase 1: Generating sources..."
+    xcodebuild \
+        -scheme SwiftGodot \
+        -destination "platform=macOS,arch=x86_64" \
+        -derivedDataPath "$derived_data" \
+        -archivePath "$archive_path" \
+        > "$build_dir/phase1_x86_64.log"
+
+    # Copy CodeGeneratorPlugin output from DerivedData into the source tree so
+    # Package.distribution.swift can include it without running the plugin.
+    plugin_intermediates="$derived_data/Build/Intermediates.noindex/BuildToolPluginIntermediates"
+    runtime_gen_src=$(find "$plugin_intermediates" -type d \
+        -path "*/SwiftGodotRuntime/CodeGeneratorPlugin/GeneratedSources/SwiftGodotRuntime" 2>/dev/null | head -1)
+    swiftgodot_gen_src=$(find "$plugin_intermediates" -type d \
+        -path "*/SwiftGodot/CodeGeneratorPlugin/GeneratedSources/SwiftGodot" 2>/dev/null | head -1)
+
+    if [[ -z "$runtime_gen_src" || -z "$swiftgodot_gen_src" ]]; then
+        echo "Error: Could not find CodeGeneratorPlugin output under $plugin_intermediates"
+        exit 1
+    fi
+
+    mkdir -p Sources/SwiftGodotRuntime/_generated Sources/SwiftGodot/_generated
+    # SwiftGodotRuntime: copy both generated/ and generated-builtin/ (all outputFiles)
+    find "$runtime_gen_src" -name "*.swift" -exec cp {} Sources/SwiftGodotRuntime/_generated/ \;
+    # SwiftGodot: only copy generated/ — generated-builtin/ is written by the generator
+    # as a side-effect but is NOT in the plugin's outputFiles for SwiftGodot (builtinFiles: [])
+    # and must not be compiled again since those types already live in SwiftGodotRuntime.
+    find "$swiftgodot_gen_src/generated" -name "*.swift" -exec cp {} Sources/SwiftGodot/_generated/ \;
+    echo "Copied generated sources."
+
+    # Swap in Package.distribution.swift (strips Generator/swift-syntax from the
+    # build graph so BUILD_LIBRARY_FOR_DISTRIBUTION=YES can be applied cleanly).
+    cp Package.swift Package.swift.original
+    cp Package.distribution.swift Package.swift
+    # shellcheck disable=SC2064
+    trap "mv Package.swift.original Package.swift; rm -rf Sources/SwiftGodotRuntime/_generated Sources/SwiftGodot/_generated" EXIT
+
+    # Phase 2: rebuild with BUILD_LIBRARY_FOR_DISTRIBUTION=YES to emit .swiftinterface files.
+    echo "Phase 2: Building with BUILD_LIBRARY_FOR_DISTRIBUTION=YES..."
     xcodebuild \
         -scheme SwiftGodot \
         -destination "platform=macOS,arch=x86_64" \
@@ -102,6 +142,13 @@ if [[ -z "${SWIFT_GODOT_SKIP_BUILD:-}" ]]; then
         -archivePath "$archive_path" \
         BUILD_LIBRARY_FOR_DISTRIBUTION=YES \
         > "$build_dir/x86_64.log"
+    xcodebuild \
+        -scheme SwiftGodotRuntime \
+        -destination "platform=macOS,arch=x86_64" \
+        -derivedDataPath "$derived_data" \
+        -archivePath "$archive_path" \
+        BUILD_LIBRARY_FOR_DISTRIBUTION=YES \
+        >> "$build_dir/x86_64.log"
 
     if [[ "$arch" = "arm64" ]]; then
         xcodebuild \
@@ -111,6 +158,13 @@ if [[ -z "${SWIFT_GODOT_SKIP_BUILD:-}" ]]; then
             -archivePath "$archive_path" \
             BUILD_LIBRARY_FOR_DISTRIBUTION=YES \
             > "$build_dir/arm64.log"
+        xcodebuild \
+            -scheme SwiftGodotRuntime \
+            -destination "platform=macOS,arch=arm64" \
+            -derivedDataPath "${derived_data}_arm" \
+            -archivePath "$archive_path" \
+            BUILD_LIBRARY_FOR_DISTRIBUTION=YES \
+            >> "$build_dir/arm64.log"
     fi
 
     xcodebuild \
@@ -120,6 +174,17 @@ if [[ -z "${SWIFT_GODOT_SKIP_BUILD:-}" ]]; then
         -archivePath "$archive_path" \
         BUILD_LIBRARY_FOR_DISTRIBUTION=YES \
         > "$build_dir/ios_arm64.log"
+    xcodebuild \
+        -scheme SwiftGodotRuntime \
+        -destination "generic/platform=iOS" \
+        -derivedDataPath "$derived_data" \
+        -archivePath "$archive_path" \
+        BUILD_LIBRARY_FOR_DISTRIBUTION=YES \
+        >> "$build_dir/ios_arm64.log"
+
+    mv Package.swift.original Package.swift
+    rm -rf Sources/SwiftGodotRuntime/_generated Sources/SwiftGodot/_generated
+    trap - EXIT
 else
     echo "Using prebuilt DerivedData from: $derived_data"
     require_prebuilt_artifact() {
@@ -130,14 +195,17 @@ else
     }
 
     require_prebuilt_artifact "$derived_data/Build/Products/Debug/PackageFrameworks/SwiftGodot.framework"
+    require_prebuilt_artifact "$derived_data/Build/Products/Debug/PackageFrameworks/SwiftGodotRuntime.framework"
     require_prebuilt_artifact "$derived_data/Build/Products/Debug/SwiftGodot.swiftmodule"
     require_prebuilt_artifact "$derived_data/Build/Products/Debug/SwiftGodotRuntime.swiftmodule"
     if [[ "$arch" = "arm64" ]]; then
         require_prebuilt_artifact "${derived_data}_arm/Build/Products/Debug/PackageFrameworks/SwiftGodot.framework"
+        require_prebuilt_artifact "${derived_data}_arm/Build/Products/Debug/PackageFrameworks/SwiftGodotRuntime.framework"
         require_prebuilt_artifact "${derived_data}_arm/Build/Products/Debug/SwiftGodot.swiftmodule"
         require_prebuilt_artifact "${derived_data}_arm/Build/Products/Debug/SwiftGodotRuntime.swiftmodule"
     fi
     require_prebuilt_artifact "$derived_data/Build/Products/Debug-iphoneos/PackageFrameworks/SwiftGodot.framework"
+    require_prebuilt_artifact "$derived_data/Build/Products/Debug-iphoneos/PackageFrameworks/SwiftGodotRuntime.framework"
     require_prebuilt_artifact "$derived_data/Build/Products/Debug-iphoneos/SwiftGodot.swiftmodule"
     require_prebuilt_artifact "$derived_data/Build/Products/Debug-iphoneos/SwiftGodotRuntime.swiftmodule"
 fi
@@ -154,7 +222,12 @@ zip_path="$output_dir/SwiftGodot.xcframework.zip"
 checksum=$(swift package compute-checksum "$zip_path")
 asset_url="https://github.com/$source_repo/releases/download/$tag/SwiftGodot.xcframework.zip"
 
-gh release create "$tag" "$zip_path" -R "$source_repo" -F "$release_notes" --target "$commit"
+runtime_zip_path="$output_dir/SwiftGodotRuntime.xcframework.zip"
+(cd "$output_dir"; ditto -c -k --sequesterRsrc --keepParent SwiftGodotRuntime.xcframework SwiftGodotRuntime.xcframework.zip)
+runtime_checksum=$(swift package compute-checksum "$runtime_zip_path")
+runtime_asset_url="https://github.com/$source_repo/releases/download/$tag/SwiftGodotRuntime.xcframework.zip"
+
+gh release create "$tag" "$zip_path" "$runtime_zip_path" -R "$source_repo" -F "$release_notes" --target "$commit"
 
 gdextension_target_dir="$binary_repo_dir/Sources/GDExtension"
 rm -rf "$gdextension_target_dir"
@@ -185,7 +258,7 @@ let package = Package(
     products: [
         .library(
             name: "SwiftGodot",
-            targets: ["SwiftGodot", "GDExtension"]),
+            targets: ["SwiftGodot", "SwiftGodotRuntime", "GDExtension"]),
         .library(
             name: "SwiftGodotMacros",
             targets: ["SwiftGodotMacroLibrary"]),
@@ -198,6 +271,10 @@ let package = Package(
             name: "SwiftGodot",
             url: "$asset_url",
             checksum: "$checksum"),
+        .binaryTarget(
+            name: "SwiftGodotRuntime",
+            url: "$runtime_asset_url",
+            checksum: "$runtime_checksum"),
         .target(
             name: "GDExtension",
             path: "Sources/GDExtension"),
@@ -214,7 +291,7 @@ let package = Package(
             ],
             path: "Sources/SwiftGodotMacroLibrary",
             swiftSettings: [.swiftLanguageMode(.v5)]),
-        .testTarget(name: "SwiftGodotTests", dependencies: ["SwiftGodot", "GDExtension", "SwiftGodotMacroLibrary"]),
+        .testTarget(name: "SwiftGodotTests", dependencies: ["SwiftGodot", "SwiftGodotRuntime", "GDExtension", "SwiftGodotMacroLibrary"]),
     ]
 )
 EOF

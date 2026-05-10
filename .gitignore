@@ -20,6 +20,8 @@ Package.resolved
 /.vscode
 .swiftpm/xcode/xcshareddata/xcschemes
 GeneratedForDebug/
+Sources/SwiftGodotRuntime/_generated/
+Sources/SwiftGodot/_generated/
 Tests/SwiftGodotTestProject/test_results.json
 /Testbed/bin/SwiftGodot
 .worktrees/

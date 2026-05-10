@@ -198,7 +198,10 @@ open class Wrapped: Equatable, Identifiable, Hashable {
     public static func attemptToUseObjectFreedByGodot() {
         fatalError ("Wrapped.handle was nil, which indicates the object was cleared by Godot")
     }
-    @_spi(SwiftGodotRuntimePrivate) open class func getVirtualDispatcher(name: StringName) ->  GDExtensionClassCallVirtual? {
+    @_spi(SwiftGodotRuntimePrivate)
+    public typealias GodotVirtualDispatchCallback = GDExtension.GDExtensionClassCallVirtual
+
+    @_spi(SwiftGodotRuntimePrivate) open class func getVirtualDispatcher(name: StringName) -> GodotVirtualDispatchCallback? {
         pd ("SWARN: getVirtualDispatcher (\"\(name)\") reached Wrapped on class \(self)")
         return nil
     }

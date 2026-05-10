@@ -197,6 +197,7 @@ var targets: [Target] = [
     .target(
         name: "SwiftGodotRuntime",
         dependencies: ["GDExtension"],
+        exclude: ["_generated"],
         swiftSettings: [
             .define("CUSTOM_BUILTIN_IMPLEMENTATIONS"),
             .define("SWIFTGODOT_WITH_MULTI_PROCESS", .when(traits: [withMultiProcessTrait])),
@@ -218,6 +219,7 @@ var targets: [Target] = [
     .target(
         name: "SwiftGodot",
         dependencies: ["GDExtension", "SwiftGodotRuntime"],
+        exclude: ["_generated"],
         swiftSettings: [
             .swiftLanguageMode(.v5),
             .define("CUSTOM_BUILTIN_IMPLEMENTATIONS"),
