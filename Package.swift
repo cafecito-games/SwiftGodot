@@ -136,7 +136,7 @@ var targets: [Target] = [
     // This allows the Swift code to call into the Godot bridge API (GDExtension)
     .target(
         name: "GDExtension",
-        swiftSettings: [.swiftLanguageMode(.v5)]
+        swiftSettings: [.swiftLanguageMode(.v6)]
     ),
 
     // These are macros that can be used by third parties to simplify their
