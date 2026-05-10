@@ -18,13 +18,13 @@ import Darwin
 import ucrt
 import WinSDK
 #elseif canImport(Glibc)
-@preconcurrency import Glibc
+import Glibc
 #elseif canImport(Musl)
-@preconcurrency import Musl
+import Musl
 #elseif canImport(Bionic)
-@preconcurrency import Bionic
+import Bionic
 #elseif canImport(WASILibc)
-@preconcurrency import WASILibc
+import WASILibc
 #if canImport(wasi_pthread)
 import wasi_pthread
 #endif
