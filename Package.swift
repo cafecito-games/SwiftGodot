@@ -85,7 +85,7 @@ var targets: [Target] = [
     .target(
         name: "ExtensionApi",
         exclude: ["ExtensionApiJson.swift", "extension_api.json"],
-        swiftSettings: [.swiftLanguageMode(.v5)]
+        swiftSettings: [.swiftLanguageMode(.v6)]
     ),
 
     // This contains a resource bundle with extension_api.json
@@ -95,7 +95,7 @@ var targets: [Target] = [
         exclude: ["ApiJsonModel.swift", "ApiJsonModel+Extra.swift"],
         sources: ["ExtensionApiJson.swift"],
         resources: [.process("extension_api.json")],
-        swiftSettings: [.swiftLanguageMode(.v5)]
+        swiftSettings: [.swiftLanguageMode(.v6)]
     ),
 
     // The generator takes Godot's JSON-based API description as input and
