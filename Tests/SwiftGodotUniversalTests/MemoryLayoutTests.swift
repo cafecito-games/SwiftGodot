@@ -13,6 +13,7 @@ import ExtensionApiJson
 final class MemoryLayoutTests: XCTestCase {
     
     private let buildConfiguration: String = "float_64"
+    // XCTest runs tests serially by default; nonisolated(unsafe) is safe here.
     private nonisolated(unsafe) static var metadata: ExtensionMetadata?
     
     func testAABB () throws {

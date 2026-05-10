@@ -1199,7 +1199,7 @@ nonisolated func bindingReference(_ token: UnsafeMutableRawPointer?, _ binding: 
         guard let bindingInt else { return 0 }
         let binding = UnsafeMutableRawPointer(bitPattern: bindingInt)!
         let ref = Unmanaged<WrappedReference>.fromOpaque(binding).takeUnretainedValue()
-        weak var refCounted = ref.value as? RefCounted
+        let refCounted = ref.value as? RefCounted
 
         guard let rc = refCounted?.getReferenceCount() else {
             // unreference() was called by Wrapped.deinit, so we allow the object to be destroyed.

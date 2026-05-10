@@ -7,6 +7,7 @@
 import Foundation
 import SwiftGodot
 
+// Accessed only during @MainActor init; nonisolated(unsafe) avoids a global-actor annotation on sample code.
 nonisolated(unsafe) var sequence = 0
 
 @Godot
