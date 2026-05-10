@@ -167,7 +167,7 @@ mkdir -p "$macro_target_dir"
 cp Sources/SwiftGodotMacroLibrary/*.swift "$macro_target_dir/"
 
 cat > "$binary_repo_dir/Package.swift" <<EOF
-// swift-tools-version:6.3
+// swift-tools-version:6.2
 // The swift-tools-version declares the minimum version of Swift required to build this package.
 
 import CompilerPluginSupport
