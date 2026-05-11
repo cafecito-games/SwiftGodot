@@ -1,7 +1,7 @@
 import Foundation
 
 /// A type representing expected errors that can happen during parsing `Arguments` in the call-site
-public enum ArgumentAccessError: Error, CustomStringConvertible {
+public enum ArgumentAccessError: Error, Sendable, CustomStringConvertible {
     case indexOutOfBounds(index: Int, count: Int)
     case variantConversionError(VariantConversionError)
     case godotCallingConventionError

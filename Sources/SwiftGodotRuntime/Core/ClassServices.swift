@@ -229,7 +229,7 @@ public class ClassInfo<T:Object> {
 /// PropInfo structures describe arguments to signals, and methods as well as return values from methods.
 ///
 /// The supported types are those that can be wrapped as a Godot Variant type.
-public struct PropInfo: CustomDebugStringConvertible {
+public struct PropInfo: @unchecked Sendable, CustomDebugStringConvertible {
     /// The type of the property being defined
     public var propertyType: Variant.GType
     /// The name for the property
@@ -335,7 +335,7 @@ func bind_call_ptr () {
 }
 
 /// Error indicating that a ``earlyChild`` is registered before ``lateParent`` due to ``classInitializationLevel`` requirement, despite ``lateParent`` is a super class of ``earlyChild``
-public struct IncorrectInitializationOrderError: Error {
+public struct IncorrectInitializationOrderError: Error, Sendable {
     public let earlyChild: String
     public let lateParent: String
 }

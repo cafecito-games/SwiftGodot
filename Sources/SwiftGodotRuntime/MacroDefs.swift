@@ -19,7 +19,7 @@
           names: named (_initializeClass), named(classInitializer), named (implementedOverrides))
 public macro Godot(_ behavior: ClassBehavior = .gameplay) = #externalMacro(module: "SwiftGodotMacroLibrary", type: "GodotMacro")
 
-public enum ClassBehavior: Int {
+public enum ClassBehavior: Int, Sendable {
     case gameplay, tool
 }
 

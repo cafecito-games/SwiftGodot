@@ -7,7 +7,7 @@
 
 import GDExtension
 
-public enum ArrayError {
+public enum ArrayError: Sendable {
     case outOfRange
 }
 

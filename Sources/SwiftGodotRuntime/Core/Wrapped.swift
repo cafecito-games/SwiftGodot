@@ -881,7 +881,7 @@ func existingSwiftObject(for nativeHandle: GodotNativeObjectPointer) -> Wrapped?
 /// Do not use it to distinguish whether the wrapper was initialized from Swift,
 /// from Godot, or from a GDScript-created user type. That is handled by
 /// ``InitOrigin``.
-public enum ReturnedObjectOwnership {
+public enum ReturnedObjectOwnership: Sendable {
     /// The object pointer is borrowed, so a new Swift wrapper must retain its own native ref.
     case borrowed
 
