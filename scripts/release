@@ -179,17 +179,14 @@ fi
 
 zip_path="$output_dir/SwiftGodot.xcframework.zip"
 (cd "$output_dir"; ditto -c -k --sequesterRsrc --keepParent SwiftGodot.xcframework SwiftGodot.xcframework.zip)
-checksum=$(swift package compute-checksum "$zip_path")
 asset_url="https://github.com/$source_repo/releases/download/$tag/SwiftGodot.xcframework.zip"
 
 runtime_zip_path="$output_dir/SwiftGodotRuntime.xcframework.zip"
 (cd "$output_dir"; ditto -c -k --sequesterRsrc --keepParent SwiftGodotRuntime.xcframework SwiftGodotRuntime.xcframework.zip)
-runtime_checksum=$(swift package compute-checksum "$runtime_zip_path")
 runtime_asset_url="https://github.com/$source_repo/releases/download/$tag/SwiftGodotRuntime.xcframework.zip"
 
 scripts/build-macro-artifactbundle "$output_dir" "$tag"
 macro_zip_path="$output_dir/SwiftGodotMacros.artifactbundle.zip"
-macro_checksum=$(swift package compute-checksum "$macro_zip_path")
 macro_asset_url="https://github.com/$source_repo/releases/download/$tag/SwiftGodotMacros.artifactbundle.zip"
 
 gh release create "$tag" "$zip_path" "$runtime_zip_path" "$macro_zip_path" -R "$source_repo" -F "$release_notes" --target "$commit"
@@ -205,6 +202,40 @@ cp Sources/GDExtension/include/gdextension_interface.h "$gdextension_target_dir/
 # Drop any previously vendored SwiftGodotMacroLibrary sources; we now ship a
 # prebuilt compiler plugin via SwiftGodotMacros.artifactbundle.zip.
 rm -rf "$binary_repo_dir/Sources/SwiftGodotMacroLibrary"
+
+# Write binaries.json so consumers can download artifacts with `gh release download`
+# and place them under Binaries/ where the path-based Package.swift expects them.
+cat > "$binary_repo_dir/binaries.json" <<EOF
+{
+  "version": "$tag",
+  "sourceRepo": "$source_repo",
+  "artifacts": [
+    {
+      "name": "SwiftGodot",
+      "file": "SwiftGodot.xcframework.zip",
+      "url": "$asset_url",
+      "localPath": "Binaries/SwiftGodot.xcframework"
+    },
+    {
+      "name": "SwiftGodotRuntime",
+      "file": "SwiftGodotRuntime.xcframework.zip",
+      "url": "$runtime_asset_url",
+      "localPath": "Binaries/SwiftGodotRuntime.xcframework"
+    },
+    {
+      "name": "SwiftGodotMacroLibrary",
+      "file": "SwiftGodotMacros.artifactbundle.zip",
+      "url": "$macro_asset_url",
+      "localPath": "Binaries/SwiftGodotMacros.artifactbundle"
+    }
+  ]
+}
+EOF
+
+# Ensure Binaries/ (where extracted artifacts live) is not tracked in git.
+if ! grep -qxF 'Binaries/' "$binary_repo_dir/.gitignore" 2>/dev/null; then
+    echo 'Binaries/' >> "$binary_repo_dir/.gitignore"
+fi
 
 cat > "$binary_repo_dir/Package.swift" <<EOF
 // swift-tools-version:6.2
@@ -226,16 +257,13 @@ let package = Package(
     targets: [
         .binaryTarget(
             name: "SwiftGodot",
-            url: "$asset_url",
-            checksum: "$checksum"),
+            path: "Binaries/SwiftGodot.xcframework"),
         .binaryTarget(
             name: "SwiftGodotRuntime",
-            url: "$runtime_asset_url",
-            checksum: "$runtime_checksum"),
+            path: "Binaries/SwiftGodotRuntime.xcframework"),
         .binaryTarget(
             name: "SwiftGodotMacroLibrary",
-            url: "$macro_asset_url",
-            checksum: "$macro_checksum"),
+            path: "Binaries/SwiftGodotMacros.artifactbundle"),
         .target(
             name: "GDExtension",
             path: "Sources/GDExtension"),
@@ -246,7 +274,7 @@ EOF
 
 (
     cd "$binary_repo_dir"
-    git add Package.swift Sources/GDExtension
+    git add Package.swift Sources/GDExtension binaries.json .gitignore
     if [[ -d Sources/SwiftGodotMacroLibrary ]] || git ls-files --error-unmatch Sources/SwiftGodotMacroLibrary >/dev/null 2>&1; then
         git rm -rf --ignore-unmatch Sources/SwiftGodotMacroLibrary
     fi
