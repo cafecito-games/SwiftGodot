@@ -1,9 +1,6 @@
 // Based on godot/tests/core/math/test_basis.h
 
 import Foundation
-#if os(Android)
-import Android // for cos
-#endif
 
 @testable import SwiftGodot
 

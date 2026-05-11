@@ -535,12 +535,7 @@ public func initializeSwiftModule(
     let initialization = UnsafeMutablePointer<GDExtensionInitialization>(extensionPtr)
     initialization.pointee.deinitialize = extension_deinitialize
     initialization.pointee.initialize = extension_initialize
-    #if os(Windows)
-        typealias RawType = Int32
-    #else
-        typealias RawType = UInt32
-    #endif
-    initialization.pointee.minimum_initialization_level = GDExtensionInitializationLevel(RawType(minimumInitializationLevel.rawValue))
+    initialization.pointee.minimum_initialization_level = GDExtensionInitializationLevel(UInt32(minimumInitializationLevel.rawValue))
     initialization.pointee.userdata = UnsafeMutableRawPointer(libraryPtr)
 }
 

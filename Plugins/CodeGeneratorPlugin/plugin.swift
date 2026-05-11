@@ -48,13 +48,9 @@ import PackagePlugin
         let supportsMultiProcess = (target as? SwiftSourceModuleTarget)?
             .compilationConditions
             .contains("SWIFTGODOT_WITH_MULTI_PROCESS") == true
-#if os(Windows)
-        let useCombinedOutput = true
-#else
         let useCombinedOutput = shouldUseCombinedOutput()
-#endif
         if useCombinedOutput {
-            // Combine output to keep file counts low (always on Windows; opt-in via env var elsewhere).
+            // Combine output to keep file counts low when requested.
             let letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
             for letter in letters {
                 outputFiles.append(generatedSourcesDir.appending(path: "SwiftGodot\(letter).swift"))
@@ -1258,15 +1254,11 @@ let editor: [String] = [
     "EditorDebuggerSession.swift",
     "EditorDock.swift",
     "EditorExportPlatform.swift",
-    "EditorExportPlatformAndroid.swift",
     "EditorExportPlatformAppleEmbedded.swift",
     "EditorExportPlatformExtension.swift",
     "EditorExportPlatformIOS.swift",
-    "EditorExportPlatformLinuxBSD.swift",
     "EditorExportPlatformMacOS.swift",
     "EditorExportPlatformPC.swift",
-    "EditorExportPlatformWeb.swift",
-    "EditorExportPlatformWindows.swift",
     "EditorExportPlugin.swift",
     "EditorExportPreset.swift",
     "EditorFeatureProfile.swift",

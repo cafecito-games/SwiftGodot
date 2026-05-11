@@ -27,11 +27,6 @@ extension ExtensionInitializationLevel {
     }
 
     var cLevel: GDExtensionInitializationLevel {
-        #if os(Windows)
-            typealias RawType = Int32
-        #else
-            typealias RawType = UInt32
-        #endif
-        return GDExtensionInitializationLevel(RawType(rawValue))
+        GDExtensionInitializationLevel(UInt32(rawValue))
     }
 }

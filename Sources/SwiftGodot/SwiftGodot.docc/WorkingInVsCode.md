@@ -5,7 +5,7 @@ Develop and debug SwiftGodot Code in Visual Studio Code
 ## Overview
 
 Visual Studio Code provides a compelling alternative to Xcode for SwiftGodot
-developers on Mac, Linux, or Windows.
+developers on macOS.
 
 
 ### Prerequisites
@@ -100,65 +100,31 @@ When you are ready to build your SwiftGodot package, the Swift Extension
 provides a default Build task you can execute with Visual Studio Code's Build
 Shortcut - Ctrl+Shift+B (or Cmd+Shift+B on Mac).  
 
-The initial build, especially on Windows, may take a very long time.
+The initial build may take a very long time.
 
 ### Setting up your gdextension 
 
-When creating your `gdextension` file, your configuration file will need to 
-contain settings specific to your platform, and you will need to copy the
-libraries for your operating system and architecture to the `bin` folder inside
-your Godot project. 
-
-#### Windows
-
-Windows does not deal well with long paths, so you should make sure that you 
-either checkout your SwiftGodot into a toplevel directory, or use the Windows
-`subst` command to map a drive name to the location that contains your
-SwiftGodot builds.
-
-If you are developing on Windows, your `libraries` and `dependencies` will need
-to be specified as `windows.debug.x86_64` and your libraries will be compiled
-into `.dll` files, so that these sections should look like this:
+When creating your `gdextension` file, your configuration file will need to
+contain macOS settings, and you will need to copy the libraries to the `bin`
+folder inside your Godot project:
 
 ```
 [libraries]
-windows.debug.x86_64 = "res://bin/SimpleRunnerDriver.dll"
+macos.debug = "res://bin/libSimpleRunnerDriver.dylib"
 
 [dependencies]
-windows.debug.x86_64 = {"res://bin/SwiftGodot.dll" : ""}
+macos.debug = {"res://bin/libSwiftGodot.dylib" : ""}
 ```
 
 You can copy these files to your Godot projects `bin` folder from the build 
-output folder located in `.build\x86_64-unknown-windows-msvc\debug\` inside
-the directory where you initialized your Swift package.
-
-As an additional step on Windows, you will need to copy all of the Swift 
-runtime libraries into the `bin` folder with SwiftGodot.dll.  This is means
-copying all `*.dll` files from `C:\Program Files\Swift\runtime-development\usr\bin\`
-
-#### Linux
-
-If you are developing on Linux, your `libraries` and `dependencies` will need
-to be specified as `linux.debug.x86_64` and your libraries will be compiled into
-`lib*.so` files, so that these sections should look like this:
-
-```
-[libraries]
-linux.debug.x86_64 = "res://bin/libSimpleRunnerDriver.so"
-
-[dependencies]
-linux.debug.x86_64 = {"res://bin/libSwiftGodot.so" : ""}
-```
-
-You can copy these files to your Godot projects `bin` folder from the build 
-output folder located in `.build/x86_64-unknown-linux-gnu/debug/` inside
-the directory where you initialized your Swift package.
+output folder located in `.build/debug/` inside the directory where you
+initialized your Swift package.
 
 
 ### Debugging your SwiftGodot code
 
-You can debug your SwiftGodot code on Windows or Linux using the 
-CodeLLDB Extension to launch your game directly from vscode.  
+You can debug your SwiftGodot code on macOS using the CodeLLDB Extension to
+launch your game directly from Visual Studio Code.
 
 In order to do this, you will need to add a Launch 
 task to your project.
@@ -251,10 +217,9 @@ and searching for Godot.
 4. Search again for Godot and select the PID for your game, which should be the
    only process that wasn't listed in step (1) above.  
 
-> On Linux or Mac, it may be possible to differentiate your game's PID from other 
-> Godot PIDs by looking at the additional information Visual Studio Code lists about 
-> each process, including command line options.  On Windows, the Godot processes are 
-> pretty much identical, making it difficult to differentiate your game from the editor.
+> On macOS, it may be possible to differentiate your game's PID from other Godot
+> PIDs by looking at the additional information Visual Studio Code lists about
+> each process, including command line options.
 
 > Warning: 
 > On Mac, you will need to make your Godot engine debuggable following the steps from

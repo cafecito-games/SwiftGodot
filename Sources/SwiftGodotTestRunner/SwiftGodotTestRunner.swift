@@ -84,30 +84,12 @@ struct SwiftGodotTestRunner {
             exit(1)
         }
 
-        #if os(macOS)
         let libPrefix = "lib"
         let libExt = "dylib"
         #if arch(arm64)
         let platformDir = "arm64-apple-macosx"
         #else
         let platformDir = "x86_64-apple-macosx"
-        #endif
-        #elseif os(Linux)
-        let libPrefix = "lib"
-        let libExt = "so"
-        #if arch(arm64)
-        let platformDir = "aarch64-unknown-linux-gnu"
-        #else
-        let platformDir = "x86_64-unknown-linux-gnu"
-        #endif
-        #elseif os(Windows)
-        let libPrefix = ""
-        let libExt = "dll"
-        let platformDir = "x86_64-unknown-windows-msvc"
-        #else
-        let libPrefix = "lib"
-        let libExt = "dylib"
-        let platformDir = ""
         #endif
 
         let libraryNames = [extensionTarget, "SwiftGodot", "SwiftGodotRuntime"]

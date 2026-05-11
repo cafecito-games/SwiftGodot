@@ -5,7 +5,7 @@
 <br>
 
 [![SwiftPM compatible](https://img.shields.io/badge/spm-compatible-brightgreen.svg?style=flat)](https://swift.org/package-manager)
-![Platforms](https://img.shields.io/badge/platforms-iOS%20%7C%20Linux%20%7C%20macOS%20%7C%20Windows-333333.svg?style=flat)
+![Platforms](https://img.shields.io/badge/platforms-iOS%20%7C%20macOS-333333.svg?style=flat)
 [![Swift Package Index](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Fmigueldeicaza%2FSwiftGodot%2Fbadge%3Ftype%3Dswift-versions)](https://swiftpackageindex.com/migueldeicaza/SwiftGodot)
 [![License](https://img.shields.io/badge/license-MIT-lightgrey.svg?maxAge=2592000)](https://raw.githubusercontent.com/migueldeicaza/SwiftGodot/main/LICENSE)
 
@@ -69,10 +69,7 @@ SwiftGodot code directly without any manual Godot project setup.
 
 # Supported Platforms
 
-Currently, SwiftGodot can be used in projects targeting the iOS, Linux, macOS,
-or Windows platforms. It may be possible to target additional platforms, but
-testing for other platforms has not been completed and stability cannot be
-verified at this time.
+This fork supports Apple platforms only: iOS and macOS.
 
 # Consuming SwiftGodot
 
@@ -256,20 +253,8 @@ compatibility_minimum = 4.2
 [libraries]
 macos.debug = "res://bin/MyFirstGame"
 macos.release = "res://bin/MyFirstGame"
-windows.debug.x86_32 = "res://bin/MyFirstGame"
-windows.release.x86_32 = "res://bin/MyFirstGame"
-windows.debug.x86_64 = "res://bin/MyFirstGame"
-windows.release.x86_64 = "res://bin/MyFirstGame"
-linux.debug.x86_64 = "res://bin/MyFirstGame"
-linux.release.x86_64 = "res://bin/MyFirstGame"
-linux.debug.arm64 = "res://bin/MyFirstGame"
-linux.release.arm64 = "res://bin/MyFirstGame"
-linux.debug.rv64 = "res://bin/MyFirstGame"
-linux.release.rv64 = "res://bin/MyFirstGame"
-android.debug.x86_64 = "res://bin/MyFirstGame"
-android.release.x86_64 = "res://bin/MyFirstGame"
-android.debug.arm64 = "res://bin/MyFirstGame"
-android.release.arm64 = "res://bin/MyFirstGame"
+ios.debug = "res://bin/MyFirstGame"
+ios.release = "res://bin/MyFirstGame"
 ```
 
 In the example above, the extension always expects the 
