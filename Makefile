@@ -6,7 +6,6 @@ all:
 	echo    - preview-docs: Start local web server serving the documentation
 	echo    - push-docs: Pushes the existing documentation, requires SwiftGodotDocs peer checked out
 	echo    - release: Builds an xcframework package, documentation and pushes documentation
-	echo    - sync: synchronizes the Macro system to the ../SwiftGodotBinary module
 
 build-docs:
 	GENERATE_DOCS=1 DOCC_HTML_DIR=/Users/miguel/cvs/swift-docc-render-artifact/dist swift package \
@@ -34,9 +33,6 @@ build-release: check-args
 
 check-args:
 	@if test x$(VERSION)$(NOTES) = x; then echo You need to provide both VERSION=XX NOTES=FILENAME arguments to this makefile target; exit 1; fi
-
-sync:
-	@if test ../SwiftGodotBinary; then rsync -a Sources/SwiftGodotMacroLibrary ../SwiftGodotBinary/Sources; else echo "missing directory ../SwiftGodotBinary"; fi
 
 lint:
 	swiftlint lint Sources
