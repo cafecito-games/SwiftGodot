@@ -9,7 +9,7 @@ Builds SwiftGodotMacroLibrary as a universal macOS (arm64 + x86_64)
 compiler-plugin executable and packages it as a SwiftPM artifact bundle
 named SwiftGodotMacros.artifactbundle.zip in <output_dir>.
 
-The result can be consumed downstream via:
+The result is consumed downstream via:
 
   .binaryTarget(
       name: "SwiftGodotMacroLibrary",
@@ -17,8 +17,16 @@ The result can be consumed downstream via:
       checksum: "..."
   )
 
-allowing the binary distribution to ship a prebuilt macro plugin without
-forcing consumers to compile swift-syntax.
+so the binary distribution ships a prebuilt macro plugin without forcing
+consumers to compile swift-syntax.
+
+Implementation note: rather than building the .macro target in the main
+package (which can't be selected with --target and would build the plugin
+for the host arch only), this script materializes a throwaway wrapper
+package that exposes the same sources as an .executableTarget. The macro
+sources already contain a manual `@main struct ...: CompilerPlugin` entry
+point, so the resulting executable is a valid macro plugin and can be
+built universal in one pass with `swift build --arch arm64 --arch x86_64`.
 EOF
 }
 
@@ -37,28 +45,71 @@ if [[ "$(uname)" != "Darwin" ]]; then
     exit 1
 fi
 
+repo_root=$(pwd)
+macro_sources="$repo_root/Sources/SwiftGodotMacroLibrary"
+
+if [[ ! -d "$macro_sources" ]]; then
+    echo "Could not find macro sources at $macro_sources" >&2
+    echo "Run this script from the SwiftGodot repository root." >&2
+    exit 1
+fi
+
 scratch=".build-macro-artifact"
 rm -rf "$scratch"
+mkdir -p "$scratch/MacroBuilder/Sources"
+
+# Symlink the real macro sources into the wrapper package so SwiftPM can
+# resolve them through the default Sources/<TargetName> path.
+ln -s "$macro_sources" "$scratch/MacroBuilder/Sources/SwiftGodotMacroLibrary"
+
+cat > "$scratch/MacroBuilder/Package.swift" <<'EOF'
+// swift-tools-version: 6.0
+import PackageDescription
+
+let package = Package(
+    name: "MacroBuilder",
+    platforms: [.macOS(.v14)],
+    products: [
+        .executable(
+            name: "SwiftGodotMacroLibrary",
+            targets: ["SwiftGodotMacroLibrary"]
+        ),
+    ],
+    dependencies: [
+        .package(url: "https://github.com/swiftlang/swift-syntax", from: "600.0.1"),
+    ],
+    targets: [
+        .executableTarget(
+            name: "SwiftGodotMacroLibrary",
+            dependencies: [
+                .product(name: "SwiftSyntaxMacros", package: "swift-syntax"),
+                .product(name: "SwiftSyntax", package: "swift-syntax"),
+                .product(name: "SwiftCompilerPlugin", package: "swift-syntax"),
+                .product(name: "SwiftDiagnostics", package: "swift-syntax"),
+                .product(name: "SwiftParserDiagnostics", package: "swift-syntax"),
+                .product(name: "SwiftParser", package: "swift-syntax"),
+                .product(name: "SwiftBasicFormat", package: "swift-syntax"),
+            ],
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        )
+    ]
+)
+EOF
 
 echo "Building SwiftGodotMacroLibrary universal (arm64 + x86_64)..."
-# `.macro` targets are not products, but `--target` selects them directly.
-# Multi-arch build produces a universal binary in one pass on macOS.
-swift build \
-    -c release \
-    --arch arm64 \
-    --arch x86_64 \
-    --scratch-path "$scratch" \
-    --target SwiftGodotMacroLibrary
+(
+    cd "$scratch/MacroBuilder"
+    swift build \
+        -c release \
+        --arch arm64 \
+        --arch x86_64 \
+        --product SwiftGodotMacroLibrary
+)
 
-# SwiftPM places compiler-plugin executables in the apple/Products tree when
-# building universal. The plugin is emitted with a "-tool" suffix to
-# distinguish it from the macro module of the same name.
 plugin_bin=""
 for candidate in \
-    "$scratch/apple/Products/Release/SwiftGodotMacroLibrary-tool" \
-    "$scratch/apple/Products/Release/SwiftGodotMacroLibrary" \
-    "$scratch/release/SwiftGodotMacroLibrary-tool" \
-    "$scratch/release/SwiftGodotMacroLibrary"; do
+    "$scratch/MacroBuilder/.build/apple/Products/Release/SwiftGodotMacroLibrary" \
+    "$scratch/MacroBuilder/.build/release/SwiftGodotMacroLibrary"; do
     if [[ -f "$candidate" ]]; then
         plugin_bin=$candidate
         break
@@ -66,14 +117,18 @@ for candidate in \
 done
 
 if [[ -z "$plugin_bin" ]]; then
-    echo "Could not find built SwiftGodotMacroLibrary executable under $scratch" >&2
-    echo "Candidates checked:" >&2
-    find "$scratch" -maxdepth 6 -name "SwiftGodotMacroLibrary*" >&2 || true
+    echo "Could not find built SwiftGodotMacroLibrary executable under $scratch/MacroBuilder/.build" >&2
+    find "$scratch/MacroBuilder/.build" -maxdepth 6 -name "SwiftGodotMacroLibrary" -type f >&2 || true
     exit 1
 fi
 
 echo "Found plugin: $plugin_bin"
-lipo -info "$plugin_bin"
+arch_info=$(lipo -info "$plugin_bin")
+echo "$arch_info"
+if ! echo "$arch_info" | grep -qE "(x86_64.*arm64|arm64.*x86_64)"; then
+    echo "Plugin is not a universal binary (expected arm64 + x86_64)." >&2
+    exit 1
+fi
 
 bundle_root="$output_dir/SwiftGodotMacros.artifactbundle"
 rm -rf "$bundle_root"

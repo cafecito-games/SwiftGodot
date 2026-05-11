@@ -42,3 +42,6 @@ jobs:
 
     - name: Run Godot-based tests
       run: swift run SwiftGodotTestRunner
+
+    - name: Build macro artifact bundle (exercise release script)
+      run: scripts/build-macro-artifactbundle "$RUNNER_TEMP/sg-macro-artifact" "0.0.0-ci"
