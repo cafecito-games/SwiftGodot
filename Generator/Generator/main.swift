@@ -10,8 +10,7 @@ import Foundation
 var args = CommandLine.arguments
 var positionalArgs: [String] = []
 
-// Controls whether we want one file per type, or a smaller number of files that are combined
-// used in Windows.
+// Controls whether we want one file per type, or a smaller number of combined files.
 var combineOutput = false
 
 var index = 1
@@ -240,15 +239,6 @@ if combineOutput {
     try! FileManager.default.createDirectory(atPath: generatedBuiltinDir, withIntermediateDirectories: true)
     try! FileManager.default.createDirectory(atPath: generatedDir, withIntermediateDirectories: true)
 }
-
-//#if os(Windows)
-//// Because we generate too many symbols for Windows to be able to compile the library
-//// we eliminate some rare classes from the build.   This is a temporary hack to unblock
-//// people while I split SwiftGodot into smaller chunks.
-//skipList.insert("RenderingServer")
-//skipList.insert("WebXRInterface")
-//skipList.insert("OpenXRInterface")
-//#endif
 
 @MainActor struct Generator {
     func run() async throws {

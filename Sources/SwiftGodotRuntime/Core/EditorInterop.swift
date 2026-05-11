@@ -4,11 +4,7 @@
 //
 //  Created by Miguel de Icaza on 12/12/25.
 //
-#if os(macOS)
-// We avoid Foundation on non-APple platforms to reduce the dependencies,
-// but on MacOS, we can bring it.
 import Foundation
-#endif
 
 public class EditorInterop {
     private static func loadHelp(xmlBytes: [UInt8]) {
@@ -50,18 +46,15 @@ public class EditorInterop {
         loadHelp(xmlBytes: buffer)
     }
 
-#if os(macOS)
     /// Adds the Godot XML documentation to the editor at runtime
     static func loadHelp(fromData data: Data) {
         loadHelp(xmlBytes: [UInt8](data))
     }
-#endif
 
     public static func loadLibraryDocs() {
         guard let basePath = getLibraryPath() else {
             return
         }
-#if os(macOS)
         let url = URL(fileURLWithPath: basePath)
         let parent = url.deletingLastPathComponent()
         let docs = parent.appending(components: "Resources", "doc_classes")
@@ -75,10 +68,5 @@ public class EditorInterop {
                 }
             }
         }
-#else
-        // MacOS has .frameworks that are convenient ways of distributing this, but
-        // Windows and Linux do not, not sure what would be a good place to load
-        // the docs from.
-#endif
     }
 }

@@ -42,8 +42,8 @@ let package = Package(
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
 
-        // Sources/SwiftGodotRuntime/_generated/ must be populated by running a
-        // normal build first (CodeGeneratorPlugin output) before using this manifest.
+        // The release build stages CodeGeneratorPlugin output into
+        // Sources/SwiftGodotRuntime/_generated/ inside a temporary package.
         .target(
             name: "SwiftGodotRuntime",
             dependencies: ["GDExtension"],
@@ -63,8 +63,8 @@ let package = Package(
             ]
         ),
 
-        // Sources/SwiftGodot/_generated/ must be populated by running a
-        // normal build first (CodeGeneratorPlugin output) before using this manifest.
+        // The release build stages CodeGeneratorPlugin output into
+        // Sources/SwiftGodot/_generated/ inside a temporary package.
         .target(
             name: "SwiftGodot",
             dependencies: ["GDExtension", "SwiftGodotRuntime"],

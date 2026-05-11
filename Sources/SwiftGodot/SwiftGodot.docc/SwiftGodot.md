@@ -21,8 +21,8 @@ things are done in this binding.
 
 ### Developing with SwiftGodot
 
-Guides to get you started with SwiftGodot, and work in either Xcode on Mac or
-Visual Studio on Linux, Mac and Windows:
+Guides to get you started with SwiftGodot, and work in either Xcode or Visual
+Studio Code on macOS:
 
 - <doc:SwiftGodot-Tutorials>
 - <doc:DebugInXcode>
@@ -48,7 +48,6 @@ Going in depth with SwiftGodot:
 ### Platform Integration
 
 - <doc:iOS>
-- <doc:Windows>
 
 ### Godot Nodes
 

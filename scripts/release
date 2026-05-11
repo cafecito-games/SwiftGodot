@@ -35,7 +35,7 @@ if [[ ! -f "$release_notes" ]]; then
     exit 1
 fi
 
-if [[ ! -x scripts/make-swiftgodot-framework ]]; then
+if [[ ! -x scripts/build-distribution-products || ! -x scripts/make-swiftgodot-framework ]]; then
     echo "Expected this to run from the SwiftGodot directory"
     exit 1
 fi
@@ -95,96 +95,44 @@ echo "Binary repo: $binary_repo"
 start=$(date)
 
 if [[ -z "${SWIFT_GODOT_SKIP_BUILD:-}" ]]; then
-    # Phase 1: normal build to run CodeGeneratorPlugin and produce generated sources.
-    echo "Phase 1: Generating sources..."
-    xcodebuild \
-        -scheme SwiftGodot \
-        -destination "platform=macOS,arch=x86_64" \
-        -derivedDataPath "$derived_data" \
-        -archivePath "$archive_path" \
-        > "$build_dir/phase1_x86_64.log"
+    build_distribution_products() {
+        local destination=$1
+        local product_derived_data=$2
+        local generation_derived_data=$3
+        local release_package=$4
+        local log_file=$5
 
-    # Copy CodeGeneratorPlugin output from DerivedData into the source tree so
-    # Package.distribution.swift can include it without running the plugin.
-    plugin_intermediates="$derived_data/Build/Intermediates.noindex/BuildToolPluginIntermediates"
-    runtime_gen_src=$(find "$plugin_intermediates" -type d \
-        -path "*/SwiftGodotRuntime/CodeGeneratorPlugin/GeneratedSources/SwiftGodotRuntime" 2>/dev/null | head -1)
-    swiftgodot_gen_src=$(find "$plugin_intermediates" -type d \
-        -path "*/SwiftGodot/CodeGeneratorPlugin/GeneratedSources/SwiftGodot" 2>/dev/null | head -1)
+        echo "Building distribution products for: $destination"
+        SWIFT_GODOT_DESTINATION="$destination" \
+        SWIFT_GODOT_DERIVED_DATA="$product_derived_data" \
+        SWIFT_GODOT_GENERATION_DERIVED_DATA="$generation_derived_data" \
+        SWIFT_GODOT_RELEASE_PACKAGE_DIR="$release_package" \
+        SWIFT_GODOT_ARCHIVE_PATH="$archive_path" \
+            scripts/build-distribution-products > "$log_file"
+    }
 
-    if [[ -z "$runtime_gen_src" || -z "$swiftgodot_gen_src" ]]; then
-        echo "Error: Could not find CodeGeneratorPlugin output under $plugin_intermediates"
-        exit 1
-    fi
-
-    mkdir -p Sources/SwiftGodotRuntime/_generated Sources/SwiftGodot/_generated
-    # SwiftGodotRuntime: copy both generated/ and generated-builtin/ (all outputFiles)
-    find "$runtime_gen_src" -name "*.swift" -exec cp {} Sources/SwiftGodotRuntime/_generated/ \;
-    # SwiftGodot: only copy generated/ — generated-builtin/ is written by the generator
-    # as a side-effect but is NOT in the plugin's outputFiles for SwiftGodot (builtinFiles: [])
-    # and must not be compiled again since those types already live in SwiftGodotRuntime.
-    find "$swiftgodot_gen_src/generated" -name "*.swift" -exec cp {} Sources/SwiftGodot/_generated/ \;
-    echo "Copied generated sources."
-
-    # Swap in Package.distribution.swift (strips Generator/swift-syntax from the
-    # build graph so BUILD_LIBRARY_FOR_DISTRIBUTION=YES can be applied cleanly).
-    cp Package.swift Package.swift.original
-    cp Package.distribution.swift Package.swift
-    # shellcheck disable=SC2064
-    trap "mv Package.swift.original Package.swift; rm -rf Sources/SwiftGodotRuntime/_generated Sources/SwiftGodot/_generated" EXIT
-
-    # Phase 2: rebuild with BUILD_LIBRARY_FOR_DISTRIBUTION=YES to emit .swiftinterface files.
-    echo "Phase 2: Building with BUILD_LIBRARY_FOR_DISTRIBUTION=YES..."
-    xcodebuild \
-        -scheme SwiftGodot \
-        -destination "platform=macOS,arch=x86_64" \
-        -derivedDataPath "$derived_data" \
-        -archivePath "$archive_path" \
-        BUILD_LIBRARY_FOR_DISTRIBUTION=YES \
-        > "$build_dir/x86_64.log"
-    xcodebuild \
-        -scheme SwiftGodotRuntime \
-        -destination "platform=macOS,arch=x86_64" \
-        -derivedDataPath "$derived_data" \
-        -archivePath "$archive_path" \
-        BUILD_LIBRARY_FOR_DISTRIBUTION=YES \
-        >> "$build_dir/x86_64.log"
+    build_distribution_products \
+        "platform=macOS,arch=x86_64" \
+        "$derived_data" \
+        "$build_dir/generated-x86_64" \
+        "$build_dir/distribution-x86_64" \
+        "$build_dir/x86_64.log"
 
     if [[ "$arch" = "arm64" ]]; then
-        xcodebuild \
-            -scheme SwiftGodot \
-            -destination "platform=macOS,arch=arm64" \
-            -derivedDataPath "${derived_data}_arm" \
-            -archivePath "$archive_path" \
-            BUILD_LIBRARY_FOR_DISTRIBUTION=YES \
-            > "$build_dir/arm64.log"
-        xcodebuild \
-            -scheme SwiftGodotRuntime \
-            -destination "platform=macOS,arch=arm64" \
-            -derivedDataPath "${derived_data}_arm" \
-            -archivePath "$archive_path" \
-            BUILD_LIBRARY_FOR_DISTRIBUTION=YES \
-            >> "$build_dir/arm64.log"
+        build_distribution_products \
+            "platform=macOS,arch=arm64" \
+            "${derived_data}_arm" \
+            "$build_dir/generated-arm64" \
+            "$build_dir/distribution-arm64" \
+            "$build_dir/arm64.log"
     fi
 
-    xcodebuild \
-        -scheme SwiftGodot \
-        -destination "generic/platform=iOS" \
-        -derivedDataPath "$derived_data" \
-        -archivePath "$archive_path" \
-        BUILD_LIBRARY_FOR_DISTRIBUTION=YES \
-        > "$build_dir/ios_arm64.log"
-    xcodebuild \
-        -scheme SwiftGodotRuntime \
-        -destination "generic/platform=iOS" \
-        -derivedDataPath "$derived_data" \
-        -archivePath "$archive_path" \
-        BUILD_LIBRARY_FOR_DISTRIBUTION=YES \
-        >> "$build_dir/ios_arm64.log"
-
-    mv Package.swift.original Package.swift
-    rm -rf Sources/SwiftGodotRuntime/_generated Sources/SwiftGodot/_generated
-    trap - EXIT
+    build_distribution_products \
+        "generic/platform=iOS" \
+        "$derived_data" \
+        "$build_dir/generated-ios" \
+        "$build_dir/distribution-ios" \
+        "$build_dir/ios_arm64.log"
 else
     echo "Using prebuilt DerivedData from: $derived_data"
     require_prebuilt_artifact() {
@@ -198,19 +146,31 @@ else
     require_prebuilt_artifact "$derived_data/Build/Products/Debug/PackageFrameworks/SwiftGodotRuntime.framework"
     require_prebuilt_artifact "$derived_data/Build/Products/Debug/SwiftGodot.swiftmodule"
     require_prebuilt_artifact "$derived_data/Build/Products/Debug/SwiftGodotRuntime.swiftmodule"
+    require_prebuilt_artifact "$derived_data/Build/Intermediates.noindex/GeneratedModuleMaps/SwiftGodot.modulemap"
+    require_prebuilt_artifact "$derived_data/Build/Intermediates.noindex/GeneratedModuleMaps/SwiftGodot-Swift.h"
+    require_prebuilt_artifact "$derived_data/Build/Intermediates.noindex/GeneratedModuleMaps/SwiftGodotRuntime.modulemap"
+    require_prebuilt_artifact "$derived_data/Build/Intermediates.noindex/GeneratedModuleMaps/SwiftGodotRuntime-Swift.h"
     if [[ "$arch" = "arm64" ]]; then
         require_prebuilt_artifact "${derived_data}_arm/Build/Products/Debug/PackageFrameworks/SwiftGodot.framework"
         require_prebuilt_artifact "${derived_data}_arm/Build/Products/Debug/PackageFrameworks/SwiftGodotRuntime.framework"
         require_prebuilt_artifact "${derived_data}_arm/Build/Products/Debug/SwiftGodot.swiftmodule"
         require_prebuilt_artifact "${derived_data}_arm/Build/Products/Debug/SwiftGodotRuntime.swiftmodule"
+        require_prebuilt_artifact "${derived_data}_arm/Build/Intermediates.noindex/GeneratedModuleMaps/SwiftGodot.modulemap"
+        require_prebuilt_artifact "${derived_data}_arm/Build/Intermediates.noindex/GeneratedModuleMaps/SwiftGodot-Swift.h"
+        require_prebuilt_artifact "${derived_data}_arm/Build/Intermediates.noindex/GeneratedModuleMaps/SwiftGodotRuntime.modulemap"
+        require_prebuilt_artifact "${derived_data}_arm/Build/Intermediates.noindex/GeneratedModuleMaps/SwiftGodotRuntime-Swift.h"
     fi
     require_prebuilt_artifact "$derived_data/Build/Products/Debug-iphoneos/PackageFrameworks/SwiftGodot.framework"
     require_prebuilt_artifact "$derived_data/Build/Products/Debug-iphoneos/PackageFrameworks/SwiftGodotRuntime.framework"
     require_prebuilt_artifact "$derived_data/Build/Products/Debug-iphoneos/SwiftGodot.swiftmodule"
     require_prebuilt_artifact "$derived_data/Build/Products/Debug-iphoneos/SwiftGodotRuntime.swiftmodule"
+    require_prebuilt_artifact "$derived_data/Build/Intermediates.noindex/GeneratedModuleMaps-iphoneos/SwiftGodot.modulemap"
+    require_prebuilt_artifact "$derived_data/Build/Intermediates.noindex/GeneratedModuleMaps-iphoneos/SwiftGodot-Swift.h"
+    require_prebuilt_artifact "$derived_data/Build/Intermediates.noindex/GeneratedModuleMaps-iphoneos/SwiftGodotRuntime.modulemap"
+    require_prebuilt_artifact "$derived_data/Build/Intermediates.noindex/GeneratedModuleMaps-iphoneos/SwiftGodotRuntime-Swift.h"
 fi
 
-sh scripts/make-swiftgodot-framework "$derived_data/" "$output_dir/SwiftGodot.xcframework"
+scripts/make-swiftgodot-framework "$derived_data/" "$output_dir/SwiftGodot.xcframework"
 
 if [[ -n "${SWIFT_GODOT_NODEPLOY:-}" ]]; then
     echo "Skipping deployment stage."

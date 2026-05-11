@@ -255,24 +255,21 @@ var targets: [Target] = [
     ),
 ]
 
-// Macro tests don't work on Windows yet
-#if !os(Windows)
-    // Idea: -mark_dead_strippable_dylib
-    targets.append(
-        .testTarget(
-            name: "SwiftGodotMacrosTests",
-            dependencies: [
-                "SwiftGodotMacroLibrary",
-                "SwiftGodot",
-                .product(name: "SwiftSyntaxMacrosTestSupport", package: "swift-syntax"),
-            ],
-            exclude: ["Resources"],
-            resources: [
-                .copy("Resources")
-            ],
-            swiftSettings: [.swiftLanguageMode(.v6)]
-        ))
-#endif
+// Idea: -mark_dead_strippable_dylib
+targets.append(
+    .testTarget(
+        name: "SwiftGodotMacrosTests",
+        dependencies: [
+            "SwiftGodotMacroLibrary",
+            "SwiftGodot",
+            .product(name: "SwiftSyntaxMacrosTestSupport", package: "swift-syntax"),
+        ],
+        exclude: ["Resources"],
+        resources: [
+            .copy("Resources")
+        ],
+        swiftSettings: [.swiftLanguageMode(.v6)]
+    ))
 
 let package = Package(
     name: "SwiftGodot",
