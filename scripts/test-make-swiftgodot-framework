@@ -13,8 +13,10 @@ for required in \
     "GeneratedModuleMaps" \
     "module-Swift.h" \
     "module.modulemap" \
-    'copy_module_metadata "SwiftGodot"' \
-    'copy_module_metadata "SwiftGodotRuntime"'
+    'stage_module_metadata "SwiftGodot"' \
+    'stage_module_metadata "SwiftGodotRuntime"' \
+    "merge_swift_headers" \
+    "lipo -create"
 do
     if ! rg -q "$required" "$script"; then
         echo "make-swiftgodot-framework does not reference Xcode-generated metadata via $required"

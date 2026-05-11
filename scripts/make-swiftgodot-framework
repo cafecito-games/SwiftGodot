@@ -33,6 +33,12 @@ bd_mac="$derived_data/Build/Products/Debug"
 bd_mac_arm="${derived_data}_arm/Build/Products/Debug"
 bd_ios="$derived_data/Build/Products/Debug-iphoneos"
 runtime_output="$(dirname "$output")/SwiftGodotRuntime.xcframework"
+stage_root=$(mktemp -d)
+
+cleanup() {
+    rm -rf "$stage_root"
+}
+trap cleanup EXIT
 
 require_path() {
     if [[ ! -e "$1" ]]; then
@@ -72,125 +78,297 @@ generated_metadata_file() {
     exit 1
 }
 
-create_framework_layout() {
+is_versioned_framework() {
     local framework=$1
-
-    mkdir -p "$framework/Versions/Current/Headers"
-    mkdir -p "$framework/Versions/Current/Modules"
-    ln -sfn Versions/Current/Headers "$framework/Headers"
-    ln -sfn Versions/Current/Modules "$framework/Modules"
+    [[ -d "$framework/Versions" || -L "$framework/Versions" ]]
 }
 
-copy_module_metadata() {
+framework_headers_dir() {
+    local framework=$1
+
+    if is_versioned_framework "$framework"; then
+        printf '%s\n' "$framework/Versions/Current/Headers"
+    else
+        printf '%s\n' "$framework/Headers"
+    fi
+}
+
+framework_modules_dir() {
+    local framework=$1
+
+    if is_versioned_framework "$framework"; then
+        printf '%s\n' "$framework/Versions/Current/Modules"
+    else
+        printf '%s\n' "$framework/Modules"
+    fi
+}
+
+framework_binary_path() {
+    local framework=$1
+    local module=$2
+
+    if is_versioned_framework "$framework"; then
+        printf '%s\n' "$framework/Versions/Current/$module"
+    else
+        printf '%s\n' "$framework/$module"
+    fi
+}
+
+ensure_framework_metadata_dirs() {
+    local framework=$1
+    local headers_dir
+    local modules_dir
+
+    headers_dir=$(framework_headers_dir "$framework")
+    modules_dir=$(framework_modules_dir "$framework")
+
+    mkdir -p "$headers_dir" "$modules_dir"
+    if is_versioned_framework "$framework"; then
+        ln -sfn Versions/Current/Headers "$framework/Headers"
+        ln -sfn Versions/Current/Modules "$framework/Modules"
+    fi
+}
+
+stage_framework_copy() {
+    local source_framework=$1
+    local staged_framework=$2
+    local stage_dir
+
+    require_path "$source_framework"
+    stage_dir=$(dirname "$staged_framework")
+    mkdir -p "$stage_dir"
+    rsync -a "$source_framework" "$stage_dir/"
+}
+
+merge_framework_binaries() {
+    local module=$1
+    local staged_framework=$2
+    local secondary_framework=$3
+    local staged_binary
+    local secondary_binary
+    local merged_binary
+
+    staged_binary=$(framework_binary_path "$staged_framework" "$module")
+    secondary_binary=$(framework_binary_path "$secondary_framework" "$module")
+    require_path "$staged_binary"
+    require_path "$secondary_binary"
+
+    merged_binary=$(mktemp "$stage_root/$module.XXXXXX")
+    lipo -create "$staged_binary" "$secondary_binary" -output "$merged_binary"
+    chmod +x "$merged_binary"
+    mv "$merged_binary" "$staged_binary"
+}
+
+append_swift_header_branch() {
+    local header=$1
+
+    awk '
+        {
+            lines[NR] = $0
+            if (!start && $0 ~ /^#elif defined\(__[A-Za-z0-9_]+__\) && __[A-Za-z0-9_]+__$/) {
+                start = NR
+            }
+            if ($0 == "#else") {
+                last_else = NR
+            }
+        }
+        END {
+            if (!start || !last_else || last_else < start) {
+                exit 1
+            }
+            for (i = start; i < last_else; i++) {
+                print lines[i]
+            }
+        }
+    ' "$header"
+}
+
+append_swift_header_suffix() {
+    local header=$1
+
+    awk '
+        {
+            lines[NR] = $0
+            if ($0 == "#else") {
+                last_else = NR
+            }
+        }
+        END {
+            if (!last_else) {
+                exit 1
+            }
+            for (i = last_else; i <= NR; i++) {
+                print lines[i]
+            }
+        }
+    ' "$header"
+}
+
+merge_swift_headers() {
+    local output_file=$1
+    shift
+    local first_header=$1
+    local header
+
+    require_path "$first_header"
+    if [[ $# -eq 1 ]]; then
+        cp "$first_header" "$output_file"
+        return
+    fi
+
+    {
+        awk 'NR == 1 { print; exit }' "$first_header"
+        for header in "$@"; do
+            require_path "$header"
+            append_swift_header_branch "$header"
+        done
+        append_swift_header_suffix "$first_header"
+    } > "$output_file"
+}
+
+stage_module_metadata() {
     local module=$1
     local framework=$2
     local product_dir=$3
     local metadata_root=$4
     local platform_suffix=$5
-    local headers_dir="$framework/Versions/Current/Headers"
-    local modules_dir="$framework/Versions/Current/Modules"
+    local secondary_product_dir=${6:-}
+    local secondary_metadata_root=${7:-}
+    local secondary_platform_suffix=${8:-}
+    local headers_dir
+    local modules_dir
     local modulemap
     local swift_header
+    local swift_headers
 
     require_path "$product_dir/$module.swiftmodule"
-    create_framework_layout "$framework"
+    ensure_framework_metadata_dirs "$framework"
 
+    headers_dir=$(framework_headers_dir "$framework")
+    modules_dir=$(framework_modules_dir "$framework")
     modulemap=$(generated_metadata_file "$metadata_root" "$platform_suffix" "$module.modulemap")
     swift_header=$(generated_metadata_file "$metadata_root" "$platform_suffix" "$module-Swift.h")
+    swift_headers=("$swift_header")
+
+    if [[ -n "$secondary_product_dir" ]]; then
+        require_path "$secondary_product_dir/$module.swiftmodule"
+        swift_headers+=("$(generated_metadata_file "$secondary_metadata_root" "$secondary_platform_suffix" "$module-Swift.h")")
+    fi
 
     cp "$modulemap" "$modules_dir/module.modulemap"
-    cp "$swift_header" "$headers_dir/$module-Swift.h"
+    merge_swift_headers "$headers_dir/$module-Swift.h" "${swift_headers[@]}"
     rsync -a "$product_dir/$module.swiftmodule" "$modules_dir/"
+
+    if [[ -n "$secondary_product_dir" ]]; then
+        rsync -a "$secondary_product_dir/$module.swiftmodule" "$modules_dir/"
+    fi
 }
 
-install_swiftgodot_metadata() {
+stage_swiftgodot_metadata() {
     local framework=$1
     local product_dir=$2
     local metadata_root=$3
     local platform_suffix=$4
-    local slice_dir
-    local modules_dir="$framework/Versions/Current/Modules"
+    local secondary_product_dir=${5:-}
+    local secondary_metadata_root=${6:-}
+    local secondary_platform_suffix=${7:-}
+    local modules_dir
 
-    copy_module_metadata "SwiftGodot" "$framework" "$product_dir" "$metadata_root" "$platform_suffix"
+    stage_module_metadata "SwiftGodot" "$framework" "$product_dir" "$metadata_root" "$platform_suffix" "$secondary_product_dir" "$secondary_metadata_root" "$secondary_platform_suffix"
+    modules_dir=$(framework_modules_dir "$framework")
 
-    # SwiftGodot imports SwiftGodotRuntime. Keep the dependency module beside it,
-    # matching the existing binary package layout while using Xcode's module output.
     require_path "$product_dir/SwiftGodotRuntime.swiftmodule"
     rsync -a "$product_dir/SwiftGodotRuntime.swiftmodule" "$modules_dir/"
 
-    slice_dir=$(dirname "$framework")
-    rsync -a "$product_dir/SwiftGodotRuntime.swiftmodule" "$slice_dir/"
+    if [[ -n "$secondary_product_dir" ]]; then
+        require_path "$secondary_product_dir/SwiftGodotRuntime.swiftmodule"
+        rsync -a "$secondary_product_dir/SwiftGodotRuntime.swiftmodule" "$modules_dir/"
+    fi
 }
 
-install_runtime_metadata() {
+stage_runtime_metadata() {
     local framework=$1
     local product_dir=$2
     local metadata_root=$3
     local platform_suffix=$4
+    local secondary_product_dir=${5:-}
+    local secondary_metadata_root=${6:-}
+    local secondary_platform_suffix=${7:-}
 
-    copy_module_metadata "SwiftGodotRuntime" "$framework" "$product_dir" "$metadata_root" "$platform_suffix"
+    stage_module_metadata "SwiftGodotRuntime" "$framework" "$product_dir" "$metadata_root" "$platform_suffix" "$secondary_product_dir" "$secondary_metadata_root" "$secondary_platform_suffix"
 }
 
-slice_metadata_source() {
-    local slice=$1
+stage_macos_framework() {
+    local module=$1
+    local staged_framework="$stage_root/macos/$module.framework"
+    local primary_framework="$bd_mac/PackageFrameworks/$module.framework"
+    local secondary_framework="$bd_mac_arm/PackageFrameworks/$module.framework"
 
-    case "$slice" in
-        ios-*)
-            printf '%s|%s|iphoneos\n' "$bd_ios" "$derived_data"
-            ;;
-        macos-*arm64*x86_64*|macos-*x86_64*arm64*)
-            echo "Unexpected universal macOS xcframework slice: $slice"
-            exit 1
-            ;;
-        macos-*x86_64*)
-            printf '%s|%s|\n' "$bd_mac" "$derived_data"
-            ;;
-        macos-*arm64*)
-            if [[ -d "$bd_mac_arm" ]]; then
-                printf '%s|%s|\n' "$bd_mac_arm" "${derived_data}_arm"
-            else
-                printf '%s|%s|\n' "$bd_mac" "$derived_data"
-            fi
-            ;;
-        *)
-            echo "Unsupported xcframework slice: $slice"
-            exit 1
-            ;;
-    esac
+    stage_framework_copy "$primary_framework" "$staged_framework"
+
+    if [[ -d "$secondary_framework" ]]; then
+        merge_framework_binaries "$module" "$staged_framework" "$secondary_framework"
+    fi
+
+    printf '%s\n' "$staged_framework"
+}
+
+stage_ios_framework() {
+    local module=$1
+    local staged_framework="$stage_root/iphoneos/$module.framework"
+    local primary_framework="$bd_ios/PackageFrameworks/$module.framework"
+
+    stage_framework_copy "$primary_framework" "$staged_framework"
+    printf '%s\n' "$staged_framework"
+}
+
+copy_runtime_module_sidecars() {
+    local xcframework=$1
+    local framework
+    local modules_dir
+
+    while IFS= read -r framework; do
+        modules_dir=$(framework_modules_dir "$framework")
+        require_path "$modules_dir/SwiftGodotRuntime.swiftmodule"
+        rsync -a "$modules_dir/SwiftGodotRuntime.swiftmodule" "$(dirname "$framework")/"
+    done < <(find "$xcframework" -mindepth 2 -maxdepth 2 -type d -name "SwiftGodot.framework" | sort)
 }
 
 rm -rf "$output" "$runtime_output"
-
-swiftgodot_args=()
-runtime_args=()
 
 require_path "$bd_mac/PackageFrameworks/SwiftGodot.framework"
 require_path "$bd_mac/PackageFrameworks/SwiftGodotRuntime.framework"
 require_path "$bd_ios/PackageFrameworks/SwiftGodot.framework"
 require_path "$bd_ios/PackageFrameworks/SwiftGodotRuntime.framework"
 
-swiftgodot_args+=(-framework "$bd_mac/PackageFrameworks/SwiftGodot.framework")
-runtime_args+=(-framework "$bd_mac/PackageFrameworks/SwiftGodotRuntime.framework")
+mac_swiftgodot_framework=$(stage_macos_framework "SwiftGodot")
+mac_runtime_framework=$(stage_macos_framework "SwiftGodotRuntime")
+ios_swiftgodot_framework=$(stage_ios_framework "SwiftGodot")
+ios_runtime_framework=$(stage_ios_framework "SwiftGodotRuntime")
+
 if [[ -d "$bd_mac_arm/PackageFrameworks/SwiftGodot.framework" ]]; then
-    swiftgodot_args+=(-framework "$bd_mac_arm/PackageFrameworks/SwiftGodot.framework")
+    stage_swiftgodot_metadata "$mac_swiftgodot_framework" "$bd_mac" "$derived_data" "" "$bd_mac_arm" "${derived_data}_arm" ""
+else
+    stage_swiftgodot_metadata "$mac_swiftgodot_framework" "$bd_mac" "$derived_data" ""
 fi
+
 if [[ -d "$bd_mac_arm/PackageFrameworks/SwiftGodotRuntime.framework" ]]; then
-    runtime_args+=(-framework "$bd_mac_arm/PackageFrameworks/SwiftGodotRuntime.framework")
+    stage_runtime_metadata "$mac_runtime_framework" "$bd_mac" "$derived_data" "" "$bd_mac_arm" "${derived_data}_arm" ""
+else
+    stage_runtime_metadata "$mac_runtime_framework" "$bd_mac" "$derived_data" ""
 fi
-swiftgodot_args+=(-framework "$bd_ios/PackageFrameworks/SwiftGodot.framework")
-runtime_args+=(-framework "$bd_ios/PackageFrameworks/SwiftGodotRuntime.framework")
 
-xcodebuild -quiet -create-xcframework "${swiftgodot_args[@]}" -output "$output"
-xcodebuild -quiet -create-xcframework "${runtime_args[@]}" -output "$runtime_output"
+stage_swiftgodot_metadata "$ios_swiftgodot_framework" "$bd_ios" "$derived_data" "iphoneos"
+stage_runtime_metadata "$ios_runtime_framework" "$bd_ios" "$derived_data" "iphoneos"
 
-while IFS= read -r framework; do
-    slice=$(basename "$(dirname "$framework")")
-    IFS='|' read -r product_dir metadata_root platform_suffix <<< "$(slice_metadata_source "$slice")"
-    install_swiftgodot_metadata "$framework" "$product_dir" "$metadata_root" "$platform_suffix"
-done < <(find "$output" -mindepth 2 -maxdepth 2 -type d -name "SwiftGodot.framework" | sort)
+xcodebuild -quiet -create-xcframework \
+    -framework "$mac_swiftgodot_framework" \
+    -framework "$ios_swiftgodot_framework" \
+    -output "$output"
 
-while IFS= read -r framework; do
-    slice=$(basename "$(dirname "$framework")")
-    IFS='|' read -r product_dir metadata_root platform_suffix <<< "$(slice_metadata_source "$slice")"
-    install_runtime_metadata "$framework" "$product_dir" "$metadata_root" "$platform_suffix"
-done < <(find "$runtime_output" -mindepth 2 -maxdepth 2 -type d -name "SwiftGodotRuntime.framework" | sort)
+xcodebuild -quiet -create-xcframework \
+    -framework "$mac_runtime_framework" \
+    -framework "$ios_runtime_framework" \
+    -output "$runtime_output"
+
+copy_runtime_module_sidecars "$output"
