@@ -35,7 +35,7 @@ if [[ ! -f "$release_notes" ]]; then
     exit 1
 fi
 
-if [[ ! -x scripts/build-distribution-products || ! -x scripts/make-swiftgodot-framework ]]; then
+if [[ ! -x scripts/build-distribution-products || ! -x scripts/make-swiftgodot-framework || ! -x scripts/build-macro-artifactbundle ]]; then
     echo "Expected this to run from the SwiftGodot directory"
     exit 1
 fi
@@ -187,7 +187,12 @@ runtime_zip_path="$output_dir/SwiftGodotRuntime.xcframework.zip"
 runtime_checksum=$(swift package compute-checksum "$runtime_zip_path")
 runtime_asset_url="https://github.com/$source_repo/releases/download/$tag/SwiftGodotRuntime.xcframework.zip"
 
-gh release create "$tag" "$zip_path" "$runtime_zip_path" -R "$source_repo" -F "$release_notes" --target "$commit"
+scripts/build-macro-artifactbundle "$output_dir" "$tag"
+macro_zip_path="$output_dir/SwiftGodotMacros.artifactbundle.zip"
+macro_checksum=$(swift package compute-checksum "$macro_zip_path")
+macro_asset_url="https://github.com/$source_repo/releases/download/$tag/SwiftGodotMacros.artifactbundle.zip"
+
+gh release create "$tag" "$zip_path" "$runtime_zip_path" "$macro_zip_path" -R "$source_repo" -F "$release_notes" --target "$commit"
 
 gdextension_target_dir="$binary_repo_dir/Sources/GDExtension"
 rm -rf "$gdextension_target_dir"
@@ -197,16 +202,14 @@ cp Sources/GDExtension/GDExtensionSupport.c "$gdextension_target_dir/GDExtension
 cp Sources/GDExtension/include/GDExtensionSupport.h "$gdextension_target_dir/include/GDExtensionSupport.h"
 cp Sources/GDExtension/include/gdextension_interface.h "$gdextension_target_dir/include/gdextension_interface.h"
 
-macro_target_dir="$binary_repo_dir/Sources/SwiftGodotMacroLibrary"
-rm -rf "$macro_target_dir"
-mkdir -p "$macro_target_dir"
-cp Sources/SwiftGodotMacroLibrary/*.swift "$macro_target_dir/"
+# Drop any previously vendored SwiftGodotMacroLibrary sources; we now ship a
+# prebuilt compiler plugin via SwiftGodotMacros.artifactbundle.zip.
+rm -rf "$binary_repo_dir/Sources/SwiftGodotMacroLibrary"
 
 cat > "$binary_repo_dir/Package.swift" <<EOF
 // swift-tools-version:6.2
 // The swift-tools-version declares the minimum version of Swift required to build this package.
 
-import CompilerPluginSupport
 import PackageDescription
 
 let package = Package(
@@ -219,12 +222,6 @@ let package = Package(
         .library(
             name: "SwiftGodot",
             targets: ["SwiftGodot", "SwiftGodotRuntime", "GDExtension"]),
-        .library(
-            name: "SwiftGodotMacros",
-            targets: ["SwiftGodotMacroLibrary"]),
-    ],
-    dependencies: [
-        .package(url: "https://github.com/swiftlang/swift-syntax", from: "600.0.1"),
     ],
     targets: [
         .binaryTarget(
@@ -235,30 +232,24 @@ let package = Package(
             name: "SwiftGodotRuntime",
             url: "$runtime_asset_url",
             checksum: "$runtime_checksum"),
+        .binaryTarget(
+            name: "SwiftGodotMacroLibrary",
+            url: "$macro_asset_url",
+            checksum: "$macro_checksum"),
         .target(
             name: "GDExtension",
             path: "Sources/GDExtension"),
-        .macro(
-            name: "SwiftGodotMacroLibrary",
-            dependencies: [
-                .product(name: "SwiftSyntaxMacros", package: "swift-syntax"),
-                .product(name: "SwiftSyntax", package: "swift-syntax"),
-                .product(name: "SwiftCompilerPlugin", package: "swift-syntax"),
-                .product(name: "SwiftDiagnostics", package: "swift-syntax"),
-                .product(name: "SwiftParserDiagnostics", package: "swift-syntax"),
-                .product(name: "SwiftParser", package: "swift-syntax"),
-                .product(name: "SwiftBasicFormat", package: "swift-syntax"),
-            ],
-            path: "Sources/SwiftGodotMacroLibrary",
-            swiftSettings: [.swiftLanguageMode(.v5)]),
-        .testTarget(name: "SwiftGodotTests", dependencies: ["SwiftGodot", "SwiftGodotRuntime", "GDExtension", "SwiftGodotMacroLibrary"]),
+        .testTarget(name: "SwiftGodotTests", dependencies: ["SwiftGodot", "SwiftGodotRuntime", "GDExtension"]),
     ]
 )
 EOF
 
 (
     cd "$binary_repo_dir"
-    git add Package.swift Sources/GDExtension Sources/SwiftGodotMacroLibrary
+    git add Package.swift Sources/GDExtension
+    if [[ -d Sources/SwiftGodotMacroLibrary ]] || git ls-files --error-unmatch Sources/SwiftGodotMacroLibrary >/dev/null 2>&1; then
+        git rm -rf --ignore-unmatch Sources/SwiftGodotMacroLibrary
+    fi
     git commit -m "Update to $tag"
     git tag "$tag"
     git push -u origin "$binary_branch"
