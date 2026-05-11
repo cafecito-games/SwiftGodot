@@ -38,7 +38,7 @@ let package = Package(
 )
 ```
 
-**Binary (xcframework)** — faster iteration, no source compilation. Published at [cafecito-games/SwiftGodotBinary](https://github.com/cafecito-games/SwiftGodotBinary):
+**Binary (xcframework + prebuilt macro plugin)** — faster iteration, no source compilation, no `swift-syntax` dependency. Published at [cafecito-games/SwiftGodotBinary](https://github.com/cafecito-games/SwiftGodotBinary):
 
 ```swift
 dependencies: [
@@ -49,11 +49,12 @@ targets: [
         name: "MyFirstGame",
         dependencies: [
             .product(name: "SwiftGodot", package: "SwiftGodotBinary"),
-            .product(name: "SwiftGodotMacros", package: "SwiftGodotBinary"),
         ]
     )
 ]
 ```
+
+The `SwiftGodot` product carries the prebuilt runtime *and* the prebuilt macro compiler plugin, so `@Godot`, `@Callable`, `@Export`, `#initSwiftExtension`, etc. work without depending on `swift-syntax` or building macros from source. The plugin is shipped as a universal macOS (arm64 + x86_64) artifact bundle; if you're on a Swift toolchain that's incompatible with the prebuilt plugin, use the source build above instead.
 
 ## Targets
 
