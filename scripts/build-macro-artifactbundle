@@ -1,0 +1,111 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+    cat <<'EOF'
+Usage: scripts/build-macro-artifactbundle <output_dir> <version>
+
+Builds SwiftGodotMacroLibrary as a universal macOS (arm64 + x86_64)
+compiler-plugin executable and packages it as a SwiftPM artifact bundle
+named SwiftGodotMacros.artifactbundle.zip in <output_dir>.
+
+The result can be consumed downstream via:
+
+  .binaryTarget(
+      name: "SwiftGodotMacroLibrary",
+      url: ".../SwiftGodotMacros.artifactbundle.zip",
+      checksum: "..."
+  )
+
+allowing the binary distribution to ship a prebuilt macro plugin without
+forcing consumers to compile swift-syntax.
+EOF
+}
+
+if [[ $# -ne 2 ]]; then
+    usage >&2
+    exit 1
+fi
+
+output_dir=$1
+version=$2
+
+mkdir -p "$output_dir"
+
+if [[ "$(uname)" != "Darwin" ]]; then
+    echo "This script must run on macOS (needs lipo + Apple Swift toolchain)." >&2
+    exit 1
+fi
+
+scratch=".build-macro-artifact"
+rm -rf "$scratch"
+
+echo "Building SwiftGodotMacroLibrary universal (arm64 + x86_64)..."
+# `.macro` targets are not products, but `--target` selects them directly.
+# Multi-arch build produces a universal binary in one pass on macOS.
+swift build \
+    -c release \
+    --arch arm64 \
+    --arch x86_64 \
+    --scratch-path "$scratch" \
+    --target SwiftGodotMacroLibrary
+
+# SwiftPM places compiler-plugin executables in the apple/Products tree when
+# building universal. The plugin is emitted with a "-tool" suffix to
+# distinguish it from the macro module of the same name.
+plugin_bin=""
+for candidate in \
+    "$scratch/apple/Products/Release/SwiftGodotMacroLibrary-tool" \
+    "$scratch/apple/Products/Release/SwiftGodotMacroLibrary" \
+    "$scratch/release/SwiftGodotMacroLibrary-tool" \
+    "$scratch/release/SwiftGodotMacroLibrary"; do
+    if [[ -f "$candidate" ]]; then
+        plugin_bin=$candidate
+        break
+    fi
+done
+
+if [[ -z "$plugin_bin" ]]; then
+    echo "Could not find built SwiftGodotMacroLibrary executable under $scratch" >&2
+    echo "Candidates checked:" >&2
+    find "$scratch" -maxdepth 6 -name "SwiftGodotMacroLibrary*" >&2 || true
+    exit 1
+fi
+
+echo "Found plugin: $plugin_bin"
+lipo -info "$plugin_bin"
+
+bundle_root="$output_dir/SwiftGodotMacros.artifactbundle"
+rm -rf "$bundle_root"
+mkdir -p "$bundle_root/SwiftGodotMacroLibrary-macos/bin"
+
+cp "$plugin_bin" "$bundle_root/SwiftGodotMacroLibrary-macos/bin/SwiftGodotMacroLibrary"
+chmod +x "$bundle_root/SwiftGodotMacroLibrary-macos/bin/SwiftGodotMacroLibrary"
+
+cat > "$bundle_root/info.json" <<EOF
+{
+  "schemaVersion": "1.0",
+  "artifacts": {
+    "SwiftGodotMacroLibrary": {
+      "type": "executable",
+      "version": "$version",
+      "variants": [
+        {
+          "path": "SwiftGodotMacroLibrary-macos/bin/SwiftGodotMacroLibrary",
+          "supportedTriples": [
+            "arm64-apple-macosx",
+            "x86_64-apple-macosx"
+          ]
+        }
+      ]
+    }
+  }
+}
+EOF
+
+echo "Zipping artifact bundle..."
+zip_path="$output_dir/SwiftGodotMacros.artifactbundle.zip"
+rm -f "$zip_path"
+(cd "$output_dir" && ditto -c -k --sequesterRsrc --keepParent SwiftGodotMacros.artifactbundle SwiftGodotMacros.artifactbundle.zip)
+
+echo "Artifact bundle: $zip_path"
