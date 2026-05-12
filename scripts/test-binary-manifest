@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+fail() {
+    echo "FAIL: $*" >&2
+    exit 1
+}
+
+rg -q 'swift package compute-checksum "\$zip_path"' scripts/release || fail "SwiftGodot checksum must be computed from the release zip"
+rg -q 'swift package compute-checksum "\$runtime_zip_path"' scripts/release || fail "SwiftGodotRuntime checksum must be computed from the release zip"
+rg -q 'swift package compute-checksum "\$macro_zip_path"' scripts/release || fail "macro checksum must be computed from the release zip"
+rg -q '"checksum": "\$swiftgodot_checksum"' scripts/release || fail "SwiftGodot manifest entry must include checksum"
+rg -q '"checksum": "\$runtime_checksum"' scripts/release || fail "SwiftGodotRuntime manifest entry must include checksum"
+rg -q '"checksum": "\$macro_checksum"' scripts/release || fail "macro manifest entry must include checksum"
+
+echo "binary manifest tests passed"

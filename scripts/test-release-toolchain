@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+fail() {
+    echo "FAIL: $*" >&2
+    exit 1
+}
+
+rg -q 'SWIFT_GODOT_RELEASE_XCODE:' .github/workflows/release.yml || fail "release workflow must define a pinned Xcode version"
+if rg -q 'xcode-version: "latest-stable"|xcode-version: latest-stable' .github/workflows/release.yml; then
+    fail "release workflow must not use latest-stable Xcode"
+fi
+rg -q 'xcode-version: "\$\{\{ env.SWIFT_GODOT_RELEASE_XCODE \}\}"' .github/workflows/release.yml || fail "setup-xcode must use the pinned release Xcode env var"
+
+echo "release toolchain tests passed"

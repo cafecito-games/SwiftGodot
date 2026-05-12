@@ -23,6 +23,9 @@ concurrency:
   group: release-${{ inputs.tag }}
   cancel-in-progress: false
 
+env:
+  SWIFT_GODOT_RELEASE_XCODE: "26.4.1"
+
 jobs:
   prepare:
     name: Prepare release
@@ -81,9 +84,57 @@ jobs:
 
           echo "commit=$RELEASE_COMMIT" >> "$GITHUB_OUTPUT"
 
+  stage-package:
+    name: Stage generated sources
+    needs: prepare
+    runs-on: macos-26
+
+    steps:
+      - name: Checkout SwiftGodot
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.prepare.outputs.commit }}
+
+      - name: Set up Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: "${{ env.SWIFT_GODOT_RELEASE_XCODE }}"
+
+      - name: Show build environment
+        run: |
+          uname -m
+          xcodebuild -version
+          swift --version
+
+      - name: Stage generated-source distribution package
+        env:
+          SWIFT_GODOT_DESTINATION: platform=macOS,arch=arm64
+          SWIFT_GODOT_DERIVED_DATA: ${{ runner.temp }}/swiftgodot-stage-derived
+          SWIFT_GODOT_CONFIGURATION: Release
+          SWIFT_GODOT_GENERATION_DERIVED_DATA: ${{ runner.temp }}/swiftgodot-stage-generation-derived
+          SWIFT_GODOT_RELEASE_PACKAGE_DIR: ${{ runner.temp }}/swiftgodot-distribution-package
+          SWIFT_GODOT_ARCHIVE_PATH: ${{ runner.temp }}/swiftgodot-stage-archive
+          SWIFT_GODOT_STAGE_ONLY: 1
+        run: |
+          scripts/build-distribution-products
+
+      - name: Pack generated-source distribution package
+        run: |
+          tar -czf "$RUNNER_TEMP/swiftgodot-distribution-package.tgz" -C "$RUNNER_TEMP" swiftgodot-distribution-package
+
+      - name: Upload generated-source distribution package
+        uses: actions/upload-artifact@v4
+        with:
+          name: swiftgodot-distribution-package
+          path: ${{ runner.temp }}/swiftgodot-distribution-package.tgz
+          if-no-files-found: error
+          retention-days: 1
+
   build-x86:
     name: Build macOS x86_64
-    needs: prepare
+    needs:
+      - prepare
+      - stage-package
     runs-on: macos-26-intel
 
     steps:
@@ -95,7 +146,7 @@ jobs:
       - name: Set up Xcode
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: "latest-stable"
+          xcode-version: "${{ env.SWIFT_GODOT_RELEASE_XCODE }}"
 
       - name: Show build environment
         run: |
@@ -103,12 +154,24 @@ jobs:
           xcodebuild -version
           swift --version
 
+      - name: Download generated-source distribution package
+        uses: actions/download-artifact@v4
+        with:
+          name: swiftgodot-distribution-package
+          path: ${{ runner.temp }}
+
+      - name: Extract generated-source distribution package
+        run: |
+          tar -xzf "$RUNNER_TEMP/swiftgodot-distribution-package.tgz" -C "$RUNNER_TEMP"
+
       - name: Build macOS x86_64 distribution products
         env:
           SWIFT_GODOT_DESTINATION: platform=macOS,arch=x86_64
           SWIFT_GODOT_DERIVED_DATA: ${{ runner.temp }}/swiftgodot-derived
+          SWIFT_GODOT_CONFIGURATION: Release
+          SWIFT_GODOT_PREPARED_PACKAGE_DIR: ${{ runner.temp }}/swiftgodot-distribution-package
           SWIFT_GODOT_GENERATION_DERIVED_DATA: ${{ runner.temp }}/swiftgodot-generation-derived
-          SWIFT_GODOT_RELEASE_PACKAGE_DIR: ${{ runner.temp }}/swiftgodot-distribution-package
+          SWIFT_GODOT_RELEASE_PACKAGE_DIR: ${{ runner.temp }}/swiftgodot-distribution-build-package
           SWIFT_GODOT_ARCHIVE_PATH: ${{ runner.temp }}/swiftgodot-archive
         run: |
           scripts/build-distribution-products
@@ -118,10 +181,10 @@ jobs:
           DERIVED_DATA: ${{ runner.temp }}/swiftgodot-derived
         run: |
           tar -czf "$RUNNER_TEMP/swiftgodot-x86-products.tgz" -C "$DERIVED_DATA" \
-            Build/Products/Debug/PackageFrameworks/SwiftGodot.framework \
-            Build/Products/Debug/PackageFrameworks/SwiftGodotRuntime.framework \
-            Build/Products/Debug/SwiftGodot.swiftmodule \
-            Build/Products/Debug/SwiftGodotRuntime.swiftmodule \
+            Build/Products/Release/PackageFrameworks/SwiftGodot.framework \
+            Build/Products/Release/PackageFrameworks/SwiftGodotRuntime.framework \
+            Build/Products/Release/SwiftGodot.swiftmodule \
+            Build/Products/Release/SwiftGodotRuntime.swiftmodule \
             Build/Intermediates.noindex/GeneratedModuleMaps
 
       - name: Upload release products
@@ -134,7 +197,9 @@ jobs:
 
   build-ios:
     name: Build iOS
-    needs: prepare
+    needs:
+      - prepare
+      - stage-package
     runs-on: macos-26
 
     steps:
@@ -146,7 +211,7 @@ jobs:
       - name: Set up Xcode
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: "latest-stable"
+          xcode-version: "${{ env.SWIFT_GODOT_RELEASE_XCODE }}"
 
       - name: Show build environment
         run: |
@@ -154,12 +219,24 @@ jobs:
           xcodebuild -version
           swift --version
 
+      - name: Download generated-source distribution package
+        uses: actions/download-artifact@v4
+        with:
+          name: swiftgodot-distribution-package
+          path: ${{ runner.temp }}
+
+      - name: Extract generated-source distribution package
+        run: |
+          tar -xzf "$RUNNER_TEMP/swiftgodot-distribution-package.tgz" -C "$RUNNER_TEMP"
+
       - name: Build iOS distribution products
         env:
           SWIFT_GODOT_DESTINATION: generic/platform=iOS
           SWIFT_GODOT_DERIVED_DATA: ${{ runner.temp }}/swiftgodot-derived
+          SWIFT_GODOT_CONFIGURATION: Release
+          SWIFT_GODOT_PREPARED_PACKAGE_DIR: ${{ runner.temp }}/swiftgodot-distribution-package
           SWIFT_GODOT_GENERATION_DERIVED_DATA: ${{ runner.temp }}/swiftgodot-generation-derived
-          SWIFT_GODOT_RELEASE_PACKAGE_DIR: ${{ runner.temp }}/swiftgodot-distribution-package
+          SWIFT_GODOT_RELEASE_PACKAGE_DIR: ${{ runner.temp }}/swiftgodot-distribution-build-package
           SWIFT_GODOT_ARCHIVE_PATH: ${{ runner.temp }}/swiftgodot-archive
         run: |
           scripts/build-distribution-products
@@ -169,10 +246,10 @@ jobs:
           DERIVED_DATA: ${{ runner.temp }}/swiftgodot-derived
         run: |
           tar -czf "$RUNNER_TEMP/swiftgodot-ios-products.tgz" -C "$DERIVED_DATA" \
-            Build/Products/Debug-iphoneos/PackageFrameworks/SwiftGodot.framework \
-            Build/Products/Debug-iphoneos/PackageFrameworks/SwiftGodotRuntime.framework \
-            Build/Products/Debug-iphoneos/SwiftGodot.swiftmodule \
-            Build/Products/Debug-iphoneos/SwiftGodotRuntime.swiftmodule \
+            Build/Products/Release-iphoneos/PackageFrameworks/SwiftGodot.framework \
+            Build/Products/Release-iphoneos/PackageFrameworks/SwiftGodotRuntime.framework \
+            Build/Products/Release-iphoneos/SwiftGodot.swiftmodule \
+            Build/Products/Release-iphoneos/SwiftGodotRuntime.swiftmodule \
             Build/Intermediates.noindex/GeneratedModuleMaps-iphoneos
 
       - name: Upload release products
@@ -185,7 +262,9 @@ jobs:
 
   build-arm64:
     name: Build macOS arm64
-    needs: prepare
+    needs:
+      - prepare
+      - stage-package
     runs-on: macos-26
 
     steps:
@@ -197,7 +276,7 @@ jobs:
       - name: Set up Xcode
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: "latest-stable"
+          xcode-version: "${{ env.SWIFT_GODOT_RELEASE_XCODE }}"
 
       - name: Show build environment
         run: |
@@ -205,12 +284,24 @@ jobs:
           xcodebuild -version
           swift --version
 
+      - name: Download generated-source distribution package
+        uses: actions/download-artifact@v4
+        with:
+          name: swiftgodot-distribution-package
+          path: ${{ runner.temp }}
+
+      - name: Extract generated-source distribution package
+        run: |
+          tar -xzf "$RUNNER_TEMP/swiftgodot-distribution-package.tgz" -C "$RUNNER_TEMP"
+
       - name: Build macOS arm64 distribution products
         env:
           SWIFT_GODOT_DESTINATION: platform=macOS,arch=arm64
           SWIFT_GODOT_DERIVED_DATA: ${{ runner.temp }}/swiftgodot-derived
+          SWIFT_GODOT_CONFIGURATION: Release
+          SWIFT_GODOT_PREPARED_PACKAGE_DIR: ${{ runner.temp }}/swiftgodot-distribution-package
           SWIFT_GODOT_GENERATION_DERIVED_DATA: ${{ runner.temp }}/swiftgodot-generation-derived
-          SWIFT_GODOT_RELEASE_PACKAGE_DIR: ${{ runner.temp }}/swiftgodot-distribution-package
+          SWIFT_GODOT_RELEASE_PACKAGE_DIR: ${{ runner.temp }}/swiftgodot-distribution-build-package
           SWIFT_GODOT_ARCHIVE_PATH: ${{ runner.temp }}/swiftgodot-archive
         run: |
           scripts/build-distribution-products
@@ -220,10 +311,10 @@ jobs:
           DERIVED_DATA: ${{ runner.temp }}/swiftgodot-derived
         run: |
           tar -czf "$RUNNER_TEMP/swiftgodot-arm64-products.tgz" -C "$DERIVED_DATA" \
-            Build/Products/Debug/PackageFrameworks/SwiftGodot.framework \
-            Build/Products/Debug/PackageFrameworks/SwiftGodotRuntime.framework \
-            Build/Products/Debug/SwiftGodot.swiftmodule \
-            Build/Products/Debug/SwiftGodotRuntime.swiftmodule \
+            Build/Products/Release/PackageFrameworks/SwiftGodot.framework \
+            Build/Products/Release/PackageFrameworks/SwiftGodotRuntime.framework \
+            Build/Products/Release/SwiftGodot.swiftmodule \
+            Build/Products/Release/SwiftGodotRuntime.swiftmodule \
             Build/Intermediates.noindex/GeneratedModuleMaps
 
       - name: Upload release products
@@ -253,7 +344,7 @@ jobs:
       - name: Set up Xcode
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: "latest-stable"
+          xcode-version: "${{ env.SWIFT_GODOT_RELEASE_XCODE }}"
 
       - name: Show build environment
         run: |
@@ -300,6 +391,7 @@ jobs:
           SWIFT_GODOT_BINARY_REPO_DIR: ${{ runner.temp }}/SwiftGodotBinary
           SWIFT_GODOT_OUTPUT_DIR: ${{ runner.temp }}/sg-builds
           SWIFT_GODOT_DERIVED_DATA: ${{ runner.temp }}/sg-builds/release/derived
+          SWIFT_GODOT_CONFIGURATION: Release
           SWIFT_GODOT_SKIP_BUILD: 1
         run: |
           scripts/release "${{ inputs.tag }}" "$RUNNER_TEMP/release-notes.md" "${{ needs.prepare.outputs.commit }}"

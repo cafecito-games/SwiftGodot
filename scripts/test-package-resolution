@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+fail() {
+    echo "FAIL: $*" >&2
+    exit 1
+}
+
+[[ -f Package.resolved ]] || fail "Package.resolved must be checked in for reproducible release dependency resolution"
+
+if rg -qx 'Package\.resolved' .gitignore; then
+    fail ".gitignore must not ignore Package.resolved"
+fi
+
+jq -e '.pins[] | select(.identity == "swift-syntax")' Package.resolved >/dev/null || fail "Package.resolved must pin swift-syntax"
+jq -e '.pins[] | select(.identity == "swift-argument-parser")' Package.resolved >/dev/null || fail "Package.resolved must pin swift-argument-parser"
+
+echo "package resolution tests passed"
