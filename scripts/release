@@ -10,6 +10,7 @@ usage() {
     echo "  SWIFT_GODOT_BINARY_REPO_DIR   Local binary repo checkout. Default: ../SwiftGodotBinary"
     echo "  SWIFT_GODOT_BINARY_BRANCH     Binary repo branch. Default: main"
     echo "  SWIFT_GODOT_OUTPUT_DIR        Build output directory. Default: \$HOME/sg-builds"
+    echo "  SWIFT_GODOT_CONFIGURATION     Distribution build configuration. Default: Release"
     echo "  SWIFT_GODOT_DERIVED_DATA      DerivedData directory to build into or package from"
     echo "  SWIFT_GODOT_SKIP_BUILD        Package prebuilt DerivedData instead of running xcodebuild"
     echo "  SWIFT_GODOT_NODEPLOY          Build the xcframework but skip GitHub release publishing"
@@ -29,6 +30,7 @@ binary_repo=${SWIFT_GODOT_BINARY_REPO:-cafecito-games/SwiftGodotBinary}
 binary_repo_dir=${SWIFT_GODOT_BINARY_REPO_DIR:-../SwiftGodotBinary}
 binary_branch=${SWIFT_GODOT_BINARY_BRANCH:-main}
 output_dir=${SWIFT_GODOT_OUTPUT_DIR:-$HOME/sg-builds}
+configuration=${SWIFT_GODOT_CONFIGURATION:-Release}
 
 if [[ ! -f "$release_notes" ]]; then
     echo "Expected a release notes file: $release_notes"
@@ -89,12 +91,25 @@ mkdir -p "$archive_path"
 echo "Building in: $build_dir"
 echo "DerivedData: $derived_data"
 echo "ArchiveData: $archive_path"
+echo "Configuration: $configuration"
 echo "Commit: $commit"
 echo "Source repo: $source_repo"
 echo "Binary repo: $binary_repo"
 start=$(date)
 
 if [[ -z "${SWIFT_GODOT_SKIP_BUILD:-}" ]]; then
+    prepared_release_package="$build_dir/distribution-prepared"
+
+    echo "Preparing generated-source distribution package..."
+    SWIFT_GODOT_DESTINATION="platform=macOS,arch=$arch" \
+    SWIFT_GODOT_DERIVED_DATA="$build_dir/prepared-derived" \
+    SWIFT_GODOT_CONFIGURATION="$configuration" \
+    SWIFT_GODOT_GENERATION_DERIVED_DATA="$build_dir/prepared-generation" \
+    SWIFT_GODOT_RELEASE_PACKAGE_DIR="$prepared_release_package" \
+    SWIFT_GODOT_ARCHIVE_PATH="$archive_path" \
+    SWIFT_GODOT_STAGE_ONLY=1 \
+        scripts/build-distribution-products > "$build_dir/stage-package.log"
+
     build_distribution_products() {
         local destination=$1
         local product_derived_data=$2
@@ -105,6 +120,8 @@ if [[ -z "${SWIFT_GODOT_SKIP_BUILD:-}" ]]; then
         echo "Building distribution products for: $destination"
         SWIFT_GODOT_DESTINATION="$destination" \
         SWIFT_GODOT_DERIVED_DATA="$product_derived_data" \
+        SWIFT_GODOT_CONFIGURATION="$configuration" \
+        SWIFT_GODOT_PREPARED_PACKAGE_DIR="$prepared_release_package" \
         SWIFT_GODOT_GENERATION_DERIVED_DATA="$generation_derived_data" \
         SWIFT_GODOT_RELEASE_PACKAGE_DIR="$release_package" \
         SWIFT_GODOT_ARCHIVE_PATH="$archive_path" \
@@ -142,35 +159,35 @@ else
         fi
     }
 
-    require_prebuilt_artifact "$derived_data/Build/Products/Debug/PackageFrameworks/SwiftGodot.framework"
-    require_prebuilt_artifact "$derived_data/Build/Products/Debug/PackageFrameworks/SwiftGodotRuntime.framework"
-    require_prebuilt_artifact "$derived_data/Build/Products/Debug/SwiftGodot.swiftmodule"
-    require_prebuilt_artifact "$derived_data/Build/Products/Debug/SwiftGodotRuntime.swiftmodule"
+    require_prebuilt_artifact "$derived_data/Build/Products/$configuration/PackageFrameworks/SwiftGodot.framework"
+    require_prebuilt_artifact "$derived_data/Build/Products/$configuration/PackageFrameworks/SwiftGodotRuntime.framework"
+    require_prebuilt_artifact "$derived_data/Build/Products/$configuration/SwiftGodot.swiftmodule"
+    require_prebuilt_artifact "$derived_data/Build/Products/$configuration/SwiftGodotRuntime.swiftmodule"
     require_prebuilt_artifact "$derived_data/Build/Intermediates.noindex/GeneratedModuleMaps/SwiftGodot.modulemap"
     require_prebuilt_artifact "$derived_data/Build/Intermediates.noindex/GeneratedModuleMaps/SwiftGodot-Swift.h"
     require_prebuilt_artifact "$derived_data/Build/Intermediates.noindex/GeneratedModuleMaps/SwiftGodotRuntime.modulemap"
     require_prebuilt_artifact "$derived_data/Build/Intermediates.noindex/GeneratedModuleMaps/SwiftGodotRuntime-Swift.h"
     if [[ "$arch" = "arm64" ]]; then
-        require_prebuilt_artifact "${derived_data}_arm/Build/Products/Debug/PackageFrameworks/SwiftGodot.framework"
-        require_prebuilt_artifact "${derived_data}_arm/Build/Products/Debug/PackageFrameworks/SwiftGodotRuntime.framework"
-        require_prebuilt_artifact "${derived_data}_arm/Build/Products/Debug/SwiftGodot.swiftmodule"
-        require_prebuilt_artifact "${derived_data}_arm/Build/Products/Debug/SwiftGodotRuntime.swiftmodule"
+        require_prebuilt_artifact "${derived_data}_arm/Build/Products/$configuration/PackageFrameworks/SwiftGodot.framework"
+        require_prebuilt_artifact "${derived_data}_arm/Build/Products/$configuration/PackageFrameworks/SwiftGodotRuntime.framework"
+        require_prebuilt_artifact "${derived_data}_arm/Build/Products/$configuration/SwiftGodot.swiftmodule"
+        require_prebuilt_artifact "${derived_data}_arm/Build/Products/$configuration/SwiftGodotRuntime.swiftmodule"
         require_prebuilt_artifact "${derived_data}_arm/Build/Intermediates.noindex/GeneratedModuleMaps/SwiftGodot.modulemap"
         require_prebuilt_artifact "${derived_data}_arm/Build/Intermediates.noindex/GeneratedModuleMaps/SwiftGodot-Swift.h"
         require_prebuilt_artifact "${derived_data}_arm/Build/Intermediates.noindex/GeneratedModuleMaps/SwiftGodotRuntime.modulemap"
         require_prebuilt_artifact "${derived_data}_arm/Build/Intermediates.noindex/GeneratedModuleMaps/SwiftGodotRuntime-Swift.h"
     fi
-    require_prebuilt_artifact "$derived_data/Build/Products/Debug-iphoneos/PackageFrameworks/SwiftGodot.framework"
-    require_prebuilt_artifact "$derived_data/Build/Products/Debug-iphoneos/PackageFrameworks/SwiftGodotRuntime.framework"
-    require_prebuilt_artifact "$derived_data/Build/Products/Debug-iphoneos/SwiftGodot.swiftmodule"
-    require_prebuilt_artifact "$derived_data/Build/Products/Debug-iphoneos/SwiftGodotRuntime.swiftmodule"
+    require_prebuilt_artifact "$derived_data/Build/Products/$configuration-iphoneos/PackageFrameworks/SwiftGodot.framework"
+    require_prebuilt_artifact "$derived_data/Build/Products/$configuration-iphoneos/PackageFrameworks/SwiftGodotRuntime.framework"
+    require_prebuilt_artifact "$derived_data/Build/Products/$configuration-iphoneos/SwiftGodot.swiftmodule"
+    require_prebuilt_artifact "$derived_data/Build/Products/$configuration-iphoneos/SwiftGodotRuntime.swiftmodule"
     require_prebuilt_artifact "$derived_data/Build/Intermediates.noindex/GeneratedModuleMaps-iphoneos/SwiftGodot.modulemap"
     require_prebuilt_artifact "$derived_data/Build/Intermediates.noindex/GeneratedModuleMaps-iphoneos/SwiftGodot-Swift.h"
     require_prebuilt_artifact "$derived_data/Build/Intermediates.noindex/GeneratedModuleMaps-iphoneos/SwiftGodotRuntime.modulemap"
     require_prebuilt_artifact "$derived_data/Build/Intermediates.noindex/GeneratedModuleMaps-iphoneos/SwiftGodotRuntime-Swift.h"
 fi
 
-scripts/make-swiftgodot-framework "$derived_data/" "$output_dir/SwiftGodot.xcframework"
+SWIFT_GODOT_CONFIGURATION="$configuration" scripts/make-swiftgodot-framework "$derived_data/" "$output_dir/SwiftGodot.xcframework"
 
 if [[ -n "${SWIFT_GODOT_NODEPLOY:-}" ]]; then
     echo "Skipping deployment stage."
@@ -180,14 +197,17 @@ fi
 zip_path="$output_dir/SwiftGodot.xcframework.zip"
 (cd "$output_dir"; ditto -c -k --sequesterRsrc --keepParent SwiftGodot.xcframework SwiftGodot.xcframework.zip)
 asset_url="https://github.com/$source_repo/releases/download/$tag/SwiftGodot.xcframework.zip"
+swiftgodot_checksum=$(swift package compute-checksum "$zip_path")
 
 runtime_zip_path="$output_dir/SwiftGodotRuntime.xcframework.zip"
 (cd "$output_dir"; ditto -c -k --sequesterRsrc --keepParent SwiftGodotRuntime.xcframework SwiftGodotRuntime.xcframework.zip)
 runtime_asset_url="https://github.com/$source_repo/releases/download/$tag/SwiftGodotRuntime.xcframework.zip"
+runtime_checksum=$(swift package compute-checksum "$runtime_zip_path")
 
 scripts/build-macro-artifactbundle "$output_dir" "$tag"
 macro_zip_path="$output_dir/SwiftGodotMacros.artifactbundle.zip"
 macro_asset_url="https://github.com/$source_repo/releases/download/$tag/SwiftGodotMacros.artifactbundle.zip"
+macro_checksum=$(swift package compute-checksum "$macro_zip_path")
 
 gh release create "$tag" "$zip_path" "$runtime_zip_path" "$macro_zip_path" -R "$source_repo" -F "$release_notes" --target "$commit"
 
@@ -214,18 +234,21 @@ cat > "$binary_repo_dir/binaries.json" <<EOF
       "name": "SwiftGodot",
       "file": "SwiftGodot.xcframework.zip",
       "url": "$asset_url",
+      "checksum": "$swiftgodot_checksum",
       "localPath": "Binaries/SwiftGodot.xcframework"
     },
     {
       "name": "SwiftGodotRuntime",
       "file": "SwiftGodotRuntime.xcframework.zip",
       "url": "$runtime_asset_url",
+      "checksum": "$runtime_checksum",
       "localPath": "Binaries/SwiftGodotRuntime.xcframework"
     },
     {
       "name": "SwiftGodotMacroLibrary",
       "file": "SwiftGodotMacros.artifactbundle.zip",
       "url": "$macro_asset_url",
+      "checksum": "$macro_checksum",
       "localPath": "Binaries/SwiftGodotMacros.artifactbundle"
     }
   ]

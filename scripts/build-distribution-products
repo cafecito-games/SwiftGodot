@@ -8,10 +8,14 @@ Usage: scripts/build-distribution-products
 Environment:
   SWIFT_GODOT_DESTINATION              Required xcodebuild destination.
   SWIFT_GODOT_DERIVED_DATA            Required DerivedData path for distribution products.
+  SWIFT_GODOT_CONFIGURATION           Optional distribution build configuration. Default: Release.
   SWIFT_GODOT_ARCHIVE_PATH            Optional xcodebuild archive path.
   SWIFT_GODOT_GENERATION_DERIVED_DATA Optional DerivedData path for the generator build.
   SWIFT_GODOT_GENERATION_DESTINATION  Optional destination for the generator build.
+  SWIFT_GODOT_GENERATION_CONFIGURATION Optional generation build configuration. Default: Debug.
   SWIFT_GODOT_RELEASE_PACKAGE_DIR     Optional temp package directory.
+  SWIFT_GODOT_PREPARED_PACKAGE_DIR    Optional generated-source package to build from.
+  SWIFT_GODOT_STAGE_ONLY              Stage generated-source package and exit.
 EOF
 }
 
@@ -23,54 +27,95 @@ if [[ -z "$destination" || -z "$derived_data" ]]; then
     exit 1
 fi
 
-archive_path=${SWIFT_GODOT_ARCHIVE_PATH:-"$derived_data/archive"}
+absolute_path() {
+    case "$1" in
+        /*)
+            printf '%s\n' "$1"
+            ;;
+        *)
+            printf '%s/%s\n' "$(pwd)" "$1"
+            ;;
+    esac
+}
+
+derived_data=$(absolute_path "$derived_data")
+archive_path=$(absolute_path "${SWIFT_GODOT_ARCHIVE_PATH:-"$derived_data/archive"}")
+configuration=${SWIFT_GODOT_CONFIGURATION:-Release}
 generation_destination=${SWIFT_GODOT_GENERATION_DESTINATION:-"$destination"}
-generation_derived_data=${SWIFT_GODOT_GENERATION_DERIVED_DATA:-"${derived_data}-generation"}
-release_package=${SWIFT_GODOT_RELEASE_PACKAGE_DIR:-"${RUNNER_TEMP:-$(pwd)/.build}/swiftgodot-distribution-package"}
+generation_configuration=${SWIFT_GODOT_GENERATION_CONFIGURATION:-Debug}
+generation_derived_data=$(absolute_path "${SWIFT_GODOT_GENERATION_DERIVED_DATA:-"${derived_data}-generation"}")
+release_package=$(absolute_path "${SWIFT_GODOT_RELEASE_PACKAGE_DIR:-"${RUNNER_TEMP:-$(pwd)/.build}/swiftgodot-distribution-package"}")
+prepared_package=${SWIFT_GODOT_PREPARED_PACKAGE_DIR:-}
+if [[ -n "$prepared_package" ]]; then
+    prepared_package=$(absolute_path "$prepared_package")
+fi
+stage_only=${SWIFT_GODOT_STAGE_ONLY:-}
 
 echo "Distribution destination: $destination"
 echo "Distribution DerivedData: $derived_data"
+echo "Distribution configuration: $configuration"
 echo "Generation destination: $generation_destination"
 echo "Generation DerivedData: $generation_derived_data"
+echo "Generation configuration: $generation_configuration"
 echo "Temporary package: $release_package"
+if [[ -n "$prepared_package" ]]; then
+    echo "Prepared package: $prepared_package"
+fi
 
 mkdir -p "$generation_derived_data" "$derived_data" "$archive_path"
 
-echo "Phase 1: generating SwiftGodot sources..."
-xcodebuild \
-    -quiet \
-    -scheme SwiftGodot \
-    -destination "$generation_destination" \
-    -derivedDataPath "$generation_derived_data" \
-    -archivePath "$archive_path"
+if [[ -n "$prepared_package" ]]; then
+    echo "Using prepared generated-source distribution package..."
+    [[ -f "$prepared_package/Package.swift" ]] || {
+        echo "Error: Prepared package is missing Package.swift: $prepared_package"
+        exit 1
+    }
+    rm -rf "$release_package"
+    mkdir -p "$release_package"
+    rsync -a --delete "$prepared_package"/ "$release_package"/
+else
+    echo "Phase 1: generating SwiftGodot sources..."
+    xcodebuild \
+        -quiet \
+        -scheme SwiftGodot \
+        -destination "$generation_destination" \
+        -configuration "$generation_configuration" \
+        -derivedDataPath "$generation_derived_data" \
+        -archivePath "$archive_path"
 
-plugin_intermediates="$generation_derived_data/Build/Intermediates.noindex/BuildToolPluginIntermediates"
-runtime_gen_src=$(find "$plugin_intermediates" -type d \
-    -path "*/SwiftGodotRuntime/CodeGeneratorPlugin/GeneratedSources/SwiftGodotRuntime" 2>/dev/null | head -1)
-swiftgodot_gen_src=$(find "$plugin_intermediates" -type d \
-    -path "*/SwiftGodot/CodeGeneratorPlugin/GeneratedSources/SwiftGodot" 2>/dev/null | head -1)
+    plugin_intermediates="$generation_derived_data/Build/Intermediates.noindex/BuildToolPluginIntermediates"
+    runtime_gen_src=$(find "$plugin_intermediates" -type d \
+        -path "*/SwiftGodotRuntime/CodeGeneratorPlugin/GeneratedSources/SwiftGodotRuntime" 2>/dev/null | head -1)
+    swiftgodot_gen_src=$(find "$plugin_intermediates" -type d \
+        -path "*/SwiftGodot/CodeGeneratorPlugin/GeneratedSources/SwiftGodot" 2>/dev/null | head -1)
 
-if [[ -z "$runtime_gen_src" || -z "$swiftgodot_gen_src" ]]; then
-    echo "Error: Could not find CodeGeneratorPlugin output under $plugin_intermediates"
-    exit 1
+    if [[ -z "$runtime_gen_src" || -z "$swiftgodot_gen_src" ]]; then
+        echo "Error: Could not find CodeGeneratorPlugin output under $plugin_intermediates"
+        exit 1
+    fi
+
+    echo "Staging temporary distribution package..."
+    rm -rf "$release_package"
+    mkdir -p "$release_package/Sources"
+    cp Package.distribution.swift "$release_package/Package.swift"
+    rsync -a --delete Sources/GDExtension "$release_package/Sources/"
+    rsync -a --delete --exclude "_generated" Sources/SwiftGodotRuntime "$release_package/Sources/"
+    rsync -a --delete --exclude "_generated" Sources/SwiftGodot "$release_package/Sources/"
+
+    mkdir -p "$release_package/Sources/SwiftGodotRuntime/_generated"
+    mkdir -p "$release_package/Sources/SwiftGodot/_generated"
+
+    # SwiftGodotRuntime: copy both generated/ and generated-builtin/ output files.
+    find "$runtime_gen_src" -name "*.swift" -exec cp {} "$release_package/Sources/SwiftGodotRuntime/_generated/" \;
+
+    # SwiftGodot: copy generated/ only. Builtins are compiled by SwiftGodotRuntime.
+    find "$swiftgodot_gen_src/generated" -name "*.swift" -exec cp {} "$release_package/Sources/SwiftGodot/_generated/" \;
 fi
 
-echo "Staging temporary distribution package..."
-rm -rf "$release_package"
-mkdir -p "$release_package/Sources"
-cp Package.distribution.swift "$release_package/Package.swift"
-rsync -a --delete Sources/GDExtension "$release_package/Sources/"
-rsync -a --delete --exclude "_generated" Sources/SwiftGodotRuntime "$release_package/Sources/"
-rsync -a --delete --exclude "_generated" Sources/SwiftGodot "$release_package/Sources/"
-
-mkdir -p "$release_package/Sources/SwiftGodotRuntime/_generated"
-mkdir -p "$release_package/Sources/SwiftGodot/_generated"
-
-# SwiftGodotRuntime: copy both generated/ and generated-builtin/ output files.
-find "$runtime_gen_src" -name "*.swift" -exec cp {} "$release_package/Sources/SwiftGodotRuntime/_generated/" \;
-
-# SwiftGodot: copy generated/ only. Builtins are compiled by SwiftGodotRuntime.
-find "$swiftgodot_gen_src/generated" -name "*.swift" -exec cp {} "$release_package/Sources/SwiftGodot/_generated/" \;
+if [[ -n "$stage_only" ]]; then
+    echo "Staged generated-source distribution package at $release_package"
+    exit 0
+fi
 
 echo "Phase 2: building distribution products..."
 (
@@ -79,6 +124,7 @@ echo "Phase 2: building distribution products..."
         -quiet \
         -scheme SwiftGodot \
         -destination "$destination" \
+        -configuration "$configuration" \
         -derivedDataPath "$derived_data" \
         -archivePath "$archive_path" \
         BUILD_LIBRARY_FOR_DISTRIBUTION=YES
@@ -86,6 +132,7 @@ echo "Phase 2: building distribution products..."
         -quiet \
         -scheme SwiftGodotRuntime \
         -destination "$destination" \
+        -configuration "$configuration" \
         -derivedDataPath "$derived_data" \
         -archivePath "$archive_path" \
         BUILD_LIBRARY_FOR_DISTRIBUTION=YES

@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+fail() {
+    echo "FAIL: $*" >&2
+    exit 1
+}
+
+rg -q 'SWIFT_GODOT_CONFIGURATION' scripts/build-distribution-products || fail "build-distribution-products must expose SWIFT_GODOT_CONFIGURATION"
+rg -q -- '-configuration "\$configuration"' scripts/build-distribution-products || fail "distribution xcodebuild must pass explicit configuration"
+rg -q 'Build/Products/Release/PackageFrameworks/SwiftGodot.framework' .github/workflows/release.yml || fail "release workflow must package macOS Release products"
+rg -q 'Build/Products/Release-iphoneos/PackageFrameworks/SwiftGodot.framework' .github/workflows/release.yml || fail "release workflow must package iOS Release products"
+rg -q 'SWIFT_GODOT_CONFIGURATION.*Release' .github/workflows/release.yml || fail "release workflow must set SWIFT_GODOT_CONFIGURATION to Release"
+
+if rg -q 'Build/Products/Debug' .github/workflows/release.yml scripts/release scripts/make-swiftgodot-framework; then
+    fail "release packaging should not hard-code Debug product paths"
+fi
+
+echo "release build configuration tests passed"

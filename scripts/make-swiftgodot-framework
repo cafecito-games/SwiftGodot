@@ -18,6 +18,7 @@ fi
 
 derived_data=${1%/}
 output=${2%/}
+configuration=${SWIFT_GODOT_CONFIGURATION:-Release}
 
 case "$output" in
     *.xcframework)
@@ -29,9 +30,9 @@ case "$output" in
         ;;
 esac
 
-bd_mac="$derived_data/Build/Products/Debug"
-bd_mac_arm="${derived_data}_arm/Build/Products/Debug"
-bd_ios="$derived_data/Build/Products/Debug-iphoneos"
+bd_mac="$derived_data/Build/Products/$configuration"
+bd_mac_arm="${derived_data}_arm/Build/Products/$configuration"
+bd_ios="$derived_data/Build/Products/$configuration-iphoneos"
 runtime_output="$(dirname "$output")/SwiftGodotRuntime.xcframework"
 stage_root=$(mktemp -d)
 

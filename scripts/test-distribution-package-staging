@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+fail() {
+    echo "FAIL: $*" >&2
+    exit 1
+}
+
+rg -q 'SWIFT_GODOT_PREPARED_PACKAGE_DIR' scripts/build-distribution-products || fail "build-distribution-products must accept a prepared package"
+rg -q 'SWIFT_GODOT_STAGE_ONLY' scripts/build-distribution-products || fail "build-distribution-products must support stage-only mode"
+rg -q 'SWIFT_GODOT_PREPARED_PACKAGE_DIR="\$prepared_release_package"' scripts/release || fail "local release must reuse the prepared package"
+rg -q 'stage-package:' .github/workflows/release.yml || fail "release workflow must stage generated sources once"
+rg -q 'swiftgodot-distribution-package' .github/workflows/release.yml || fail "release workflow must pass the staged package as an artifact"
+
+echo "distribution package staging tests passed"
