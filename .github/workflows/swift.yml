@@ -26,10 +26,11 @@ jobs:
       with:
         xcode-version: "latest-stable"
 
-    - name: Install Godot
+    - name: Install Homebrew dependencies
       run: |
-        brew install godot
+        brew install godot ripgrep
         godot --version
+        rg --version
 
     - name: Build
       run: swift build --build-tests --quiet
