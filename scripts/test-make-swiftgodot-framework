@@ -20,7 +20,7 @@ for required in \
     "module-Swift.h" \
     "module.modulemap" \
     'stage_module_metadata "SwiftGodot"' \
-    'stage_module_metadata "SwiftGodotRuntime"' \
+    "SwiftGodotRuntime.swiftmodule" \
     "merge_swift_headers" \
     "lipo -create"
 do
