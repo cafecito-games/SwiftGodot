@@ -125,6 +125,7 @@ if [[ -z "${SWIFT_GODOT_SKIP_BUILD:-}" ]]; then
         SWIFT_GODOT_GENERATION_DERIVED_DATA="$generation_derived_data" \
         SWIFT_GODOT_RELEASE_PACKAGE_DIR="$release_package" \
         SWIFT_GODOT_ARCHIVE_PATH="$archive_path" \
+        SWIFT_GODOT_ARCHS="${SWIFT_GODOT_ARCHS:-}" \
             scripts/build-distribution-products > "$log_file"
     }
 
@@ -151,8 +152,8 @@ if [[ -z "${SWIFT_GODOT_SKIP_BUILD:-}" ]]; then
         "$build_dir/distribution-ios" \
         "$build_dir/ios_arm64.log"
 
-    build_distribution_products \
-        "generic/platform=iOS Simulator,arch=arm64" \
+    SWIFT_GODOT_ARCHS="arm64" build_distribution_products \
+        "generic/platform=iOS Simulator" \
         "$derived_data" \
         "$build_dir/generated-ios-simulator" \
         "$build_dir/distribution-ios-simulator" \
