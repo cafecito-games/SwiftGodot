@@ -15,6 +15,11 @@ on:
         description: Release notes for the GitHub release.
         required: true
         type: string
+      include_macos_x86:
+        description: Also build a macOS x86_64 (Intel) slice.
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -136,6 +141,7 @@ jobs:
       - prepare
       - stage-package
     runs-on: macos-26-intel
+    if: ${{ inputs.include_macos_x86 }}
 
     steps:
       - name: Checkout SwiftGodot
@@ -400,6 +406,13 @@ jobs:
       - build-ios-simulator
       - build-arm64
     runs-on: macos-26
+    if: >-
+      ${{ !cancelled()
+      && needs.prepare.result == 'success'
+      && needs.build-ios.result == 'success'
+      && needs.build-ios-simulator.result == 'success'
+      && needs.build-arm64.result == 'success'
+      && (needs.build-x86.result == 'success' || needs.build-x86.result == 'skipped') }}
 
     steps:
       - name: Checkout SwiftGodot
@@ -439,16 +452,22 @@ jobs:
         env:
           DERIVED_DATA: ${{ runner.temp }}/sg-builds/release/derived
         run: |
-          # The x86, iOS-device, and iOS-simulator tarballs all extract into the
-          # same DERIVED_DATA. This is safe only because each job packs SDK-suffixed,
-          # disjoint top-level paths (Release / Release-iphoneos / Release-iphonesimulator
-          # and their matching GeneratedModuleMaps dirs). Keep that invariant if you
-          # change what any build job packs.
-          mkdir -p "$DERIVED_DATA" "${DERIVED_DATA}_arm"
-          tar -xzf "$RUNNER_TEMP/release-products/swiftgodot-x86-products/swiftgodot-x86-products.tgz" -C "$DERIVED_DATA"
+          # The arm64-macOS, iOS-device, and iOS-simulator tarballs all extract
+          # into the same DERIVED_DATA. This is safe only because each job packs
+          # SDK-suffixed, disjoint top-level paths (Release / Release-iphoneos /
+          # Release-iphonesimulator and their matching GeneratedModuleMaps dirs).
+          # The optional macOS x86_64 products extract into a separate
+          # ${DERIVED_DATA}_x86 sidecar. Keep that invariant if you change what
+          # any build job packs.
+          mkdir -p "$DERIVED_DATA"
+          tar -xzf "$RUNNER_TEMP/release-products/swiftgodot-arm64-products/swiftgodot-arm64-products.tgz" -C "$DERIVED_DATA"
           tar -xzf "$RUNNER_TEMP/release-products/swiftgodot-ios-products/swiftgodot-ios-products.tgz" -C "$DERIVED_DATA"
           tar -xzf "$RUNNER_TEMP/release-products/swiftgodot-ios-simulator-products/swiftgodot-ios-simulator-products.tgz" -C "$DERIVED_DATA"
-          tar -xzf "$RUNNER_TEMP/release-products/swiftgodot-arm64-products/swiftgodot-arm64-products.tgz" -C "${DERIVED_DATA}_arm"
+          x86_tarball="$RUNNER_TEMP/release-products/swiftgodot-x86-products/swiftgodot-x86-products.tgz"
+          if [[ -f "$x86_tarball" ]]; then
+            mkdir -p "${DERIVED_DATA}_x86"
+            tar -xzf "$x86_tarball" -C "${DERIVED_DATA}_x86"
+          fi
 
       - name: Prepare release notes
         env:
@@ -466,5 +485,6 @@ jobs:
           SWIFT_GODOT_DERIVED_DATA: ${{ runner.temp }}/sg-builds/release/derived
           SWIFT_GODOT_CONFIGURATION: Release
           SWIFT_GODOT_SKIP_BUILD: 1
+          SWIFT_GODOT_INCLUDE_MACOS_X86: ${{ inputs.include_macos_x86 && '1' || '' }}
         run: |
           scripts/release "${{ inputs.tag }}" "$RUNNER_TEMP/release-notes.md" "${{ needs.prepare.outputs.commit }}"
