@@ -438,6 +438,11 @@ jobs:
         env:
           DERIVED_DATA: ${{ runner.temp }}/sg-builds/release/derived
         run: |
+          # The x86, iOS-device, and iOS-simulator tarballs all extract into the
+          # same DERIVED_DATA. This is safe only because each job packs SDK-suffixed,
+          # disjoint top-level paths (Release / Release-iphoneos / Release-iphonesimulator
+          # and their matching GeneratedModuleMaps dirs). Keep that invariant if you
+          # change what any build job packs.
           mkdir -p "$DERIVED_DATA" "${DERIVED_DATA}_arm"
           tar -xzf "$RUNNER_TEMP/release-products/swiftgodot-x86-products/swiftgodot-x86-products.tgz" -C "$DERIVED_DATA"
           tar -xzf "$RUNNER_TEMP/release-products/swiftgodot-ios-products/swiftgodot-ios-products.tgz" -C "$DERIVED_DATA"
