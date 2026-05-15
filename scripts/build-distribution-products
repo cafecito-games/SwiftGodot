@@ -15,6 +15,7 @@ Environment:
   SWIFT_GODOT_GENERATION_CONFIGURATION Optional generation build configuration. Default: Debug.
   SWIFT_GODOT_RELEASE_PACKAGE_DIR     Optional temp package directory.
   SWIFT_GODOT_PREPARED_PACKAGE_DIR    Optional generated-source package to build from.
+  SWIFT_GODOT_ARCHS                   Optional space-separated ARCHS override for the distribution build.
   SWIFT_GODOT_STAGE_ONLY              Stage generated-source package and exit.
 EOF
 }
@@ -50,6 +51,12 @@ if [[ -n "$prepared_package" ]]; then
     prepared_package=$(absolute_path "$prepared_package")
 fi
 stage_only=${SWIFT_GODOT_STAGE_ONLY:-}
+archs=${SWIFT_GODOT_ARCHS:-}
+
+build_settings=(BUILD_LIBRARY_FOR_DISTRIBUTION=YES)
+if [[ -n "$archs" ]]; then
+    build_settings+=("ARCHS=$archs" ONLY_ACTIVE_ARCH=NO)
+fi
 
 echo "Distribution destination: $destination"
 echo "Distribution DerivedData: $derived_data"
@@ -127,7 +134,7 @@ echo "Phase 2: building distribution products..."
         -configuration "$configuration" \
         -derivedDataPath "$derived_data" \
         -archivePath "$archive_path" \
-        BUILD_LIBRARY_FOR_DISTRIBUTION=YES
+        "${build_settings[@]}"
     xcodebuild \
         -quiet \
         -scheme SwiftGodotRuntime \
@@ -135,5 +142,5 @@ echo "Phase 2: building distribution products..."
         -configuration "$configuration" \
         -derivedDataPath "$derived_data" \
         -archivePath "$archive_path" \
-        BUILD_LIBRARY_FOR_DISTRIBUTION=YES
+        "${build_settings[@]}"
 )
