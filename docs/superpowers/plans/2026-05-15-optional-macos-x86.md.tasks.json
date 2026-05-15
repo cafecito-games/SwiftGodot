@@ -1,0 +1,30 @@
+{
+  "planPath": "docs/superpowers/plans/2026-05-15-optional-macos-x86.md",
+  "tasks": [
+    {
+      "id": 5,
+      "subject": "Task 1: Flip optional macOS slice to x86_64 in make-swiftgodot-framework",
+      "status": "pending",
+      "description": "**Goal:** make-swiftgodot-framework treats $derived_data (arm64) as primary macOS slice and ${derived_data}_x86 as optional secondary.\n\n```json:metadata\n{\"files\": [\"scripts/make-swiftgodot-framework\"], \"verifyCommand\": \"bash -n scripts/make-swiftgodot-framework && scripts/test-make-swiftgodot-framework\", \"acceptanceCriteria\": [\"bd_mac_arm renamed to bd_mac_x86\", \"${derived_data}_arm to ${derived_data}_x86\", \"bd_mac unchanged\", \"no other changes\"]}\n```"
+    },
+    {
+      "id": 6,
+      "subject": "Task 2: Gate build-x86 job behind workflow_dispatch input",
+      "status": "pending",
+      "description": "**Goal:** release.yml gains include_macos_x86 input; build-x86 runs only when true; release job tolerates skipped build-x86 and swaps macOS staging dirs.\n\n```json:metadata\n{\"files\": [\".github/workflows/release.yml\"], \"verifyCommand\": \"python3 -c \\\"import yaml; yaml.safe_load(open('.github/workflows/release.yml'))\\\"\", \"acceptanceCriteria\": [\"include_macos_x86 input\", \"build-x86 gated\", \"release job if tolerates skip\", \"staging dirs swapped\", \"env mapped 1/empty\"]}\n```"
+    },
+    {
+      "id": 7,
+      "subject": "Task 3: Make x86_64 opt-in in scripts/release",
+      "status": "pending",
+      "description": "**Goal:** scripts/release always builds/validates arm64 macOS as primary, handles x86_64 only when SWIFT_GODOT_INCLUDE_MACOS_X86 set.\n\n```json:metadata\n{\"files\": [\"scripts/release\"], \"verifyCommand\": \"bash -n scripts/release\", \"acceptanceCriteria\": [\"env var parsed\", \"usage documents it\", \"build path swapped\", \"SKIP_BUILD validation swapped\"]}\n```"
+    },
+    {
+      "id": 8,
+      "subject": "Task 4: Make macro artifact bundle x86_64 opt-in",
+      "status": "pending",
+      "description": "**Goal:** build-macro-artifactbundle builds arm64-only by default, universal when SWIFT_GODOT_INCLUDE_MACOS_X86 set; swift.yml macro step keeps exercising universal.\n\n```json:metadata\n{\"files\": [\"scripts/build-macro-artifactbundle\", \".github/workflows/swift.yml\"], \"verifyCommand\": \"bash -n scripts/build-macro-artifactbundle && python3 -c \\\"import yaml; yaml.safe_load(open('.github/workflows/swift.yml'))\\\"\", \"acceptanceCriteria\": [\"env var parsed\", \"universal when set\", \"arm64-only when unset\", \"swift.yml step sets the env\"]}\n```"
+    }
+  ],
+  "lastUpdated": "2026-05-15T18:30:00Z"
+}
