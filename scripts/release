@@ -14,6 +14,7 @@ usage() {
     echo "  SWIFT_GODOT_DERIVED_DATA      DerivedData directory to build into or package from"
     echo "  SWIFT_GODOT_SKIP_BUILD        Package prebuilt DerivedData instead of running xcodebuild"
     echo "  SWIFT_GODOT_NODEPLOY          Build the xcframework but skip GitHub release publishing"
+    echo "  SWIFT_GODOT_INCLUDE_MACOS_X86 Also build a macOS x86_64 (Intel) slice"
 }
 
 if [[ $# -ne 3 ]]; then
@@ -31,6 +32,7 @@ binary_repo_dir=${SWIFT_GODOT_BINARY_REPO_DIR:-../SwiftGodotBinary}
 binary_branch=${SWIFT_GODOT_BINARY_BRANCH:-main}
 output_dir=${SWIFT_GODOT_OUTPUT_DIR:-$HOME/sg-builds}
 configuration=${SWIFT_GODOT_CONFIGURATION:-Release}
+include_macos_x86=${SWIFT_GODOT_INCLUDE_MACOS_X86:-}
 
 if [[ ! -f "$release_notes" ]]; then
     echo "Expected a release notes file: $release_notes"
@@ -130,19 +132,19 @@ if [[ -z "${SWIFT_GODOT_SKIP_BUILD:-}" ]]; then
     }
 
     build_distribution_products \
-        "platform=macOS,arch=x86_64" \
+        "platform=macOS,arch=arm64" \
         "$derived_data" \
-        "$build_dir/generated-x86_64" \
-        "$build_dir/distribution-x86_64" \
-        "$build_dir/x86_64.log"
+        "$build_dir/generated-arm64" \
+        "$build_dir/distribution-arm64" \
+        "$build_dir/arm64.log"
 
-    if [[ "$arch" = "arm64" ]]; then
+    if [[ -n "$include_macos_x86" ]]; then
         build_distribution_products \
-            "platform=macOS,arch=arm64" \
-            "${derived_data}_arm" \
-            "$build_dir/generated-arm64" \
-            "$build_dir/distribution-arm64" \
-            "$build_dir/arm64.log"
+            "platform=macOS,arch=x86_64" \
+            "${derived_data}_x86" \
+            "$build_dir/generated-x86_64" \
+            "$build_dir/distribution-x86_64" \
+            "$build_dir/x86_64.log"
     fi
 
     build_distribution_products \
@@ -175,15 +177,15 @@ else
     require_prebuilt_artifact "$derived_data/Build/Intermediates.noindex/GeneratedModuleMaps/SwiftGodot-Swift.h"
     require_prebuilt_artifact "$derived_data/Build/Intermediates.noindex/GeneratedModuleMaps/SwiftGodotRuntime.modulemap"
     require_prebuilt_artifact "$derived_data/Build/Intermediates.noindex/GeneratedModuleMaps/SwiftGodotRuntime-Swift.h"
-    if [[ "$arch" = "arm64" ]]; then
-        require_prebuilt_artifact "${derived_data}_arm/Build/Products/$configuration/PackageFrameworks/SwiftGodot.framework"
-        require_prebuilt_artifact "${derived_data}_arm/Build/Products/$configuration/PackageFrameworks/SwiftGodotRuntime.framework"
-        require_prebuilt_artifact "${derived_data}_arm/Build/Products/$configuration/SwiftGodot.swiftmodule"
-        require_prebuilt_artifact "${derived_data}_arm/Build/Products/$configuration/SwiftGodotRuntime.swiftmodule"
-        require_prebuilt_artifact "${derived_data}_arm/Build/Intermediates.noindex/GeneratedModuleMaps/SwiftGodot.modulemap"
-        require_prebuilt_artifact "${derived_data}_arm/Build/Intermediates.noindex/GeneratedModuleMaps/SwiftGodot-Swift.h"
-        require_prebuilt_artifact "${derived_data}_arm/Build/Intermediates.noindex/GeneratedModuleMaps/SwiftGodotRuntime.modulemap"
-        require_prebuilt_artifact "${derived_data}_arm/Build/Intermediates.noindex/GeneratedModuleMaps/SwiftGodotRuntime-Swift.h"
+    if [[ -n "$include_macos_x86" ]]; then
+        require_prebuilt_artifact "${derived_data}_x86/Build/Products/$configuration/PackageFrameworks/SwiftGodot.framework"
+        require_prebuilt_artifact "${derived_data}_x86/Build/Products/$configuration/PackageFrameworks/SwiftGodotRuntime.framework"
+        require_prebuilt_artifact "${derived_data}_x86/Build/Products/$configuration/SwiftGodot.swiftmodule"
+        require_prebuilt_artifact "${derived_data}_x86/Build/Products/$configuration/SwiftGodotRuntime.swiftmodule"
+        require_prebuilt_artifact "${derived_data}_x86/Build/Intermediates.noindex/GeneratedModuleMaps/SwiftGodot.modulemap"
+        require_prebuilt_artifact "${derived_data}_x86/Build/Intermediates.noindex/GeneratedModuleMaps/SwiftGodot-Swift.h"
+        require_prebuilt_artifact "${derived_data}_x86/Build/Intermediates.noindex/GeneratedModuleMaps/SwiftGodotRuntime.modulemap"
+        require_prebuilt_artifact "${derived_data}_x86/Build/Intermediates.noindex/GeneratedModuleMaps/SwiftGodotRuntime-Swift.h"
     fi
     require_prebuilt_artifact "$derived_data/Build/Products/$configuration-iphoneos/PackageFrameworks/SwiftGodot.framework"
     require_prebuilt_artifact "$derived_data/Build/Products/$configuration-iphoneos/PackageFrameworks/SwiftGodotRuntime.framework"
