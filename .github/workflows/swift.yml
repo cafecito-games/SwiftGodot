@@ -54,4 +54,6 @@ jobs:
         scripts/test-release-toolchain
 
     - name: Build macro artifact bundle (exercise release script)
+      env:
+        SWIFT_GODOT_INCLUDE_MACOS_X86: 1
       run: scripts/build-macro-artifactbundle "$RUNNER_TEMP/sg-macro-artifact" "0.0.0-ci"
