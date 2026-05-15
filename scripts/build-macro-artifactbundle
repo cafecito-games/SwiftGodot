@@ -5,9 +5,11 @@ usage() {
     cat <<'EOF'
 Usage: scripts/build-macro-artifactbundle <output_dir> <version>
 
-Builds SwiftGodotMacroLibrary as a universal macOS (arm64 + x86_64)
-compiler-plugin executable and packages it as a SwiftPM artifact bundle
-named SwiftGodotMacros.artifactbundle.zip in <output_dir>.
+Builds SwiftGodotMacroLibrary as a macOS compiler-plugin executable and
+packages it as a SwiftPM artifact bundle named
+SwiftGodotMacros.artifactbundle.zip in <output_dir>. The plugin is arm64-only
+by default; set SWIFT_GODOT_INCLUDE_MACOS_X86=1 to build a universal
+(arm64 + x86_64) plugin.
 
 The result is consumed downstream via:
 
@@ -37,6 +39,7 @@ fi
 
 output_dir=$1
 version=$2
+include_macos_x86=${SWIFT_GODOT_INCLUDE_MACOS_X86:-}
 
 mkdir -p "$output_dir"
 
@@ -96,13 +99,18 @@ let package = Package(
 )
 EOF
 
-echo "Building SwiftGodotMacroLibrary universal (arm64 + x86_64)..."
+build_archs=(--arch arm64)
+if [[ -n "$include_macos_x86" ]]; then
+    build_archs+=(--arch x86_64)
+    echo "Building SwiftGodotMacroLibrary universal (arm64 + x86_64)..."
+else
+    echo "Building SwiftGodotMacroLibrary (arm64)..."
+fi
 (
     cd "$scratch/MacroBuilder"
     swift build \
         -c release \
-        --arch arm64 \
-        --arch x86_64 \
+        "${build_archs[@]}" \
         --product SwiftGodotMacroLibrary
 )
 
@@ -125,9 +133,16 @@ fi
 echo "Found plugin: $plugin_bin"
 arch_info=$(lipo -info "$plugin_bin")
 echo "$arch_info"
-if ! echo "$arch_info" | grep -qE "(x86_64.*arm64|arm64.*x86_64)"; then
-    echo "Plugin is not a universal binary (expected arm64 + x86_64)." >&2
-    exit 1
+if [[ -n "$include_macos_x86" ]]; then
+    if ! echo "$arch_info" | grep -qE "(x86_64.*arm64|arm64.*x86_64)"; then
+        echo "Plugin is not a universal binary (expected arm64 + x86_64)." >&2
+        exit 1
+    fi
+else
+    if ! echo "$arch_info" | grep -q "arm64"; then
+        echo "Plugin is not an arm64 binary." >&2
+        exit 1
+    fi
 fi
 
 bundle_root="$output_dir/SwiftGodotMacros.artifactbundle"
@@ -136,6 +151,13 @@ mkdir -p "$bundle_root/SwiftGodotMacroLibrary-macos/bin"
 
 cp "$plugin_bin" "$bundle_root/SwiftGodotMacroLibrary-macos/bin/SwiftGodotMacroLibrary"
 chmod +x "$bundle_root/SwiftGodotMacroLibrary-macos/bin/SwiftGodotMacroLibrary"
+
+if [[ -n "$include_macos_x86" ]]; then
+    supported_triples='"arm64-apple-macosx",
+            "x86_64-apple-macosx"'
+else
+    supported_triples='"arm64-apple-macosx"'
+fi
 
 cat > "$bundle_root/info.json" <<EOF
 {
@@ -148,8 +170,7 @@ cat > "$bundle_root/info.json" <<EOF
         {
           "path": "SwiftGodotMacroLibrary-macos/bin/SwiftGodotMacroLibrary",
           "supportedTriples": [
-            "arm64-apple-macosx",
-            "x86_64-apple-macosx"
+            $supported_triples
           ]
         }
       ]
