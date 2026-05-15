@@ -150,6 +150,13 @@ if [[ -z "${SWIFT_GODOT_SKIP_BUILD:-}" ]]; then
         "$build_dir/generated-ios" \
         "$build_dir/distribution-ios" \
         "$build_dir/ios_arm64.log"
+
+    build_distribution_products \
+        "generic/platform=iOS Simulator,arch=arm64" \
+        "$derived_data" \
+        "$build_dir/generated-ios-simulator" \
+        "$build_dir/distribution-ios-simulator" \
+        "$build_dir/ios_simulator_arm64.log"
 else
     echo "Using prebuilt DerivedData from: $derived_data"
     require_prebuilt_artifact() {
@@ -185,6 +192,14 @@ else
     require_prebuilt_artifact "$derived_data/Build/Intermediates.noindex/GeneratedModuleMaps-iphoneos/SwiftGodot-Swift.h"
     require_prebuilt_artifact "$derived_data/Build/Intermediates.noindex/GeneratedModuleMaps-iphoneos/SwiftGodotRuntime.modulemap"
     require_prebuilt_artifact "$derived_data/Build/Intermediates.noindex/GeneratedModuleMaps-iphoneos/SwiftGodotRuntime-Swift.h"
+    require_prebuilt_artifact "$derived_data/Build/Products/$configuration-iphonesimulator/PackageFrameworks/SwiftGodot.framework"
+    require_prebuilt_artifact "$derived_data/Build/Products/$configuration-iphonesimulator/PackageFrameworks/SwiftGodotRuntime.framework"
+    require_prebuilt_artifact "$derived_data/Build/Products/$configuration-iphonesimulator/SwiftGodot.swiftmodule"
+    require_prebuilt_artifact "$derived_data/Build/Products/$configuration-iphonesimulator/SwiftGodotRuntime.swiftmodule"
+    require_prebuilt_artifact "$derived_data/Build/Intermediates.noindex/GeneratedModuleMaps-iphonesimulator/SwiftGodot.modulemap"
+    require_prebuilt_artifact "$derived_data/Build/Intermediates.noindex/GeneratedModuleMaps-iphonesimulator/SwiftGodot-Swift.h"
+    require_prebuilt_artifact "$derived_data/Build/Intermediates.noindex/GeneratedModuleMaps-iphonesimulator/SwiftGodotRuntime.modulemap"
+    require_prebuilt_artifact "$derived_data/Build/Intermediates.noindex/GeneratedModuleMaps-iphonesimulator/SwiftGodotRuntime-Swift.h"
 fi
 
 SWIFT_GODOT_CONFIGURATION="$configuration" scripts/make-swiftgodot-framework "$derived_data/" "$output_dir/SwiftGodot.xcframework"
