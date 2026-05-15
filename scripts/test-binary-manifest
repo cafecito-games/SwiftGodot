@@ -7,10 +7,13 @@ fail() {
 }
 
 rg -q 'swift package compute-checksum "\$zip_path"' scripts/release || fail "SwiftGodot checksum must be computed from the release zip"
-rg -q 'swift package compute-checksum "\$runtime_zip_path"' scripts/release || fail "SwiftGodotRuntime checksum must be computed from the release zip"
 rg -q 'swift package compute-checksum "\$macro_zip_path"' scripts/release || fail "macro checksum must be computed from the release zip"
 rg -q '"checksum": "\$swiftgodot_checksum"' scripts/release || fail "SwiftGodot manifest entry must include checksum"
-rg -q '"checksum": "\$runtime_checksum"' scripts/release || fail "SwiftGodotRuntime manifest entry must include checksum"
 rg -q '"checksum": "\$macro_checksum"' scripts/release || fail "macro manifest entry must include checksum"
+
+# The runtime ships inside SwiftGodot.xcframework; it must not be released or
+# referenced as a separate binary artifact (duplicate class registration).
+rg -q 'SwiftGodotRuntime.xcframework' scripts/release && fail "release must not ship a standalone SwiftGodotRuntime.xcframework"
+rg -q '"name": "SwiftGodotRuntime"' scripts/release && fail "binaries.json must not list a separate SwiftGodotRuntime artifact"
 
 echo "binary manifest tests passed"

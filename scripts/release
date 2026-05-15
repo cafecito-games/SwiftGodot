@@ -217,17 +217,12 @@ zip_path="$output_dir/SwiftGodot.xcframework.zip"
 asset_url="https://github.com/$source_repo/releases/download/$tag/SwiftGodot.xcframework.zip"
 swiftgodot_checksum=$(swift package compute-checksum "$zip_path")
 
-runtime_zip_path="$output_dir/SwiftGodotRuntime.xcframework.zip"
-(cd "$output_dir"; ditto -c -k --sequesterRsrc --keepParent SwiftGodotRuntime.xcframework SwiftGodotRuntime.xcframework.zip)
-runtime_asset_url="https://github.com/$source_repo/releases/download/$tag/SwiftGodotRuntime.xcframework.zip"
-runtime_checksum=$(swift package compute-checksum "$runtime_zip_path")
-
 scripts/build-macro-artifactbundle "$output_dir" "$tag"
 macro_zip_path="$output_dir/SwiftGodotMacros.artifactbundle.zip"
 macro_asset_url="https://github.com/$source_repo/releases/download/$tag/SwiftGodotMacros.artifactbundle.zip"
 macro_checksum=$(swift package compute-checksum "$macro_zip_path")
 
-gh release create "$tag" "$zip_path" "$runtime_zip_path" "$macro_zip_path" -R "$source_repo" -F "$release_notes" --target "$commit"
+gh release create "$tag" "$zip_path" "$macro_zip_path" -R "$source_repo" -F "$release_notes" --target "$commit"
 
 gdextension_target_dir="$binary_repo_dir/Sources/GDExtension"
 rm -rf "$gdextension_target_dir"
@@ -254,13 +249,6 @@ cat > "$binary_repo_dir/binaries.json" <<EOF
       "url": "$asset_url",
       "checksum": "$swiftgodot_checksum",
       "localPath": "Binaries/SwiftGodot.xcframework"
-    },
-    {
-      "name": "SwiftGodotRuntime",
-      "file": "SwiftGodotRuntime.xcframework.zip",
-      "url": "$runtime_asset_url",
-      "checksum": "$runtime_checksum",
-      "localPath": "Binaries/SwiftGodotRuntime.xcframework"
     },
     {
       "name": "SwiftGodotMacroLibrary",
@@ -291,24 +279,24 @@ let package = Package(
         .iOS(.v17),
     ],
     products: [
+        // SwiftGodot.xcframework already contains the SwiftGodotRuntime module
+        // (statically linked, with its .swiftmodule). Shipping a separate
+        // SwiftGodotRuntime binary would register every runtime class twice.
         .library(
             name: "SwiftGodot",
-            targets: ["SwiftGodot", "SwiftGodotRuntime", "GDExtension", "SwiftGodotMacroLibrary"]),
+            targets: ["SwiftGodot", "GDExtension", "SwiftGodotMacroLibrary"]),
     ],
     targets: [
         .binaryTarget(
             name: "SwiftGodot",
             path: "Binaries/SwiftGodot.xcframework"),
         .binaryTarget(
-            name: "SwiftGodotRuntime",
-            path: "Binaries/SwiftGodotRuntime.xcframework"),
-        .binaryTarget(
             name: "SwiftGodotMacroLibrary",
             path: "Binaries/SwiftGodotMacros.artifactbundle"),
         .target(
             name: "GDExtension",
             path: "Sources/GDExtension"),
-        .testTarget(name: "SwiftGodotTests", dependencies: ["SwiftGodot", "SwiftGodotRuntime", "GDExtension"]),
+        .testTarget(name: "SwiftGodotTests", dependencies: ["SwiftGodot", "GDExtension"]),
     ]
 )
 EOF

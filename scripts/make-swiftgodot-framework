@@ -7,7 +7,10 @@ Usage: scripts/make-swiftgodot-framework ROOT OUTPUT
 
 ROOT is the DerivedData directory where Xcode generated the build products.
 OUTPUT is the SwiftGodot xcframework path to write, and must end in .xcframework.
-SwiftGodotRuntime.xcframework is written alongside OUTPUT.
+
+The SwiftGodotRuntime module is compiled into SwiftGodot, so only SwiftGodot
+is emitted as an xcframework. Its Modules/ carries SwiftGodotRuntime.swiftmodule
+so that `import SwiftGodotRuntime` resolves against the same binary.
 EOF
 }
 
@@ -34,7 +37,6 @@ bd_mac="$derived_data/Build/Products/$configuration"
 bd_mac_x86="${derived_data}_x86/Build/Products/$configuration"
 bd_ios="$derived_data/Build/Products/$configuration-iphoneos"
 bd_ios_sim="$derived_data/Build/Products/$configuration-iphonesimulator"
-runtime_output="$(dirname "$output")/SwiftGodotRuntime.xcframework"
 stage_root=$(mktemp -d)
 
 cleanup() {
@@ -288,18 +290,6 @@ stage_swiftgodot_metadata() {
     fi
 }
 
-stage_runtime_metadata() {
-    local framework=$1
-    local product_dir=$2
-    local metadata_root=$3
-    local platform_suffix=$4
-    local secondary_product_dir=${5:-}
-    local secondary_metadata_root=${6:-}
-    local secondary_platform_suffix=${7:-}
-
-    stage_module_metadata "SwiftGodotRuntime" "$framework" "$product_dir" "$metadata_root" "$platform_suffix" "$secondary_product_dir" "$secondary_metadata_root" "$secondary_platform_suffix"
-}
-
 stage_macos_framework() {
     local module=$1
     local staged_framework="$stage_root/macos/$module.framework"
@@ -345,32 +335,22 @@ copy_runtime_module_sidecars() {
     done < <(find "$xcframework" -mindepth 2 -maxdepth 2 -type d -name "SwiftGodot.framework" | sort)
 }
 
-rm -rf "$output" "$runtime_output"
+rm -rf "$output"
 
 require_path "$bd_mac/PackageFrameworks/SwiftGodot.framework"
-require_path "$bd_mac/PackageFrameworks/SwiftGodotRuntime.framework"
 require_path "$bd_ios/PackageFrameworks/SwiftGodot.framework"
-require_path "$bd_ios/PackageFrameworks/SwiftGodotRuntime.framework"
 require_path "$bd_ios_sim/PackageFrameworks/SwiftGodot.framework"
-require_path "$bd_ios_sim/PackageFrameworks/SwiftGodotRuntime.framework"
 
-# The macOS x86_64 slice is optional. Treat it as all-or-nothing: if either
-# x86_64 framework is staged, both must be, so the merged macOS slice is never
-# half-universal.
+# The macOS x86_64 slice is optional. When its SwiftGodot.framework is present
+# it is merged into the macOS slice; otherwise the macOS slice stays arm64-only.
 macos_x86_present=
-if [[ -d "$bd_mac_x86/PackageFrameworks/SwiftGodot.framework" \
-   || -d "$bd_mac_x86/PackageFrameworks/SwiftGodotRuntime.framework" ]]; then
-    require_path "$bd_mac_x86/PackageFrameworks/SwiftGodot.framework"
-    require_path "$bd_mac_x86/PackageFrameworks/SwiftGodotRuntime.framework"
+if [[ -d "$bd_mac_x86/PackageFrameworks/SwiftGodot.framework" ]]; then
     macos_x86_present=1
 fi
 
 mac_swiftgodot_framework=$(stage_macos_framework "SwiftGodot")
-mac_runtime_framework=$(stage_macos_framework "SwiftGodotRuntime")
 ios_swiftgodot_framework=$(stage_ios_framework "SwiftGodot")
-ios_runtime_framework=$(stage_ios_framework "SwiftGodotRuntime")
 ios_sim_swiftgodot_framework=$(stage_ios_simulator_framework "SwiftGodot")
-ios_sim_runtime_framework=$(stage_ios_simulator_framework "SwiftGodotRuntime")
 
 if [[ -n "$macos_x86_present" ]]; then
     stage_swiftgodot_metadata "$mac_swiftgodot_framework" "$bd_mac" "$derived_data" "" "$bd_mac_x86" "${derived_data}_x86" ""
@@ -378,28 +358,14 @@ else
     stage_swiftgodot_metadata "$mac_swiftgodot_framework" "$bd_mac" "$derived_data" ""
 fi
 
-if [[ -n "$macos_x86_present" ]]; then
-    stage_runtime_metadata "$mac_runtime_framework" "$bd_mac" "$derived_data" "" "$bd_mac_x86" "${derived_data}_x86" ""
-else
-    stage_runtime_metadata "$mac_runtime_framework" "$bd_mac" "$derived_data" ""
-fi
-
 stage_swiftgodot_metadata "$ios_swiftgodot_framework" "$bd_ios" "$derived_data" "iphoneos"
-stage_runtime_metadata "$ios_runtime_framework" "$bd_ios" "$derived_data" "iphoneos"
 
 stage_swiftgodot_metadata "$ios_sim_swiftgodot_framework" "$bd_ios_sim" "$derived_data" "iphonesimulator"
-stage_runtime_metadata "$ios_sim_runtime_framework" "$bd_ios_sim" "$derived_data" "iphonesimulator"
 
 xcodebuild -quiet -create-xcframework \
     -framework "$mac_swiftgodot_framework" \
     -framework "$ios_swiftgodot_framework" \
     -framework "$ios_sim_swiftgodot_framework" \
     -output "$output"
-
-xcodebuild -quiet -create-xcframework \
-    -framework "$mac_runtime_framework" \
-    -framework "$ios_runtime_framework" \
-    -framework "$ios_sim_runtime_framework" \
-    -output "$runtime_output"
 
 copy_runtime_module_sidecars "$output"
