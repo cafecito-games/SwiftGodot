@@ -296,7 +296,8 @@ jobs:
 
       - name: Build iOS Simulator distribution products
         env:
-          SWIFT_GODOT_DESTINATION: generic/platform=iOS Simulator,arch=arm64
+          SWIFT_GODOT_DESTINATION: generic/platform=iOS Simulator
+          SWIFT_GODOT_ARCHS: arm64
           SWIFT_GODOT_DERIVED_DATA: ${{ runner.temp }}/swiftgodot-derived
           SWIFT_GODOT_CONFIGURATION: Release
           SWIFT_GODOT_PREPARED_PACKAGE_DIR: ${{ runner.temp }}/swiftgodot-distribution-package
