@@ -71,7 +71,11 @@ the optional extra.
     extract the x86 tarball into `${DERIVED_DATA}_x86` only if that artifact file
     exists, extract the iOS and iOS-simulator tarballs into `$DERIVED_DATA` (as
     today).
-  - "Run release script" step: pass `SWIFT_GODOT_INCLUDE_MACOS_X86: ${{ inputs.include_macos_x86 }}`.
+  - "Run release script" step: pass
+    `SWIFT_GODOT_INCLUDE_MACOS_X86: ${{ inputs.include_macos_x86 && '1' || '' }}`.
+    The boolean input is mapped to `1` (on) or an empty string (off) so the
+    downstream presence-based check (`[[ -n ... ]]`) is not fooled by the literal
+    string `"false"`.
 
 ### 2. `scripts/make-swiftgodot-framework`
 
@@ -106,15 +110,18 @@ the optional extra.
   and list only `arm64-apple-macosx` in `info.json`.
 - No wiring change in `scripts/release`: it already invokes this script, and the
   env var propagates to the child process.
+- `.github/workflows/swift.yml` has a step that runs `build-macro-artifactbundle`
+  on PRs specifically to cover the universal macro build. That step gets
+  `SWIFT_GODOT_INCLUDE_MACOS_X86: 1` so it keeps exercising the universal path
+  (otherwise the new default would only ever exercise the arm64-only path).
 
 ## Out of Scope
 
 - Changes to `binaries.json` or the consuming `Package.swift` — they reference
   the xcframework and artifact bundle by path; the macOS xcframework slice id
   simply changes between `macos-arm64` and `macos-arm64_x86_64`.
-- The PR-coverage workflow that builds the macro bundle: it leaves
-  `SWIFT_GODOT_INCLUDE_MACOS_X86` unset, so it keeps validating a universal
-  bundle. No change.
+- Test scripts under `scripts/test-*`: none assert macOS x86_64 presence, so
+  none need changes.
 
 ## Verification
 
