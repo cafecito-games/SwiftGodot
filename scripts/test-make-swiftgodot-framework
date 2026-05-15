@@ -32,7 +32,8 @@ done
 
 for artifact in \
     "Build/Intermediates.noindex/GeneratedModuleMaps" \
-    "Build/Intermediates.noindex/GeneratedModuleMaps-iphoneos"
+    "Build/Intermediates.noindex/GeneratedModuleMaps-iphoneos" \
+    "Build/Intermediates.noindex/GeneratedModuleMaps-iphonesimulator"
 do
     if ! rg -q "$artifact" "$release_workflow"; then
         echo "release workflow does not package $artifact for make-swiftgodot-framework"
