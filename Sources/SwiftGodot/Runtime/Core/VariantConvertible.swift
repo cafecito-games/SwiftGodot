@@ -5,7 +5,7 @@
 //  Created by Elijah Semyonov on 08/04/2025.
 //
 
-import GDExtension
+import GDExtensionC
 
 /// Error while trying to unwrap Variant
 public enum VariantConversionError: Error, CustomStringConvertible, @unchecked Sendable {

@@ -265,7 +265,7 @@ let package = Package(
     products: [
         .library(
             name: "SwiftGodot",
-            targets: ["SwiftGodot", "GDExtension", "SwiftGodotMacroLibrary"]),
+            targets: ["SwiftGodot", "GDExtensionC", "SwiftGodotMacroLibrary"]),
     ],
     targets: [
         .binaryTarget(
@@ -275,9 +275,9 @@ let package = Package(
             name: "SwiftGodotMacroLibrary",
             path: "Binaries/SwiftGodotMacros.artifactbundle"),
         .target(
-            name: "GDExtension",
+            name: "GDExtensionC",
             path: "Sources/GDExtension"),
-        .testTarget(name: "SwiftGodotTests", dependencies: ["SwiftGodot", "GDExtension"]),
+        .testTarget(name: "SwiftGodotTests", dependencies: ["SwiftGodot", "GDExtensionC"]),
     ]
 )
 EOF

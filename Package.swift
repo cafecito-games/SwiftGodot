@@ -126,7 +126,8 @@ var targets: [Target] = [
 
     // This allows the Swift code to call into the Godot bridge API (GDExtension)
     .target(
-        name: "GDExtension",
+        name: "GDExtensionC",
+        path: "Sources/GDExtension",
         swiftSettings: [.swiftLanguageMode(.v6)]
     ),
 
@@ -188,7 +189,7 @@ var targets: [Target] = [
     // into Sources/SwiftGodot/_generated/ inside a temporary package.
     .target(
         name: "SwiftGodot",
-        dependencies: ["GDExtension"],
+        dependencies: ["GDExtensionC"],
         exclude: ["_generated"],
         swiftSettings: [
             .swiftLanguageMode(.v6),

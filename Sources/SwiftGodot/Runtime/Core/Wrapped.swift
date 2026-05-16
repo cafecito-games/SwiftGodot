@@ -19,7 +19,7 @@
 import Foundation
 #endif
 import Foundation
-import GDExtension
+import GDExtensionC
 
 func pd (_ str: String) {
     #if false

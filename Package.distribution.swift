@@ -29,7 +29,8 @@ let package = Package(
     ],
     targets: [
         .target(
-            name: "GDExtension",
+            name: "GDExtensionC",
+            path: "Sources/GDExtension",
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
 
@@ -38,7 +39,7 @@ let package = Package(
         // inside this temporary package.
         .target(
             name: "SwiftGodot",
-            dependencies: ["GDExtension"],
+            dependencies: ["GDExtensionC"],
             swiftSettings: [
                 .swiftLanguageMode(.v5),
                 .define("CUSTOM_BUILTIN_IMPLEMENTATIONS"),
