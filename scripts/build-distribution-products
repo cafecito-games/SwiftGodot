@@ -91,12 +91,10 @@ else
         -archivePath "$archive_path"
 
     plugin_intermediates="$generation_derived_data/Build/Intermediates.noindex/BuildToolPluginIntermediates"
-    runtime_gen_src=$(find "$plugin_intermediates" -type d \
-        -path "*/SwiftGodotRuntime/CodeGeneratorPlugin/GeneratedSources/SwiftGodotRuntime" 2>/dev/null | head -1)
     swiftgodot_gen_src=$(find "$plugin_intermediates" -type d \
         -path "*/SwiftGodot/CodeGeneratorPlugin/GeneratedSources/SwiftGodot" 2>/dev/null | head -1)
 
-    if [[ -z "$runtime_gen_src" || -z "$swiftgodot_gen_src" ]]; then
+    if [[ -z "$swiftgodot_gen_src" ]]; then
         echo "Error: Could not find CodeGeneratorPlugin output under $plugin_intermediates"
         exit 1
     fi
@@ -106,17 +104,12 @@ else
     mkdir -p "$release_package/Sources"
     cp Package.distribution.swift "$release_package/Package.swift"
     rsync -a --delete Sources/GDExtension "$release_package/Sources/"
-    rsync -a --delete --exclude "_generated" Sources/SwiftGodotRuntime "$release_package/Sources/"
     rsync -a --delete --exclude "_generated" Sources/SwiftGodot "$release_package/Sources/"
 
-    mkdir -p "$release_package/Sources/SwiftGodotRuntime/_generated"
     mkdir -p "$release_package/Sources/SwiftGodot/_generated"
 
-    # SwiftGodotRuntime: copy both generated/ and generated-builtin/ output files.
-    find "$runtime_gen_src" -name "*.swift" -exec cp {} "$release_package/Sources/SwiftGodotRuntime/_generated/" \;
-
-    # SwiftGodot: copy generated/ only. Builtins are compiled by SwiftGodotRuntime.
-    find "$swiftgodot_gen_src/generated" -name "*.swift" -exec cp {} "$release_package/Sources/SwiftGodot/_generated/" \;
+    # SwiftGodot is a single module: copy both generated/ and generated-builtin/ output.
+    find "$swiftgodot_gen_src" -name "*.swift" -exec cp {} "$release_package/Sources/SwiftGodot/_generated/" \;
 fi
 
 if [[ -n "$stage_only" ]]; then
@@ -130,14 +123,6 @@ echo "Phase 2: building distribution products..."
     xcodebuild \
         -quiet \
         -scheme SwiftGodot \
-        -destination "$destination" \
-        -configuration "$configuration" \
-        -derivedDataPath "$derived_data" \
-        -archivePath "$archive_path" \
-        "${build_settings[@]}"
-    xcodebuild \
-        -quiet \
-        -scheme SwiftGodotRuntime \
         -destination "$destination" \
         -configuration "$configuration" \
         -derivedDataPath "$derived_data" \
