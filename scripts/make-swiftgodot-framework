@@ -229,6 +229,21 @@ merge_swift_headers() {
     } > "$output_file"
 }
 
+# Xcode generates a plain `module <Name>` modulemap for Swift package
+# frameworks. Inside a `.framework` bundle that is wrong: a plain module
+# resolves `header` paths relative to the modulemap's own `Modules/` directory,
+# but the generated `<Name>-Swift.h` lives in the sibling `Headers/`. The
+# qualifier must be `framework module` so the header resolves against
+# `Headers/`. The macOS dependency scanner forces the Clang module to build and
+# surfaces this; iOS happens to resolve through the `.swiftinterface` instead.
+install_framework_modulemap() {
+    local source_modulemap=$1
+    local destination_modulemap=$2
+
+    sed 's/^module \([A-Za-z_][A-Za-z0-9_.]*\)/framework module \1/' \
+        "$source_modulemap" > "$destination_modulemap"
+}
+
 stage_module_metadata() {
     local module=$1
     local framework=$2
@@ -258,7 +273,7 @@ stage_module_metadata() {
         swift_headers+=("$(generated_metadata_file "$secondary_metadata_root" "$secondary_platform_suffix" "$module-Swift.h")")
     fi
 
-    cp "$modulemap" "$modules_dir/module.modulemap"
+    install_framework_modulemap "$modulemap" "$modules_dir/module.modulemap"
     merge_swift_headers "$headers_dir/$module-Swift.h" "${swift_headers[@]}"
     rsync -a "$product_dir/$module.swiftmodule" "$modules_dir/"
 
