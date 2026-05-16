@@ -19,8 +19,6 @@ build-docs.log
 /.vscode
 .swiftpm/xcode/xcshareddata/xcschemes
 GeneratedForDebug/
-Sources/SwiftGodotRuntime/_generated/*
-!Sources/SwiftGodotRuntime/_generated/.gitkeep
 Sources/SwiftGodot/_generated/*
 !Sources/SwiftGodot/_generated/.gitkeep
 Tests/SwiftGodotTestProject/test_results.json

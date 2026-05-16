@@ -4,7 +4,6 @@
 //
 //  Created by Miguel de Icaza on 11/13/25.
 //
-@_spi(SwiftGodotRuntimePrivate) import SwiftGodotRuntime
 
 /// Adds the specified type as a Godot Editor Plugin.
 ///
