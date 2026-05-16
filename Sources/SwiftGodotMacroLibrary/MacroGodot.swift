@@ -61,7 +61,7 @@ class GodotMacroProcessor {
         }
         
         classInitializerPrinter("""
-        SwiftGodotRuntime._registerSignal(
+        SwiftGodot._registerSignal(
             \(className).\(signalName.swiftName).name, 
             in: className, 
             arguments: \(className).\(signalName.swiftName).arguments
@@ -71,13 +71,13 @@ class GodotMacroProcessor {
     
     func processExportGroup(name: String, prefix: String) {
         classInitializerPrinter("""
-        SwiftGodotRuntime._addPropertyGroup(className: className, name: "\(name)", prefix: "\(prefix)")
+        SwiftGodot._addPropertyGroup(className: className, name: "\(name)", prefix: "\(prefix)")
         """)
     }
     
     func processExportSubgroup(name: String, prefix: String) {
         classInitializerPrinter("""
-        SwiftGodotRuntime._addPropertySubgroup(className: className, name: "\(name)", prefix: "\(prefix)")
+        SwiftGodot._addPropertySubgroup(className: className, name: "\(name)", prefix: "\(prefix)")
         """)
     }
         
@@ -112,7 +112,7 @@ class GodotMacroProcessor {
             .parameters
             .map { parameter in
                 let typename = parameter.type.trimmedDescription
-                return "SwiftGodotRuntime._argumentPropInfo(\(typename).self, name: \"\(parameter.internalName)\")"
+                return "SwiftGodot._argumentPropInfo(\(typename).self, name: \"\(parameter.internalName)\")"
             }
             .joined(separator: ",\n")
                 
@@ -130,12 +130,12 @@ class GodotMacroProcessor {
             flags = ".default"
         }
 
-        p("SwiftGodotRuntime._registerMethod", .parentheses) {
+        p("SwiftGodot._registerMethod", .parentheses) {
             p("""
             className: className,
             name: "\(godotFuncName)", 
             flags: \(flags), 
-            returnValue: SwiftGodotRuntime._returnValuePropInfo(\(returnTypename).self),    
+            returnValue: SwiftGodot._returnValuePropInfo(\(returnTypename).self),    
             """)
             p("arguments: ", .square, afterBlock: ",") {
                 p(arguments)
@@ -307,9 +307,9 @@ class GodotMacroProcessor {
             
             let p = classInitializerPrinter
                         
-            p("SwiftGodotRuntime._registerPropertyWithGetterSetter", .parentheses) {
+            p("SwiftGodot._registerPropertyWithGetterSetter", .parentheses) {
                 p("className: className,")
-                p("info: SwiftGodotRuntime._propInfo", .parentheses, afterBlock: ",") {
+                p("info: SwiftGodot._propInfo", .parentheses, afterBlock: ",") {
                     p(argsStr)
                 }
                 let setterFunction = needsSetter ? "\(className).\(proxySetterName)" : "nil"
