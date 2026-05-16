@@ -95,7 +95,11 @@ import PackagePlugin
                 classFiles: (runtime + core + controls + threeD + gltf + twoD + xr + editor + visualShaderNodes).uniqued(),
                 builtinFiles: knownBuiltin,
                 preamble: nil,
-                allowedClassFallbacks: []
+                allowedClassFallbacks: [
+                    "MainLoop=Object",
+                    "Node=Object",
+                    "ScriptBacktrace=RefCounted",
+                ]
             )
 
         case "SwiftGodotCore":
