@@ -8,20 +8,11 @@ let withMultiProcessTrait = "with_multi_process"
 // Products define the executables and libraries a package produces, and make them visible to other packages.
 var products: [Product] = [
     .library(
-        name: "SwiftGodotRuntime",
-        type: .dynamic,
-        targets: ["SwiftGodotRuntime"]
-    ),
-    .library(
         name: "SwiftGodot",
         type: .dynamic,
         targets: ["SwiftGodot"]
     ),
 
-    .library(
-        name: "SwiftGodotRuntimeStatic",
-        targets: ["SwiftGodotRuntime"]
-    ),
     .library(
         name: "SwiftGodotStatic",
         targets: ["SwiftGodot"]
@@ -192,13 +183,15 @@ var targets: [Target] = [
         swiftSettings: [.swiftLanguageMode(.v6)]
     ),
 
-    // This is the core runtime for SwiftGodot, it only contains the builtins
-    // the Object and RefCounted classes.
+    // The full SwiftGodot API: hand-written core + the generated Godot API,
+    // all in one module. The release build stages CodeGeneratorPlugin output
+    // into Sources/SwiftGodot/_generated/ inside a temporary package.
     .target(
-        name: "SwiftGodotRuntime",
+        name: "SwiftGodot",
         dependencies: ["GDExtension"],
         exclude: ["_generated"],
         swiftSettings: [
+            .swiftLanguageMode(.v6),
             .define("CUSTOM_BUILTIN_IMPLEMENTATIONS"),
             .define("SWIFTGODOT_WITH_MULTI_PROCESS", .when(traits: [withMultiProcessTrait])),
             .unsafeFlags(
@@ -208,23 +201,8 @@ var targets: [Target] = [
                     "-Xfrontend", "-lto=llvm-full",
                 ]
             ),
-            .swiftLanguageMode(.v6),
         ],
         plugins: ["CodeGeneratorPlugin", "SwiftGodotMacroLibrary"]
-    ),
-
-    // This binds the rest of the Godot API, it will eventually be split
-    // up in chunks
-    .target(
-        name: "SwiftGodot",
-        dependencies: ["GDExtension", "SwiftGodotRuntime"],
-        exclude: ["_generated"],
-        swiftSettings: [
-            .swiftLanguageMode(.v6),
-            .define("CUSTOM_BUILTIN_IMPLEMENTATIONS"),
-            .define("SWIFTGODOT_WITH_MULTI_PROCESS", .when(traits: [withMultiProcessTrait])),
-        ],
-        plugins: ["CodeGeneratorPlugin"]
     ),
 
     // General purpose cross-platform tests
