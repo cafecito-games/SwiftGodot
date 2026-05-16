@@ -34,11 +34,6 @@ import PackagePlugin
         let availableClassFilterFile = configurationDir.appending(path: "\(target.name)-available-classes.txt")
         let builtinFilterFile = configurationDir.appending(path: "\(target.name)-builtins.txt")
 
-        if target.name == "SwiftGodot" {
-            if config.generatedClassFiles.contains("Object.swift") {
-                fatalError()
-            }
-        }
         try writeIfChanged(config.generatedClassFiles.joined(separator: "\n"), to: classFilterFile)
         try writeIfChanged(config.availableClassFiles.joined(separator: "\n"), to: availableClassFilterFile)
         try writeIfChanged(config.builtinFiles.joined(separator: "\n"), to: builtinFilterFile)
