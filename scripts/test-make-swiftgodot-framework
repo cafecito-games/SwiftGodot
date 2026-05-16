@@ -21,6 +21,8 @@ for required in \
     "module.modulemap" \
     'stage_module_metadata "SwiftGodot"' \
     "merge_swift_headers" \
+    "install_framework_modulemap" \
+    "framework module" \
     "lipo -create"
 do
     if ! rg -q "$required" "$script"; then
