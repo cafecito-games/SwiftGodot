@@ -93,33 +93,14 @@ import PackagePlugin
 
     private func generationConfig(for targetName: String) -> GenerationConfig? {
         switch targetName {
-        case "SwiftGodotRuntime":
-            return GenerationConfig(
-                classFiles: runtime.uniqued(),
-                builtinFiles: knownBuiltin,
-                preamble: nil,
-                allowedClassFallbacks: [
-                    "MainLoop=Object",
-                    "Node=Object",
-                    "ScriptBacktrace=RefCounted",
-                ]
-            )
-
-
-        // Remove this target when we are able to split things up, for now
-        // this target produces everything like we used to.
-        //
-        // This means that we do not need to bring the SwiftGodotRuntime, we
-        // just generate everything the same way
+        // SwiftGodot is a single self-contained module: it generates the
+        // builtins and every class, with no dependency on another module.
         case "SwiftGodot":
             return GenerationConfig(
-                classFiles: (core + controls + threeD + gltf + twoD + xr + editor + visualShaderNodes).uniqued(),
-                builtinFiles: [],
-                preamble: """
-@_exported import SwiftGodotRuntime
-@_spi(SwiftGodotRuntimePrivate) import SwiftGodotRuntime
-""",
-                dependencyClassFiles: runtime
+                classFiles: (runtime + core + controls + threeD + gltf + twoD + xr + editor + visualShaderNodes).uniqued(),
+                builtinFiles: knownBuiltin,
+                preamble: nil,
+                allowedClassFallbacks: []
             )
 
         case "SwiftGodotCore":
