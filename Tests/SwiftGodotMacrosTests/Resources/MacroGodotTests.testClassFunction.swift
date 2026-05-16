@@ -1,8 +1,8 @@
 class Hi: Node {
     class func get_some() -> Int64 { 10 }
 
-    static func _mproxy_get_some(pInstance: UnsafeRawPointer?, arguments: borrowing SwiftGodotRuntime.Arguments) -> SwiftGodotRuntime.FastVariant? {
-        return SwiftGodotRuntime._wrapCallableResult(self.get_some())
+    static func _mproxy_get_some(pInstance: UnsafeRawPointer?, arguments: borrowing SwiftGodot.Arguments) -> SwiftGodot.FastVariant? {
+        return SwiftGodot._wrapCallableResult(self.get_some())
 
     }
     static func _pproxy_get_some(        
@@ -22,11 +22,11 @@ class Hi: Node {
     private static let _initializeClass: Void = {
         let className = StringName("Hi")
         assert(ClassDB.classExists(class: className))
-        SwiftGodotRuntime._registerMethod(
+        SwiftGodot._registerMethod(
             className: className,
             name: "get_some",
             flags: .static,
-            returnValue: SwiftGodotRuntime._returnValuePropInfo(Int64.self),
+            returnValue: SwiftGodot._returnValuePropInfo(Int64.self),
             arguments: [
 
             ],

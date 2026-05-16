@@ -13,7 +13,7 @@ extension NodePath: @unchecked Sendable {}
 extension RID: @unchecked Sendable {}
 
 
-import GDExtension
+import GDExtensionC
 
 extension StringName: CustomStringConvertible {
     /// Creates a StringName from a Swift String.Substring

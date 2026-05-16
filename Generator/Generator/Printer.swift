@@ -33,7 +33,7 @@ class Printer: @unchecked Sendable {
     fileprivate static let basePreamble =
         """
         // This file is auto-generated, do not edit.
-        import GDExtension
+        import GDExtensionC
 
         #if CUSTOM_BUILTIN_IMPLEMENTATIONS
         import Darwin

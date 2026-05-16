@@ -3,35 +3,35 @@ private class TestNode: Node {
         return variant
     }
 
-    static func _mproxy_foo(pInstance: UnsafeRawPointer?, arguments: borrowing SwiftGodotRuntime.Arguments) -> SwiftGodotRuntime.FastVariant? {
+    static func _mproxy_foo(pInstance: UnsafeRawPointer?, arguments: borrowing SwiftGodot.Arguments) -> SwiftGodot.FastVariant? {
         do { // safe arguments access scope
-            guard let object = SwiftGodotRuntime._unwrap(self, pInstance: pInstance) else {
-                SwiftGodotRuntime.GD.printErr("Error calling `foo`: failed to unwrap instance \(String(describing: pInstance))")
+            guard let object = SwiftGodot._unwrap(self, pInstance: pInstance) else {
+                SwiftGodot.GD.printErr("Error calling `foo`: failed to unwrap instance \(String(describing: pInstance))")
                 return nil
             }
             let arg0 = try arguments.argument(ofType: Variant?.self, at: 0)
-            return SwiftGodotRuntime._wrapCallableResult(object.foo(variant: arg0))
+            return SwiftGodot._wrapCallableResult(object.foo(variant: arg0))
 
         } catch {
-            SwiftGodotRuntime.GD.printErr("Error calling `foo`: \(error.description)")
+            SwiftGodot.GD.printErr("Error calling `foo`: \(error.description)")
         }
 
         return nil
     }
     static func _pproxy_foo(        
     _ pInstance: UnsafeMutableRawPointer?,
-    _ rargs: SwiftGodotRuntime.RawArguments,
+    _ rargs: SwiftGodot.RawArguments,
     _ returnValue: UnsafeMutableRawPointer?) {
         do { // safe arguments access scope
-                    guard let object = SwiftGodotRuntime._unwrap(self, pInstance: pInstance) else {
-                SwiftGodotRuntime.GD.printErr("Error calling `foo`: failed to unwrap instance \(String(describing: pInstance))")
+                    guard let object = SwiftGodot._unwrap(self, pInstance: pInstance) else {
+                SwiftGodot.GD.printErr("Error calling `foo`: failed to unwrap instance \(String(describing: pInstance))")
                 return
             }
         let arg0: Variant? = try rargs.fetchArgument(at: 0)
-            SwiftGodotRuntime.RawReturnWriter.writeResult(returnValue, object.foo(variant: arg0)) 
+            SwiftGodot.RawReturnWriter.writeResult(returnValue, object.foo(variant: arg0)) 
 
         } catch {
-            SwiftGodotRuntime.GD.printErr("Error calling `foo`: \(String(describing: error))")                    
+            SwiftGodot.GD.printErr("Error calling `foo`: \(String(describing: error))")                    
         }
     }
 
@@ -51,13 +51,13 @@ private class TestNode: Node {
             // ClassDB singleton is not available prior to `.scene` level
             assert(ClassDB.classExists(class: className))
         }
-        SwiftGodotRuntime._registerMethod(
+        SwiftGodot._registerMethod(
             className: className,
             name: "foo",
             flags: .default,
-            returnValue: SwiftGodotRuntime._returnValuePropInfo(Variant?.self),
+            returnValue: SwiftGodot._returnValuePropInfo(Variant?.self),
             arguments: [
-                SwiftGodotRuntime._argumentPropInfo(Variant?.self, name: "variant")
+                SwiftGodot._argumentPropInfo(Variant?.self, name: "variant")
             ],
             function: TestNode._mproxy_foo,
             ptrFunction: { udata, classInstance, argsPtr, retValue in

@@ -4,7 +4,6 @@
 //
 //  Created by Miguel de Icaza on 4/12/23.
 //
-@_spi(SwiftGodotRuntimePrivate) import SwiftGodotRuntime
 
 /// Use the BindNode property wrapper in any subclass of Node to retrieve the node from the
 /// current container that matches the name of the property.

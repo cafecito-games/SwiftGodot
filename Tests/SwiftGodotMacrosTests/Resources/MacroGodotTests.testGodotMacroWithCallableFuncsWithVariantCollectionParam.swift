@@ -4,17 +4,17 @@ class SomeNode: Node {
         integers.map { $0 * $0 }.reduce(into: TypedArray<Int>()) { $0.append(value: $1) }
     }
 
-    static func _mproxy_square(pInstance: UnsafeRawPointer?, arguments: borrowing SwiftGodotRuntime.Arguments) -> SwiftGodotRuntime.FastVariant? {
+    static func _mproxy_square(pInstance: UnsafeRawPointer?, arguments: borrowing SwiftGodot.Arguments) -> SwiftGodot.FastVariant? {
         do { // safe arguments access scope
-            guard let object = SwiftGodotRuntime._unwrap(self, pInstance: pInstance) else {
-                SwiftGodotRuntime.GD.printErr("Error calling `square`: failed to unwrap instance \(String(describing: pInstance))")
+            guard let object = SwiftGodot._unwrap(self, pInstance: pInstance) else {
+                SwiftGodot.GD.printErr("Error calling `square`: failed to unwrap instance \(String(describing: pInstance))")
                 return nil
             }
             let arg0 = try arguments.argument(ofType: TypedArray<Int>.self, at: 0)
-            return SwiftGodotRuntime._wrapCallableResult(object.square(arg0))
+            return SwiftGodot._wrapCallableResult(object.square(arg0))
 
         } catch {
-            SwiftGodotRuntime.GD.printErr("Error calling `square`: \(error.description)")
+            SwiftGodot.GD.printErr("Error calling `square`: \(error.description)")
         }
 
         return nil
@@ -29,13 +29,13 @@ class SomeNode: Node {
         let className = StringName("SomeNode")
         assert(ClassDB.classExists(class: className))
         let classInfo = ClassInfo<SomeNode> (name: className)
-        SwiftGodotRuntime._registerMethod(
+        SwiftGodot._registerMethod(
             className: className,
             name: "square",
             flags: .default,
-            returnValue: SwiftGodotRuntime._returnValuePropInfo(TypedArray<Int>.self),
+            returnValue: SwiftGodot._returnValuePropInfo(TypedArray<Int>.self),
             arguments: [
-                SwiftGodotRuntime._argumentPropInfo(TypedArray<Int>.self, name: "integers")
+                SwiftGodot._argumentPropInfo(TypedArray<Int>.self, name: "integers")
             ],
             function: SomeNode._mproxy_square
         )

@@ -34,11 +34,6 @@ import PackagePlugin
         let availableClassFilterFile = configurationDir.appending(path: "\(target.name)-available-classes.txt")
         let builtinFilterFile = configurationDir.appending(path: "\(target.name)-builtins.txt")
 
-        if target.name == "SwiftGodot" {
-            if config.generatedClassFiles.contains("Object.swift") {
-                fatalError()
-            }
-        }
         try writeIfChanged(config.generatedClassFiles.joined(separator: "\n"), to: classFilterFile)
         try writeIfChanged(config.availableClassFiles.joined(separator: "\n"), to: availableClassFilterFile)
         try writeIfChanged(config.builtinFiles.joined(separator: "\n"), to: builtinFilterFile)
@@ -93,9 +88,11 @@ import PackagePlugin
 
     private func generationConfig(for targetName: String) -> GenerationConfig? {
         switch targetName {
-        case "SwiftGodotRuntime":
+        // SwiftGodot is a single self-contained module: it generates the
+        // builtins and every class, with no dependency on another module.
+        case "SwiftGodot":
             return GenerationConfig(
-                classFiles: runtime.uniqued(),
+                classFiles: (runtime + core + controls + threeD + gltf + twoD + xr + editor + visualShaderNodes).uniqued(),
                 builtinFiles: knownBuiltin,
                 preamble: nil,
                 allowedClassFallbacks: [
@@ -103,23 +100,6 @@ import PackagePlugin
                     "Node=Object",
                     "ScriptBacktrace=RefCounted",
                 ]
-            )
-
-
-        // Remove this target when we are able to split things up, for now
-        // this target produces everything like we used to.
-        //
-        // This means that we do not need to bring the SwiftGodotRuntime, we
-        // just generate everything the same way
-        case "SwiftGodot":
-            return GenerationConfig(
-                classFiles: (core + controls + threeD + gltf + twoD + xr + editor + visualShaderNodes).uniqued(),
-                builtinFiles: [],
-                preamble: """
-@_exported import SwiftGodotRuntime
-@_spi(SwiftGodotRuntimePrivate) import SwiftGodotRuntime
-""",
-                dependencyClassFiles: runtime
             )
 
         case "SwiftGodotCore":

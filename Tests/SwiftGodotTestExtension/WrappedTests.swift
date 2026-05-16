@@ -6,8 +6,7 @@
 //
 
 
-@testable import SwiftGodot
-@_spi(SwiftGodotRuntimePrivate) import SwiftGodotRuntime
+@_spi(SwiftGodotRuntimePrivate) @testable import SwiftGodot
 
 @SwiftGodotTestSuite
 final class WrappedTests {

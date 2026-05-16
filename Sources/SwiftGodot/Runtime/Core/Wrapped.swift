@@ -19,7 +19,7 @@
 import Foundation
 #endif
 import Foundation
-import GDExtension
+import GDExtensionC
 
 func pd (_ str: String) {
     #if false
@@ -195,7 +195,7 @@ open class Wrapped {
         fatalError ("Wrapped.handle was nil, which indicates the object was cleared by Godot")
     }
     @_spi(SwiftGodotRuntimePrivate)
-    public typealias GodotVirtualDispatchCallback = GDExtension.GDExtensionClassCallVirtual
+    public typealias GodotVirtualDispatchCallback = GDExtensionClassCallVirtual
 
     @_spi(SwiftGodotRuntimePrivate) nonisolated open class func getVirtualDispatcher(name: StringName) -> GodotVirtualDispatchCallback? {
         pd ("SWARN: getVirtualDispatcher (\"\(name)\") reached Wrapped on class \(self)")

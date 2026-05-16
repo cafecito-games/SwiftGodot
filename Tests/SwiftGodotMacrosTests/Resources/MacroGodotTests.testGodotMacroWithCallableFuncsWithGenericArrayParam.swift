@@ -3,35 +3,35 @@ class MultiplierNode: Node {
         integers.reduce(into: 1) { $0 *= $1 }
     }
 
-    static func _mproxy_multiply(pInstance: UnsafeRawPointer?, arguments: borrowing SwiftGodotRuntime.Arguments) -> SwiftGodotRuntime.FastVariant? {
+    static func _mproxy_multiply(pInstance: UnsafeRawPointer?, arguments: borrowing SwiftGodot.Arguments) -> SwiftGodot.FastVariant? {
         do { // safe arguments access scope
-            guard let object = SwiftGodotRuntime._unwrap(self, pInstance: pInstance) else {
-                SwiftGodotRuntime.GD.printErr("Error calling `multiply`: failed to unwrap instance \(String(describing: pInstance))")
+            guard let object = SwiftGodot._unwrap(self, pInstance: pInstance) else {
+                SwiftGodot.GD.printErr("Error calling `multiply`: failed to unwrap instance \(String(describing: pInstance))")
                 return nil
             }
             let arg0 = try arguments.argument(ofType: Array<Int>.self, at: 0)
-            return SwiftGodotRuntime._wrapCallableResult(object.multiply(arg0))
+            return SwiftGodot._wrapCallableResult(object.multiply(arg0))
 
         } catch {
-            SwiftGodotRuntime.GD.printErr("Error calling `multiply`: \(error.description)")
+            SwiftGodot.GD.printErr("Error calling `multiply`: \(error.description)")
         }
 
         return nil
     }
     static func _pproxy_multiply(        
     _ pInstance: UnsafeMutableRawPointer?,
-    _ rargs: SwiftGodotRuntime.RawArguments,
+    _ rargs: SwiftGodot.RawArguments,
     _ returnValue: UnsafeMutableRawPointer?) {
         do { // safe arguments access scope
-                    guard let object = SwiftGodotRuntime._unwrap(self, pInstance: pInstance) else {
-                SwiftGodotRuntime.GD.printErr("Error calling `multiply`: failed to unwrap instance \(String(describing: pInstance))")
+                    guard let object = SwiftGodot._unwrap(self, pInstance: pInstance) else {
+                SwiftGodot.GD.printErr("Error calling `multiply`: failed to unwrap instance \(String(describing: pInstance))")
                 return
             }
         let arg0: Array<Int> = try rargs.fetchArgument(at: 0)
-            SwiftGodotRuntime.RawReturnWriter.writeResult(returnValue, object.multiply(arg0)) 
+            SwiftGodot.RawReturnWriter.writeResult(returnValue, object.multiply(arg0)) 
 
         } catch {
-            SwiftGodotRuntime.GD.printErr("Error calling `multiply`: \(String(describing: error))")                    
+            SwiftGodot.GD.printErr("Error calling `multiply`: \(String(describing: error))")                    
         }
     }
 
@@ -51,13 +51,13 @@ class MultiplierNode: Node {
             // ClassDB singleton is not available prior to `.scene` level
             assert(ClassDB.classExists(class: className))
         }
-        SwiftGodotRuntime._registerMethod(
+        SwiftGodot._registerMethod(
             className: className,
             name: "multiply",
             flags: .default,
-            returnValue: SwiftGodotRuntime._returnValuePropInfo(Int.self),
+            returnValue: SwiftGodot._returnValuePropInfo(Int.self),
             arguments: [
-                SwiftGodotRuntime._argumentPropInfo(Array<Int>.self, name: "integers")
+                SwiftGodot._argumentPropInfo(Array<Int>.self, name: "integers")
             ],
             function: MultiplierNode._mproxy_multiply,
             ptrFunction: { udata, classInstance, argsPtr, retValue in

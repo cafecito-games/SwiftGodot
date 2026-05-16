@@ -5,7 +5,7 @@
 //  Created by Miguel de Icaza on 10/16/25.
 //
 
-import GDExtension
+import GDExtensionC
 
 public enum ExtensionInitializationLevel: Int64, Sendable {
     /// The library is initialized at the same time as the core features of the engine.

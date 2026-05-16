@@ -35,15 +35,15 @@ public struct GodotCallable: PeerMacro {
         
         if !isStatic {
             body += """
-            \(indentation)    guard let object = SwiftGodotRuntime._unwrap(self, pInstance: pInstance) else {
-            \(indentation)        SwiftGodotRuntime.GD.printErr("Error calling `\(funcName)`: failed to unwrap instance \\(String(describing: pInstance))")
+            \(indentation)    guard let object = SwiftGodot._unwrap(self, pInstance: pInstance) else {
+            \(indentation)        SwiftGodot.GD.printErr("Error calling `\(funcName)`: failed to unwrap instance \\(String(describing: pInstance))")
             \(indentation)        return nil
             \(indentation)    }
             """
 
             bodyPtr += """
-            \(indentation)    guard let object = SwiftGodotRuntime._unwrap(self, pInstance: pInstance) else {
-            \(indentation)        SwiftGodotRuntime.GD.printErr("Error calling `\(funcName)`: failed to unwrap instance \\(String(describing: pInstance))")
+            \(indentation)    guard let object = SwiftGodot._unwrap(self, pInstance: pInstance) else {
+            \(indentation)        SwiftGodot.GD.printErr("Error calling `\(funcName)`: failed to unwrap instance \\(String(describing: pInstance))")
             \(indentation)        return
             \(indentation)    }
             """
@@ -69,13 +69,13 @@ public struct GodotCallable: PeerMacro {
         let callArgs = callArgsList.joined(separator: ", ")
         
         body += """
-        \(indentation)    return SwiftGodotRuntime._wrapCallableResult(\(objectOrSelf).\(funcName)(\(callArgs)))
+        \(indentation)    return SwiftGodot._wrapCallableResult(\(objectOrSelf).\(funcName)(\(callArgs)))
         
         """
 
         bodyPtr += """
         
-        \(indentation)    SwiftGodotRuntime.RawReturnWriter.writeResult(returnValue, \(objectOrSelf).\(funcName)(\(callArgs))) 
+        \(indentation)    SwiftGodot.RawReturnWriter.writeResult(returnValue, \(objectOrSelf).\(funcName)(\(callArgs))) 
         
         """
 
@@ -86,7 +86,7 @@ public struct GodotCallable: PeerMacro {
             do { // safe arguments access scope
                 \(bodyPtr)
             } catch {
-                SwiftGodotRuntime.GD.printErr("Error calling `\(funcName)`: \\(String(describing: error))")                    
+                SwiftGodot.GD.printErr("Error calling `\(funcName)`: \\(String(describing: error))")                    
             }
         """
         }
@@ -95,7 +95,7 @@ public struct GodotCallable: PeerMacro {
         
         static func _pproxy_\(funcName)(        
         _ pInstance: UnsafeMutableRawPointer?,
-        _ rargs: SwiftGodotRuntime.RawArguments,
+        _ rargs: SwiftGodot.RawArguments,
         _ returnValue: UnsafeMutableRawPointer?) {
         \(bodyPtr)
         }
@@ -103,17 +103,17 @@ public struct GodotCallable: PeerMacro {
 
         if parameters.isEmpty {
             return """
-            static func _mproxy_\(funcName)(pInstance: UnsafeRawPointer?, arguments: borrowing SwiftGodotRuntime.Arguments) -> SwiftGodotRuntime.FastVariant? {
+            static func _mproxy_\(funcName)(pInstance: UnsafeRawPointer?, arguments: borrowing SwiftGodot.Arguments) -> SwiftGodot.FastVariant? {
             \(body)                
             }\(ptrCallDecl)
             """
         } else {
             return """
-            static func _mproxy_\(funcName)(pInstance: UnsafeRawPointer?, arguments: borrowing SwiftGodotRuntime.Arguments) -> SwiftGodotRuntime.FastVariant? {
+            static func _mproxy_\(funcName)(pInstance: UnsafeRawPointer?, arguments: borrowing SwiftGodot.Arguments) -> SwiftGodot.FastVariant? {
                 do { // safe arguments access scope
             \(body)        
                 } catch {
-                    SwiftGodotRuntime.GD.printErr("Error calling `\(funcName)`: \\(error.description)")                    
+                    SwiftGodot.GD.printErr("Error calling `\(funcName)`: \\(error.description)")                    
                 }
             
                 return nil

@@ -4,23 +4,23 @@ class SomeNode: Node {
         return result
     }
 
-    static func _mproxy_getIntegerCollection(pInstance: UnsafeRawPointer?, arguments: borrowing SwiftGodotRuntime.Arguments) -> SwiftGodotRuntime.FastVariant? {
-        guard let object = SwiftGodotRuntime._unwrap(self, pInstance: pInstance) else {
-            SwiftGodotRuntime.GD.printErr("Error calling `getIntegerCollection`: failed to unwrap instance \(String(describing: pInstance))")
+    static func _mproxy_getIntegerCollection(pInstance: UnsafeRawPointer?, arguments: borrowing SwiftGodot.Arguments) -> SwiftGodot.FastVariant? {
+        guard let object = SwiftGodot._unwrap(self, pInstance: pInstance) else {
+            SwiftGodot.GD.printErr("Error calling `getIntegerCollection`: failed to unwrap instance \(String(describing: pInstance))")
             return nil
         }
-        return SwiftGodotRuntime._wrapCallableResult(object.getIntegerCollection())
+        return SwiftGodot._wrapCallableResult(object.getIntegerCollection())
 
     }
     static func _pproxy_getIntegerCollection(        
     _ pInstance: UnsafeMutableRawPointer?,
-    _ rargs: SwiftGodotRuntime.RawArguments,
+    _ rargs: SwiftGodot.RawArguments,
     _ returnValue: UnsafeMutableRawPointer?) {
-        guard let object = SwiftGodotRuntime._unwrap(self, pInstance: pInstance) else {
-            SwiftGodotRuntime.GD.printErr("Error calling `getIntegerCollection`: failed to unwrap instance \(String(describing: pInstance))")
+        guard let object = SwiftGodot._unwrap(self, pInstance: pInstance) else {
+            SwiftGodot.GD.printErr("Error calling `getIntegerCollection`: failed to unwrap instance \(String(describing: pInstance))")
             return
         }
-        SwiftGodotRuntime.RawReturnWriter.writeResult(returnValue, object.getIntegerCollection()) 
+        SwiftGodot.RawReturnWriter.writeResult(returnValue, object.getIntegerCollection()) 
 
     }
 
@@ -40,11 +40,11 @@ class SomeNode: Node {
             // ClassDB singleton is not available prior to `.scene` level
             assert(ClassDB.classExists(class: className))
         }
-        SwiftGodotRuntime._registerMethod(
+        SwiftGodot._registerMethod(
             className: className,
             name: "getIntegerCollection",
             flags: .default,
-            returnValue: SwiftGodotRuntime._returnValuePropInfo(TypedArray<Int>.self),
+            returnValue: SwiftGodot._returnValuePropInfo(TypedArray<Int>.self),
             arguments: [
 
             ],

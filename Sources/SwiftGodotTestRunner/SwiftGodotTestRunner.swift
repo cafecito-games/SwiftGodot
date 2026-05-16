@@ -51,7 +51,7 @@ struct SwiftGodotTestRunner {
 
         // 1. Build the test extension and dependencies
         print("\n[1/5] Building test extension...")
-        let products = [extensionTarget, "SwiftGodot", "SwiftGodotRuntime"]
+        let products = [extensionTarget, "SwiftGodot"]
         for product in products {
             let process = Process()
             process.executableURL = URL(fileURLWithPath: swiftPath)
@@ -92,7 +92,7 @@ struct SwiftGodotTestRunner {
         let platformDir = "x86_64-apple-macosx"
         #endif
 
-        let libraryNames = [extensionTarget, "SwiftGodot", "SwiftGodotRuntime"]
+        let libraryNames = [extensionTarget, "SwiftGodot"]
         let platformBuildDir = ".build/\(platformDir)/\(buildConfiguration)"
         let simpleBuildDir = ".build/\(buildConfiguration)"
 

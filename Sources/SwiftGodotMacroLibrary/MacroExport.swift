@@ -33,13 +33,13 @@ public struct GodotExport: PeerMacro {
             let needsSetter = Self.bindingNeedsSetter(variableDecl: variableDecl, binding: binding)
             if needsSetter {
                 declarations.append("""
-                static func _mproxy_set_\(raw: identifier)(pInstance: UnsafeRawPointer?, arguments: borrowing SwiftGodotRuntime.Arguments) -> SwiftGodotRuntime.FastVariant? {
+                static func _mproxy_set_\(raw: identifier)(pInstance: UnsafeRawPointer?, arguments: borrowing SwiftGodot.Arguments) -> SwiftGodot.FastVariant? {
                     guard let object = _unwrap(self, pInstance: pInstance) else {
-                        SwiftGodotRuntime.GD.printErr("Error calling setter for \(raw: identifier): failed to unwrap instance \\(String(describing: pInstance))")
+                        SwiftGodot.GD.printErr("Error calling setter for \(raw: identifier): failed to unwrap instance \\(String(describing: pInstance))")
                         return nil
                     }
                 
-                    SwiftGodotRuntime._invokeSetter(arguments, "\(raw: identifier)", object.\(raw: identifier)) {
+                    SwiftGodot._invokeSetter(arguments, "\(raw: identifier)", object.\(raw: identifier)) {
                         object.\(raw: identifier) = $0
                     }
                     return nil
@@ -48,13 +48,13 @@ public struct GodotExport: PeerMacro {
             }
             
             declarations.append("""
-            static func _mproxy_get_\(raw: identifier)(pInstance: UnsafeRawPointer?, arguments: borrowing SwiftGodotRuntime.Arguments) -> SwiftGodotRuntime.FastVariant? {
+            static func _mproxy_get_\(raw: identifier)(pInstance: UnsafeRawPointer?, arguments: borrowing SwiftGodot.Arguments) -> SwiftGodot.FastVariant? {
                 guard let object = _unwrap(self, pInstance: pInstance) else {
-                    SwiftGodotRuntime.GD.printErr("Error calling getter for \(raw: identifier): failed to unwrap instance \\(String(describing: pInstance))")
+                    SwiftGodot.GD.printErr("Error calling getter for \(raw: identifier): failed to unwrap instance \\(String(describing: pInstance))")
                     return nil
                 }
             
-                return SwiftGodotRuntime._invokeGetter(object.\(raw: identifier))
+                return SwiftGodot._invokeGetter(object.\(raw: identifier))
             }                        
             """)
         }

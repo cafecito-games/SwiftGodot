@@ -5,7 +5,7 @@
 //
 //
 
-import GDExtension
+import GDExtensionC
 
 public protocol ExtensionInterface {
     func initClass(type: AnyClass) -> Bool

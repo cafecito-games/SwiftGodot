@@ -61,9 +61,6 @@ The `SwiftGodot` product carries the prebuilt runtime *and* the prebuilt macro c
 | Target | Description |
 |--------|-------------|
 | `SwiftGodot` | Full Godot API bindings |
-| `SwiftGodotRuntime` | Minimal runtime — core variant types, `Object`, `ClassDB`, `RefCounted` only |
-
-Use `SwiftGodotRuntime` when you want a smaller binary and don't need the full API surface.
 
 ## Creating a GDExtension
 

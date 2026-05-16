@@ -8,9 +8,8 @@ Usage: scripts/make-swiftgodot-framework ROOT OUTPUT
 ROOT is the DerivedData directory where Xcode generated the build products.
 OUTPUT is the SwiftGodot xcframework path to write, and must end in .xcframework.
 
-The SwiftGodotRuntime module is compiled into SwiftGodot, so only SwiftGodot
-is emitted as an xcframework. Its Modules/ carries SwiftGodotRuntime.swiftmodule
-so that `import SwiftGodotRuntime` resolves against the same binary.
+SwiftGodot is a single self-contained module: all runtime types are compiled
+directly into SwiftGodot. Only a SwiftGodot xcframework is produced.
 EOF
 }
 
@@ -276,18 +275,8 @@ stage_swiftgodot_metadata() {
     local secondary_product_dir=${5:-}
     local secondary_metadata_root=${6:-}
     local secondary_platform_suffix=${7:-}
-    local modules_dir
 
     stage_module_metadata "SwiftGodot" "$framework" "$product_dir" "$metadata_root" "$platform_suffix" "$secondary_product_dir" "$secondary_metadata_root" "$secondary_platform_suffix"
-    modules_dir=$(framework_modules_dir "$framework")
-
-    require_path "$product_dir/SwiftGodotRuntime.swiftmodule"
-    rsync -a "$product_dir/SwiftGodotRuntime.swiftmodule" "$modules_dir/"
-
-    if [[ -n "$secondary_product_dir" ]]; then
-        require_path "$secondary_product_dir/SwiftGodotRuntime.swiftmodule"
-        rsync -a "$secondary_product_dir/SwiftGodotRuntime.swiftmodule" "$modules_dir/"
-    fi
 }
 
 stage_macos_framework() {
@@ -323,18 +312,6 @@ stage_ios_simulator_framework() {
     printf '%s\n' "$staged_framework"
 }
 
-copy_runtime_module_sidecars() {
-    local xcframework=$1
-    local framework
-    local modules_dir
-
-    while IFS= read -r framework; do
-        modules_dir=$(framework_modules_dir "$framework")
-        require_path "$modules_dir/SwiftGodotRuntime.swiftmodule"
-        rsync -a "$modules_dir/SwiftGodotRuntime.swiftmodule" "$(dirname "$framework")/"
-    done < <(find "$xcframework" -mindepth 2 -maxdepth 2 -type d -name "SwiftGodot.framework" | sort)
-}
-
 rm -rf "$output"
 
 require_path "$bd_mac/PackageFrameworks/SwiftGodot.framework"
@@ -367,5 +344,3 @@ xcodebuild -quiet -create-xcframework \
     -framework "$ios_swiftgodot_framework" \
     -framework "$ios_sim_swiftgodot_framework" \
     -output "$output"
-
-copy_runtime_module_sidecars "$output"

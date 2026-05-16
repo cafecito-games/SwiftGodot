@@ -170,39 +170,23 @@ else
     }
 
     require_prebuilt_artifact "$derived_data/Build/Products/$configuration/PackageFrameworks/SwiftGodot.framework"
-    require_prebuilt_artifact "$derived_data/Build/Products/$configuration/PackageFrameworks/SwiftGodotRuntime.framework"
     require_prebuilt_artifact "$derived_data/Build/Products/$configuration/SwiftGodot.swiftmodule"
-    require_prebuilt_artifact "$derived_data/Build/Products/$configuration/SwiftGodotRuntime.swiftmodule"
     require_prebuilt_artifact "$derived_data/Build/Intermediates.noindex/GeneratedModuleMaps/SwiftGodot.modulemap"
     require_prebuilt_artifact "$derived_data/Build/Intermediates.noindex/GeneratedModuleMaps/SwiftGodot-Swift.h"
-    require_prebuilt_artifact "$derived_data/Build/Intermediates.noindex/GeneratedModuleMaps/SwiftGodotRuntime.modulemap"
-    require_prebuilt_artifact "$derived_data/Build/Intermediates.noindex/GeneratedModuleMaps/SwiftGodotRuntime-Swift.h"
     if [[ -n "$include_macos_x86" ]]; then
         require_prebuilt_artifact "${derived_data}_x86/Build/Products/$configuration/PackageFrameworks/SwiftGodot.framework"
-        require_prebuilt_artifact "${derived_data}_x86/Build/Products/$configuration/PackageFrameworks/SwiftGodotRuntime.framework"
         require_prebuilt_artifact "${derived_data}_x86/Build/Products/$configuration/SwiftGodot.swiftmodule"
-        require_prebuilt_artifact "${derived_data}_x86/Build/Products/$configuration/SwiftGodotRuntime.swiftmodule"
         require_prebuilt_artifact "${derived_data}_x86/Build/Intermediates.noindex/GeneratedModuleMaps/SwiftGodot.modulemap"
         require_prebuilt_artifact "${derived_data}_x86/Build/Intermediates.noindex/GeneratedModuleMaps/SwiftGodot-Swift.h"
-        require_prebuilt_artifact "${derived_data}_x86/Build/Intermediates.noindex/GeneratedModuleMaps/SwiftGodotRuntime.modulemap"
-        require_prebuilt_artifact "${derived_data}_x86/Build/Intermediates.noindex/GeneratedModuleMaps/SwiftGodotRuntime-Swift.h"
     fi
     require_prebuilt_artifact "$derived_data/Build/Products/$configuration-iphoneos/PackageFrameworks/SwiftGodot.framework"
-    require_prebuilt_artifact "$derived_data/Build/Products/$configuration-iphoneos/PackageFrameworks/SwiftGodotRuntime.framework"
     require_prebuilt_artifact "$derived_data/Build/Products/$configuration-iphoneos/SwiftGodot.swiftmodule"
-    require_prebuilt_artifact "$derived_data/Build/Products/$configuration-iphoneos/SwiftGodotRuntime.swiftmodule"
     require_prebuilt_artifact "$derived_data/Build/Intermediates.noindex/GeneratedModuleMaps-iphoneos/SwiftGodot.modulemap"
     require_prebuilt_artifact "$derived_data/Build/Intermediates.noindex/GeneratedModuleMaps-iphoneos/SwiftGodot-Swift.h"
-    require_prebuilt_artifact "$derived_data/Build/Intermediates.noindex/GeneratedModuleMaps-iphoneos/SwiftGodotRuntime.modulemap"
-    require_prebuilt_artifact "$derived_data/Build/Intermediates.noindex/GeneratedModuleMaps-iphoneos/SwiftGodotRuntime-Swift.h"
     require_prebuilt_artifact "$derived_data/Build/Products/$configuration-iphonesimulator/PackageFrameworks/SwiftGodot.framework"
-    require_prebuilt_artifact "$derived_data/Build/Products/$configuration-iphonesimulator/PackageFrameworks/SwiftGodotRuntime.framework"
     require_prebuilt_artifact "$derived_data/Build/Products/$configuration-iphonesimulator/SwiftGodot.swiftmodule"
-    require_prebuilt_artifact "$derived_data/Build/Products/$configuration-iphonesimulator/SwiftGodotRuntime.swiftmodule"
     require_prebuilt_artifact "$derived_data/Build/Intermediates.noindex/GeneratedModuleMaps-iphonesimulator/SwiftGodot.modulemap"
     require_prebuilt_artifact "$derived_data/Build/Intermediates.noindex/GeneratedModuleMaps-iphonesimulator/SwiftGodot-Swift.h"
-    require_prebuilt_artifact "$derived_data/Build/Intermediates.noindex/GeneratedModuleMaps-iphonesimulator/SwiftGodotRuntime.modulemap"
-    require_prebuilt_artifact "$derived_data/Build/Intermediates.noindex/GeneratedModuleMaps-iphonesimulator/SwiftGodotRuntime-Swift.h"
 fi
 
 SWIFT_GODOT_CONFIGURATION="$configuration" scripts/make-swiftgodot-framework "$derived_data/" "$output_dir/SwiftGodot.xcframework"
@@ -279,12 +263,9 @@ let package = Package(
         .iOS(.v17),
     ],
     products: [
-        // SwiftGodot.xcframework already contains the SwiftGodotRuntime module
-        // (statically linked, with its .swiftmodule). Shipping a separate
-        // SwiftGodotRuntime binary would register every runtime class twice.
         .library(
             name: "SwiftGodot",
-            targets: ["SwiftGodot", "GDExtension", "SwiftGodotMacroLibrary"]),
+            targets: ["SwiftGodot", "GDExtensionC", "SwiftGodotMacroLibrary"]),
     ],
     targets: [
         .binaryTarget(
@@ -294,9 +275,9 @@ let package = Package(
             name: "SwiftGodotMacroLibrary",
             path: "Binaries/SwiftGodotMacros.artifactbundle"),
         .target(
-            name: "GDExtension",
+            name: "GDExtensionC",
             path: "Sources/GDExtension"),
-        .testTarget(name: "SwiftGodotTests", dependencies: ["SwiftGodot", "GDExtension"]),
+        .testTarget(name: "SwiftGodotTests", dependencies: ["SwiftGodot", "GDExtensionC"]),
     ]
 )
 EOF

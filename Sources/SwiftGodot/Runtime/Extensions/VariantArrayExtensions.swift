@@ -5,7 +5,7 @@
 //  Created by Miguel de Icaza on 4/8/23.
 //
 
-import GDExtension
+import GDExtensionC
 
 public enum ArrayError: Sendable {
     case outOfRange

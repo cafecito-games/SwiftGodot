@@ -619,10 +619,6 @@ nonisolated(unsafe) var builtinClassStorage: [String:String] = [:]
     
     // Prime builtin type metadata even when we're not emitting builtin source files.
     //
-    // This generator is used in two modes:
-    // - SwiftGodotRuntime: emits builtin sources
-    // - SwiftGodot (and split targets): imports SwiftGodotRuntime and emits only classes
-    //
     // The class generation stage still needs to know which builtins are class-backed
     // (and what their Swift wrapper names are) so that virtual proxy glue can unwrap
     // arguments correctly.

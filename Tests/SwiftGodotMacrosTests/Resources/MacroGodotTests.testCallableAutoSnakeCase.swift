@@ -1,86 +1,86 @@
 class TestClass: Node {
     func noNeedToSnakeCaseFunctionsNow() {}
 
-    static func _mproxy_noNeedToSnakeCaseFunctionsNow(pInstance: UnsafeRawPointer?, arguments: borrowing SwiftGodotRuntime.Arguments) -> SwiftGodotRuntime.FastVariant? {
-        guard let object = SwiftGodotRuntime._unwrap(self, pInstance: pInstance) else {
-            SwiftGodotRuntime.GD.printErr("Error calling `noNeedToSnakeCaseFunctionsNow`: failed to unwrap instance \(String(describing: pInstance))")
+    static func _mproxy_noNeedToSnakeCaseFunctionsNow(pInstance: UnsafeRawPointer?, arguments: borrowing SwiftGodot.Arguments) -> SwiftGodot.FastVariant? {
+        guard let object = SwiftGodot._unwrap(self, pInstance: pInstance) else {
+            SwiftGodot.GD.printErr("Error calling `noNeedToSnakeCaseFunctionsNow`: failed to unwrap instance \(String(describing: pInstance))")
             return nil
         }
-        return SwiftGodotRuntime._wrapCallableResult(object.noNeedToSnakeCaseFunctionsNow())
+        return SwiftGodot._wrapCallableResult(object.noNeedToSnakeCaseFunctionsNow())
 
     }
     static func _pproxy_noNeedToSnakeCaseFunctionsNow(        
     _ pInstance: UnsafeMutableRawPointer?,
-    _ rargs: SwiftGodotRuntime.RawArguments,
+    _ rargs: SwiftGodot.RawArguments,
     _ returnValue: UnsafeMutableRawPointer?) {
-        guard let object = SwiftGodotRuntime._unwrap(self, pInstance: pInstance) else {
-            SwiftGodotRuntime.GD.printErr("Error calling `noNeedToSnakeCaseFunctionsNow`: failed to unwrap instance \(String(describing: pInstance))")
+        guard let object = SwiftGodot._unwrap(self, pInstance: pInstance) else {
+            SwiftGodot.GD.printErr("Error calling `noNeedToSnakeCaseFunctionsNow`: failed to unwrap instance \(String(describing: pInstance))")
             return
         }
-        SwiftGodotRuntime.RawReturnWriter.writeResult(returnValue, object.noNeedToSnakeCaseFunctionsNow()) 
+        SwiftGodot.RawReturnWriter.writeResult(returnValue, object.noNeedToSnakeCaseFunctionsNow()) 
 
     }
     func or_is_there() {}
 
-    static func _mproxy_or_is_there(pInstance: UnsafeRawPointer?, arguments: borrowing SwiftGodotRuntime.Arguments) -> SwiftGodotRuntime.FastVariant? {
-        guard let object = SwiftGodotRuntime._unwrap(self, pInstance: pInstance) else {
-            SwiftGodotRuntime.GD.printErr("Error calling `or_is_there`: failed to unwrap instance \(String(describing: pInstance))")
+    static func _mproxy_or_is_there(pInstance: UnsafeRawPointer?, arguments: borrowing SwiftGodot.Arguments) -> SwiftGodot.FastVariant? {
+        guard let object = SwiftGodot._unwrap(self, pInstance: pInstance) else {
+            SwiftGodot.GD.printErr("Error calling `or_is_there`: failed to unwrap instance \(String(describing: pInstance))")
             return nil
         }
-        return SwiftGodotRuntime._wrapCallableResult(object.or_is_there())
+        return SwiftGodot._wrapCallableResult(object.or_is_there())
 
     }
     static func _pproxy_or_is_there(        
     _ pInstance: UnsafeMutableRawPointer?,
-    _ rargs: SwiftGodotRuntime.RawArguments,
+    _ rargs: SwiftGodot.RawArguments,
     _ returnValue: UnsafeMutableRawPointer?) {
-        guard let object = SwiftGodotRuntime._unwrap(self, pInstance: pInstance) else {
-            SwiftGodotRuntime.GD.printErr("Error calling `or_is_there`: failed to unwrap instance \(String(describing: pInstance))")
+        guard let object = SwiftGodot._unwrap(self, pInstance: pInstance) else {
+            SwiftGodot.GD.printErr("Error calling `or_is_there`: failed to unwrap instance \(String(describing: pInstance))")
             return
         }
-        SwiftGodotRuntime.RawReturnWriter.writeResult(returnValue, object.or_is_there()) 
+        SwiftGodot.RawReturnWriter.writeResult(returnValue, object.or_is_there()) 
 
     }
     func thatIsHideous() {}
 
-    static func _mproxy_thatIsHideous(pInstance: UnsafeRawPointer?, arguments: borrowing SwiftGodotRuntime.Arguments) -> SwiftGodotRuntime.FastVariant? {
-        guard let object = SwiftGodotRuntime._unwrap(self, pInstance: pInstance) else {
-            SwiftGodotRuntime.GD.printErr("Error calling `thatIsHideous`: failed to unwrap instance \(String(describing: pInstance))")
+    static func _mproxy_thatIsHideous(pInstance: UnsafeRawPointer?, arguments: borrowing SwiftGodot.Arguments) -> SwiftGodot.FastVariant? {
+        guard let object = SwiftGodot._unwrap(self, pInstance: pInstance) else {
+            SwiftGodot.GD.printErr("Error calling `thatIsHideous`: failed to unwrap instance \(String(describing: pInstance))")
             return nil
         }
-        return SwiftGodotRuntime._wrapCallableResult(object.thatIsHideous())
+        return SwiftGodot._wrapCallableResult(object.thatIsHideous())
 
     }
     static func _pproxy_thatIsHideous(        
     _ pInstance: UnsafeMutableRawPointer?,
-    _ rargs: SwiftGodotRuntime.RawArguments,
+    _ rargs: SwiftGodot.RawArguments,
     _ returnValue: UnsafeMutableRawPointer?) {
-        guard let object = SwiftGodotRuntime._unwrap(self, pInstance: pInstance) else {
-            SwiftGodotRuntime.GD.printErr("Error calling `thatIsHideous`: failed to unwrap instance \(String(describing: pInstance))")
+        guard let object = SwiftGodot._unwrap(self, pInstance: pInstance) else {
+            SwiftGodot.GD.printErr("Error calling `thatIsHideous`: failed to unwrap instance \(String(describing: pInstance))")
             return
         }
-        SwiftGodotRuntime.RawReturnWriter.writeResult(returnValue, object.thatIsHideous()) 
+        SwiftGodot.RawReturnWriter.writeResult(returnValue, object.thatIsHideous()) 
 
     }
     func defaultIsLegacyCompatible() {}
 
-    static func _mproxy_defaultIsLegacyCompatible(pInstance: UnsafeRawPointer?, arguments: borrowing SwiftGodotRuntime.Arguments) -> SwiftGodotRuntime.FastVariant? {
-        guard let object = SwiftGodotRuntime._unwrap(self, pInstance: pInstance) else {
-            SwiftGodotRuntime.GD.printErr("Error calling `defaultIsLegacyCompatible`: failed to unwrap instance \(String(describing: pInstance))")
+    static func _mproxy_defaultIsLegacyCompatible(pInstance: UnsafeRawPointer?, arguments: borrowing SwiftGodot.Arguments) -> SwiftGodot.FastVariant? {
+        guard let object = SwiftGodot._unwrap(self, pInstance: pInstance) else {
+            SwiftGodot.GD.printErr("Error calling `defaultIsLegacyCompatible`: failed to unwrap instance \(String(describing: pInstance))")
             return nil
         }
-        return SwiftGodotRuntime._wrapCallableResult(object.defaultIsLegacyCompatible())
+        return SwiftGodot._wrapCallableResult(object.defaultIsLegacyCompatible())
 
     }
     static func _pproxy_defaultIsLegacyCompatible(        
     _ pInstance: UnsafeMutableRawPointer?,
-    _ rargs: SwiftGodotRuntime.RawArguments,
+    _ rargs: SwiftGodot.RawArguments,
     _ returnValue: UnsafeMutableRawPointer?) {
-        guard let object = SwiftGodotRuntime._unwrap(self, pInstance: pInstance) else {
-            SwiftGodotRuntime.GD.printErr("Error calling `defaultIsLegacyCompatible`: failed to unwrap instance \(String(describing: pInstance))")
+        guard let object = SwiftGodot._unwrap(self, pInstance: pInstance) else {
+            SwiftGodot.GD.printErr("Error calling `defaultIsLegacyCompatible`: failed to unwrap instance \(String(describing: pInstance))")
             return
         }
-        SwiftGodotRuntime.RawReturnWriter.writeResult(returnValue, object.defaultIsLegacyCompatible()) 
+        SwiftGodot.RawReturnWriter.writeResult(returnValue, object.defaultIsLegacyCompatible()) 
 
     }
 
@@ -100,11 +100,11 @@ class TestClass: Node {
             // ClassDB singleton is not available prior to `.scene` level
             assert(ClassDB.classExists(class: className))
         }
-        SwiftGodotRuntime._registerMethod(
+        SwiftGodot._registerMethod(
             className: className,
             name: "no_need_to_snake_case_functions_now",
             flags: .default,
-            returnValue: SwiftGodotRuntime._returnValuePropInfo(Swift.Void.self),
+            returnValue: SwiftGodot._returnValuePropInfo(Swift.Void.self),
             arguments: [
 
             ],
@@ -118,11 +118,11 @@ class TestClass: Node {
             }
 
         )
-        SwiftGodotRuntime._registerMethod(
+        SwiftGodot._registerMethod(
             className: className,
             name: "or_is_there",
             flags: .default,
-            returnValue: SwiftGodotRuntime._returnValuePropInfo(Swift.Void.self),
+            returnValue: SwiftGodot._returnValuePropInfo(Swift.Void.self),
             arguments: [
 
             ],
@@ -136,11 +136,11 @@ class TestClass: Node {
             }
 
         )
-        SwiftGodotRuntime._registerMethod(
+        SwiftGodot._registerMethod(
             className: className,
             name: "thatIsHideous",
             flags: .default,
-            returnValue: SwiftGodotRuntime._returnValuePropInfo(Swift.Void.self),
+            returnValue: SwiftGodot._returnValuePropInfo(Swift.Void.self),
             arguments: [
 
             ],
@@ -154,11 +154,11 @@ class TestClass: Node {
             }
 
         )
-        SwiftGodotRuntime._registerMethod(
+        SwiftGodot._registerMethod(
             className: className,
             name: "defaultIsLegacyCompatible",
             flags: .default,
-            returnValue: SwiftGodotRuntime._returnValuePropInfo(Swift.Void.self),
+            returnValue: SwiftGodot._returnValuePropInfo(Swift.Void.self),
             arguments: [
 
             ],

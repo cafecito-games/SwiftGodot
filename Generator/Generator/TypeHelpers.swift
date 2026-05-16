@@ -343,7 +343,7 @@ nonisolated(unsafe) var mapStringToSwift = true
             return "GodotError"
         }
         if t.type.starts(with: "enum::Variant.Type") {
-            return "SwiftGodotRuntime.Variant.GType"
+            return "Variant.GType"
         }
         if t.type.starts(with: "enum::VisualShader.Type") {
             return "VisualShader.GType"
