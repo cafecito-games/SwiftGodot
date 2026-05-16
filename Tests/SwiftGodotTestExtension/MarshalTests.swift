@@ -1,6 +1,5 @@
 import Foundation
 
-@testable import SwiftGodotRuntime
 @testable import SwiftGodot
 
 extension Date: VariantConvertible {
