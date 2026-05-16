@@ -31,6 +31,29 @@ do
     fi
 done
 
+# Output-level check: greps above only confirm the script mentions the right
+# strings. Execute the real install_framework_modulemap function against a
+# plain Xcode-generated modulemap and confirm it actually emits a
+# `framework module` declaration, so a broken transform fails the test.
+modulemap_function=$(awk '/^install_framework_modulemap\(\) \{/,/^\}/' "$script")
+if [[ -z "$modulemap_function" ]]; then
+    echo "could not locate install_framework_modulemap in $script"
+    exit 1
+fi
+
+work_dir=$(mktemp -d)
+trap 'rm -rf "$work_dir"' EXIT
+printf 'module SwiftGodot {\nheader "SwiftGodot-Swift.h"\nexport *\n}\n' > "$work_dir/source.modulemap"
+(
+    eval "$modulemap_function"
+    install_framework_modulemap "$work_dir/source.modulemap" "$work_dir/output.modulemap"
+)
+if [[ "$(head -1 "$work_dir/output.modulemap")" != "framework module SwiftGodot "* ]]; then
+    echo "install_framework_modulemap did not promote the modulemap to a framework module:"
+    cat "$work_dir/output.modulemap"
+    exit 1
+fi
+
 for artifact in \
     "Build/Intermediates.noindex/GeneratedModuleMaps" \
     "Build/Intermediates.noindex/GeneratedModuleMaps-iphoneos" \
