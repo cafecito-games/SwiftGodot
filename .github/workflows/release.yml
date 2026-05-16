@@ -34,7 +34,7 @@ env:
 jobs:
   prepare:
     name: Prepare release
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     outputs:
       commit: ${{ steps.release.outputs.commit }}
 
@@ -92,7 +92,7 @@ jobs:
   stage-package:
     name: Stage generated sources
     needs: prepare
-    runs-on: macos-26
+    runs-on: blacksmith-6vcpu-macos-26
 
     steps:
       - name: Checkout SwiftGodot
@@ -140,7 +140,7 @@ jobs:
     needs:
       - prepare
       - stage-package
-    runs-on: macos-26-intel
+    runs-on: blacksmith-6vcpu-macos-26
     if: ${{ inputs.include_macos_x86 }}
 
     steps:
@@ -204,7 +204,7 @@ jobs:
     needs:
       - prepare
       - stage-package
-    runs-on: macos-26
+    runs-on: blacksmith-6vcpu-macos-26
 
     steps:
       - name: Checkout SwiftGodot
@@ -267,7 +267,7 @@ jobs:
     needs:
       - prepare
       - stage-package
-    runs-on: macos-26
+    runs-on: blacksmith-6vcpu-macos-26
 
     steps:
       - name: Checkout SwiftGodot
@@ -331,7 +331,7 @@ jobs:
     needs:
       - prepare
       - stage-package
-    runs-on: macos-26
+    runs-on: blacksmith-6vcpu-macos-26
 
     steps:
       - name: Checkout SwiftGodot
@@ -397,7 +397,7 @@ jobs:
       - build-ios
       - build-ios-simulator
       - build-arm64
-    runs-on: macos-26
+    runs-on: blacksmith-6vcpu-macos-26
     if: >-
       ${{ !cancelled()
       && needs.prepare.result == 'success'
