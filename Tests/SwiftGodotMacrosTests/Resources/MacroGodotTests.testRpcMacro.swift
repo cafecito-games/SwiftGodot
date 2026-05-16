@@ -3,35 +3,35 @@ class MultiplayerNode: Node {
     func syncPosition(_ position: Vector3) {
     }
 
-    static func _mproxy_syncPosition(pInstance: UnsafeRawPointer?, arguments: borrowing SwiftGodotRuntime.Arguments) -> SwiftGodotRuntime.FastVariant? {
+    static func _mproxy_syncPosition(pInstance: UnsafeRawPointer?, arguments: borrowing SwiftGodot.Arguments) -> SwiftGodot.FastVariant? {
         do { // safe arguments access scope
-            guard let object = SwiftGodotRuntime._unwrap(self, pInstance: pInstance) else {
-                SwiftGodotRuntime.GD.printErr("Error calling `syncPosition`: failed to unwrap instance \(String(describing: pInstance))")
+            guard let object = SwiftGodot._unwrap(self, pInstance: pInstance) else {
+                SwiftGodot.GD.printErr("Error calling `syncPosition`: failed to unwrap instance \(String(describing: pInstance))")
                 return nil
             }
             let arg0 = try arguments.argument(ofType: Vector3.self, at: 0)
-            return SwiftGodotRuntime._wrapCallableResult(object.syncPosition(arg0))
+            return SwiftGodot._wrapCallableResult(object.syncPosition(arg0))
 
         } catch {
-            SwiftGodotRuntime.GD.printErr("Error calling `syncPosition`: \(error.description)")
+            SwiftGodot.GD.printErr("Error calling `syncPosition`: \(error.description)")
         }
 
         return nil
     }
     static func _pproxy_syncPosition(        
     _ pInstance: UnsafeMutableRawPointer?,
-    _ rargs: SwiftGodotRuntime.RawArguments,
+    _ rargs: SwiftGodot.RawArguments,
     _ returnValue: UnsafeMutableRawPointer?) {
         do { // safe arguments access scope
-                    guard let object = SwiftGodotRuntime._unwrap(self, pInstance: pInstance) else {
-                SwiftGodotRuntime.GD.printErr("Error calling `syncPosition`: failed to unwrap instance \(String(describing: pInstance))")
+                    guard let object = SwiftGodot._unwrap(self, pInstance: pInstance) else {
+                SwiftGodot.GD.printErr("Error calling `syncPosition`: failed to unwrap instance \(String(describing: pInstance))")
                 return
             }
         let arg0: Vector3 = try rargs.fetchArgument(at: 0)
-            SwiftGodotRuntime.RawReturnWriter.writeResult(returnValue, object.syncPosition(arg0)) 
+            SwiftGodot.RawReturnWriter.writeResult(returnValue, object.syncPosition(arg0)) 
 
         } catch {
-            SwiftGodotRuntime.GD.printErr("Error calling `syncPosition`: \(String(describing: error))")                    
+            SwiftGodot.GD.printErr("Error calling `syncPosition`: \(String(describing: error))")                    
         }
     }
 
@@ -39,23 +39,23 @@ class MultiplayerNode: Node {
     func defaultRpc() {
     }
 
-    static func _mproxy_defaultRpc(pInstance: UnsafeRawPointer?, arguments: borrowing SwiftGodotRuntime.Arguments) -> SwiftGodotRuntime.FastVariant? {
-        guard let object = SwiftGodotRuntime._unwrap(self, pInstance: pInstance) else {
-            SwiftGodotRuntime.GD.printErr("Error calling `defaultRpc`: failed to unwrap instance \(String(describing: pInstance))")
+    static func _mproxy_defaultRpc(pInstance: UnsafeRawPointer?, arguments: borrowing SwiftGodot.Arguments) -> SwiftGodot.FastVariant? {
+        guard let object = SwiftGodot._unwrap(self, pInstance: pInstance) else {
+            SwiftGodot.GD.printErr("Error calling `defaultRpc`: failed to unwrap instance \(String(describing: pInstance))")
             return nil
         }
-        return SwiftGodotRuntime._wrapCallableResult(object.defaultRpc())
+        return SwiftGodot._wrapCallableResult(object.defaultRpc())
 
     }
     static func _pproxy_defaultRpc(        
     _ pInstance: UnsafeMutableRawPointer?,
-    _ rargs: SwiftGodotRuntime.RawArguments,
+    _ rargs: SwiftGodot.RawArguments,
     _ returnValue: UnsafeMutableRawPointer?) {
-        guard let object = SwiftGodotRuntime._unwrap(self, pInstance: pInstance) else {
-            SwiftGodotRuntime.GD.printErr("Error calling `defaultRpc`: failed to unwrap instance \(String(describing: pInstance))")
+        guard let object = SwiftGodot._unwrap(self, pInstance: pInstance) else {
+            SwiftGodot.GD.printErr("Error calling `defaultRpc`: failed to unwrap instance \(String(describing: pInstance))")
             return
         }
-        SwiftGodotRuntime.RawReturnWriter.writeResult(returnValue, object.defaultRpc()) 
+        SwiftGodot.RawReturnWriter.writeResult(returnValue, object.defaultRpc()) 
 
     }
 
@@ -63,23 +63,23 @@ class MultiplayerNode: Node {
     func fullConfig() {
     }
 
-    static func _mproxy_fullConfig(pInstance: UnsafeRawPointer?, arguments: borrowing SwiftGodotRuntime.Arguments) -> SwiftGodotRuntime.FastVariant? {
-        guard let object = SwiftGodotRuntime._unwrap(self, pInstance: pInstance) else {
-            SwiftGodotRuntime.GD.printErr("Error calling `fullConfig`: failed to unwrap instance \(String(describing: pInstance))")
+    static func _mproxy_fullConfig(pInstance: UnsafeRawPointer?, arguments: borrowing SwiftGodot.Arguments) -> SwiftGodot.FastVariant? {
+        guard let object = SwiftGodot._unwrap(self, pInstance: pInstance) else {
+            SwiftGodot.GD.printErr("Error calling `fullConfig`: failed to unwrap instance \(String(describing: pInstance))")
             return nil
         }
-        return SwiftGodotRuntime._wrapCallableResult(object.fullConfig())
+        return SwiftGodot._wrapCallableResult(object.fullConfig())
 
     }
     static func _pproxy_fullConfig(        
     _ pInstance: UnsafeMutableRawPointer?,
-    _ rargs: SwiftGodotRuntime.RawArguments,
+    _ rargs: SwiftGodot.RawArguments,
     _ returnValue: UnsafeMutableRawPointer?) {
-        guard let object = SwiftGodotRuntime._unwrap(self, pInstance: pInstance) else {
-            SwiftGodotRuntime.GD.printErr("Error calling `fullConfig`: failed to unwrap instance \(String(describing: pInstance))")
+        guard let object = SwiftGodot._unwrap(self, pInstance: pInstance) else {
+            SwiftGodot.GD.printErr("Error calling `fullConfig`: failed to unwrap instance \(String(describing: pInstance))")
             return
         }
-        SwiftGodotRuntime.RawReturnWriter.writeResult(returnValue, object.fullConfig()) 
+        SwiftGodot.RawReturnWriter.writeResult(returnValue, object.fullConfig()) 
 
     }
 
@@ -99,13 +99,13 @@ class MultiplayerNode: Node {
             // ClassDB singleton is not available prior to `.scene` level
             assert(ClassDB.classExists(class: className))
         }
-        SwiftGodotRuntime._registerMethod(
+        SwiftGodot._registerMethod(
             className: className,
             name: "syncPosition",
             flags: .default,
-            returnValue: SwiftGodotRuntime._returnValuePropInfo(Swift.Void.self),
+            returnValue: SwiftGodot._returnValuePropInfo(Swift.Void.self),
             arguments: [
-                SwiftGodotRuntime._argumentPropInfo(Vector3.self, name: "position")
+                SwiftGodot._argumentPropInfo(Vector3.self, name: "position")
             ],
             function: MultiplayerNode._mproxy_syncPosition,
             ptrFunction: { udata, classInstance, argsPtr, retValue in
@@ -117,11 +117,11 @@ class MultiplayerNode: Node {
             }
 
         )
-        SwiftGodotRuntime._registerMethod(
+        SwiftGodot._registerMethod(
             className: className,
             name: "defaultRpc",
             flags: .default,
-            returnValue: SwiftGodotRuntime._returnValuePropInfo(Swift.Void.self),
+            returnValue: SwiftGodot._returnValuePropInfo(Swift.Void.self),
             arguments: [
 
             ],
@@ -135,11 +135,11 @@ class MultiplayerNode: Node {
             }
 
         )
-        SwiftGodotRuntime._registerMethod(
+        SwiftGodot._registerMethod(
             className: className,
             name: "fullConfig",
             flags: .default,
-            returnValue: SwiftGodotRuntime._returnValuePropInfo(Swift.Void.self),
+            returnValue: SwiftGodot._returnValuePropInfo(Swift.Void.self),
             arguments: [
 
             ],
