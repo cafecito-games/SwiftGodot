@@ -4,80 +4,97 @@
     {
       "id": 1,
       "subject": "Task 1: Relocate runtime source into the SwiftGodot target",
-      "status": "pending",
+      "status": "completed",
       "description": "Move all hand-written SwiftGodotRuntime source under Sources/SwiftGodot/Runtime/ and remove every in-source reference to the SwiftGodotRuntime module.\n\n```json:metadata\n{\"files\": [\"Sources/SwiftGodotRuntime/\", \"Sources/SwiftGodot/SwiftGodotExports.swift\", \"Sources/SwiftGodot/GodotInterface.swift\", \"Sources/SwiftGodot/Extensions/NodeExtensions.swift\", \"Sources/SwiftGodot/VariantConvertibeNode.swift\", \".gitignore\"], \"verifyCommand\": \"! grep -rn 'import SwiftGodotRuntime' Sources/ && ! test -d Sources/SwiftGodotRuntime && echo OK\", \"acceptanceCriteria\": [\"Sources/SwiftGodotRuntime/ no longer exists\", \"runtime source lives under Sources/SwiftGodot/Runtime/\", \"no import SwiftGodotRuntime in Sources/SwiftGodot\", \"VariantConvertibeNode.swift has no SwiftGodotRuntime. qualifier\", \".gitignore references only Sources/SwiftGodot/_generated\"]}\n```"
     },
     {
       "id": 2,
       "subject": "Task 2: Merge the targets in Package.swift",
-      "status": "pending",
-      "blockedBy": [1],
+      "status": "completed",
+      "blockedBy": [
+        1
+      ],
       "description": "Make SwiftGodot a single self-contained target in the development manifest; remove the SwiftGodotRuntime target and products.\n\n```json:metadata\n{\"files\": [\"Package.swift\"], \"verifyCommand\": \"swift package dump-package > /dev/null && echo OK\", \"acceptanceCriteria\": [\"no SwiftGodotRuntime target\", \"no SwiftGodotRuntime/SwiftGodotRuntimeStatic product\", \"SwiftGodot target depends only on GDExtension with union of flags+plugins\"]}\n```"
     },
     {
       "id": 3,
       "subject": "Task 3: Merge the targets in Package.distribution.swift",
-      "status": "pending",
-      "blockedBy": [1],
+      "status": "completed",
+      "blockedBy": [
+        1
+      ],
       "description": "Apply the same target/product merge to the release manifest.\n\n```json:metadata\n{\"files\": [\"Package.distribution.swift\"], \"verifyCommand\": \"cp Package.swift /tmp/pkg.bak && cp Package.distribution.swift Package.swift && swift package dump-package > /dev/null && echo OK; cp /tmp/pkg.bak Package.swift\", \"acceptanceCriteria\": [\"no SwiftGodotRuntime target or product\", \"SwiftGodot target depends only on GDExtension with union of flags\"]}\n```"
     },
     {
       "id": 4,
       "subject": "Task 4: Collapse the code generator plugin config",
-      "status": "pending",
+      "status": "completed",
       "description": "CodeGeneratorPlugin generates builtins + every class into the single SwiftGodot target with no import preamble; remove the SwiftGodotRuntime case.\n\n```json:metadata\n{\"files\": [\"Plugins/CodeGeneratorPlugin/plugin.swift\"], \"verifyCommand\": \"grep -n 'import SwiftGodotRuntime' Plugins/CodeGeneratorPlugin/plugin.swift\", \"acceptanceCriteria\": [\"SwiftGodot config generates all classes + knownBuiltin with preamble nil\", \"SwiftGodotRuntime case removed\"]}\n```"
     },
     {
       "id": 5,
       "subject": "Task 5: Stop the generator emitting SwiftGodotRuntime-qualified code",
-      "status": "pending",
+      "status": "completed",
       "description": "Generated Swift no longer module-qualifies symbols with SwiftGodotRuntime.\n\n```json:metadata\n{\"files\": [\"Generator/Generator/TypeHelpers.swift\", \"Generator/Generator/BuiltinGen.swift\"], \"verifyCommand\": \"! grep -rn 'SwiftGodotRuntime\\\\.' Generator/ && echo OK\", \"acceptanceCriteria\": [\"no SwiftGodotRuntime.-qualified references in Generator/\", \"@_spi(SwiftGodotRuntimePrivate) attributes left intact\"]}\n```"
     },
     {
       "id": 6,
       "subject": "Task 6: Update the macro library to emit SwiftGodot.",
-      "status": "pending",
+      "status": "completed",
       "description": "Macro expansions reference SwiftGodot.* instead of SwiftGodotRuntime.*.\n\n```json:metadata\n{\"files\": [\"Sources/SwiftGodotMacroLibrary/MacroExport.swift\", \"Sources/SwiftGodotMacroLibrary/MacroCallable.swift\", \"Sources/SwiftGodotMacroLibrary/MacroGodot.swift\"], \"verifyCommand\": \"! grep -rn 'SwiftGodotRuntime' Sources/SwiftGodotMacroLibrary/ && echo OK\", \"acceptanceCriteria\": [\"no SwiftGodotRuntime. emitted by the macro library\"]}\n```"
     },
     {
       "id": 7,
       "subject": "Task 7: Update the macro test fixtures",
-      "status": "pending",
-      "blockedBy": [6],
+      "status": "completed",
+      "blockedBy": [
+        6
+      ],
       "description": "The 68 expected macro-expansion fixtures match the new SwiftGodot.-qualified output.\n\n```json:metadata\n{\"files\": [\"Tests/SwiftGodotMacrosTests/Resources/\"], \"verifyCommand\": \"! grep -rln 'SwiftGodotRuntime' Tests/SwiftGodotMacrosTests/Resources/ && echo OK\", \"acceptanceCriteria\": [\"no fixture contains SwiftGodotRuntime.\"]}\n```"
     },
     {
       "id": 8,
       "subject": "Task 8: Update test targets and the test runner",
-      "status": "pending",
+      "status": "completed",
       "description": "Test sources import/reference SwiftGodot instead of SwiftGodotRuntime; test runner stops listing the removed product.\n\n```json:metadata\n{\"files\": [\"Tests/SwiftGodotTestExtension/WrappedTests.swift\", \"Tests/SwiftGodotTestExtension/TestObjectCleanup.swift\", \"Tests/SwiftGodotTestExtension/MarshalTests.swift\", \"Tests/SwiftGodotTestExtension/MacroIntegrationTests.swift\", \"Sources/SwiftGodotTestRunner/SwiftGodotTestRunner.swift\"], \"verifyCommand\": \"! grep -rn 'SwiftGodotRuntime' Tests/ Sources/SwiftGodotTestRunner/ && echo OK\", \"acceptanceCriteria\": [\"no import SwiftGodotRuntime in Tests/\", \"MacroIntegrationTests references SwiftGodot.FastVariant\", \"test runner arrays no longer list SwiftGodotRuntime\"]}\n```"
     },
     {
       "id": 9,
       "subject": "Task 9: Build and test the development package",
-      "status": "pending",
-      "blockedBy": [2, 4, 5, 7, 8],
+      "status": "completed",
+      "blockedBy": [
+        2,
+        4,
+        5,
+        7,
+        8
+      ],
       "description": "Prove the merged package compiles and the existing test suite passes.\n\n```json:metadata\n{\"files\": [], \"verifyCommand\": \"swift build && swift test\", \"acceptanceCriteria\": [\"swift build succeeds\", \"swift test succeeds including SwiftGodotMacrosTests\"]}\n```"
     },
     {
       "id": 10,
       "subject": "Task 10: Update the release framework scripts",
-      "status": "pending",
+      "status": "completed",
       "description": "Release pipeline scripts build, stage, and package only the single SwiftGodot module.\n\n```json:metadata\n{\"files\": [\"scripts/build-distribution-products\", \"scripts/release\", \"scripts/make-swiftgodot-framework\", \"scripts/test-make-swiftgodot-framework\"], \"verifyCommand\": \"bash -n scripts/build-distribution-products scripts/release scripts/make-swiftgodot-framework scripts/test-make-swiftgodot-framework && bash scripts/test-make-swiftgodot-framework\", \"acceptanceCriteria\": [\"build-distribution-products stages only SwiftGodot, copies generated/+generated-builtin/, one xcodebuild scheme\", \"release no longer requires SwiftGodotRuntime prebuilt artifacts\", \"make-swiftgodot-framework no longer stages SwiftGodotRuntime.swiftmodule\", \"test-make-swiftgodot-framework drops the runtime token\"]}\n```"
     },
     {
       "id": 11,
       "subject": "Task 11: Update the release workflow and README",
-      "status": "pending",
+      "status": "completed",
       "description": "CI no longer packs SwiftGodotRuntime build products; docs no longer advertise a SwiftGodotRuntime product.\n\n```json:metadata\n{\"files\": [\".github/workflows/release.yml\", \"README.md\"], \"verifyCommand\": \"! grep -rn 'SwiftGodotRuntime' .github/workflows/release.yml README.md && echo OK\", \"acceptanceCriteria\": [\"release.yml has no SwiftGodotRuntime reference\", \"README.md has no SwiftGodotRuntime reference\"]}\n```"
     },
     {
       "id": 12,
       "subject": "Task 12: Full release-build verification",
-      "status": "pending",
-      "blockedBy": [3, 9, 10, 11],
+      "status": "completed",
+      "blockedBy": [
+        3,
+        9,
+        10,
+        11
+      ],
       "description": "Confirm the merged xcframework builds and its SwiftGodot.swiftinterface does not import SwiftGodotRuntime.\n\n```json:metadata\n{\"files\": [], \"verifyCommand\": \"SWIFT_GODOT_NODEPLOY=1 scripts/release ... then grep/find the xcframework\", \"acceptanceCriteria\": [\"scripts/release completes with SWIFT_GODOT_NODEPLOY=1\", \"no .swiftinterface imports SwiftGodotRuntime\", \"no SwiftGodotRuntime.swiftmodule inside the xcframework\"]}\n```"
     }
   ],
-  "lastUpdated": "2026-05-15T00:00:00Z"
+  "lastUpdated": "2026-05-16T01:41:50.394429+00:00"
 }
