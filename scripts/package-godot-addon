@@ -50,6 +50,15 @@ if [[ ! -f LICENSE ]]; then
     exit 1
 fi
 
+copy_without_symlinks() {
+    local source=$1
+    local destination_parent=$2
+
+    # gpm refuses to extract symlink entries from release zips. Dereference
+    # framework symlinks into real files/directories while preserving paths.
+    rsync -aL "$source" "$destination_parent/"
+}
+
 mac_framework=
 if [[ -d "$xcframework/macos-arm64/SwiftGodot.framework" ]]; then
     mac_framework="$xcframework/macos-arm64/SwiftGodot.framework"
@@ -87,8 +96,14 @@ script=""
 EOF
 
 cp LICENSE "$addon_dir/LICENSE"
-rsync -a "$xcframework" "$addon_dir/bin/ios/"
-rsync -a "$mac_framework" "$addon_dir/bin/macos_arm64/"
+copy_without_symlinks "$xcframework" "$addon_dir/bin/ios"
+copy_without_symlinks "$mac_framework" "$addon_dir/bin/macos_arm64"
+
+if find "$addon_dir" -type l -print | grep -q .; then
+    echo "Refusing to package addon with symlinks; gpm cannot extract them:"
+    find "$addon_dir" -type l -print
+    exit 1
+fi
 
 rm -f "$zip_path"
 (
