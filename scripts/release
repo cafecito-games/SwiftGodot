@@ -39,19 +39,12 @@ if [[ ! -f "$release_notes" ]]; then
     exit 1
 fi
 
-if [[ ! -x scripts/build-distribution-products || ! -x scripts/make-swiftgodot-framework || ! -x scripts/build-macro-artifactbundle ]]; then
+if [[ ! -x scripts/build-distribution-products || ! -x scripts/make-swiftgodot-framework || ! -x scripts/build-macro-artifactbundle || ! -x scripts/package-godot-addon ]]; then
     echo "Expected this to run from the SwiftGodot directory"
     exit 1
 fi
 
 git rev-parse --verify "$commit^{commit}" >/dev/null
-
-case "$tag" in
-    v*)
-        echo "We are no longer using vXXX for releases; use 0.xx.yy instead."
-        exit 1
-        ;;
-esac
 
 if [[ -z "${SWIFT_GODOT_NODEPLOY:-}" ]]; then
     if [[ ! -d "$binary_repo_dir/.git" ]]; then
@@ -190,6 +183,8 @@ else
 fi
 
 SWIFT_GODOT_CONFIGURATION="$configuration" scripts/make-swiftgodot-framework "$derived_data/" "$output_dir/SwiftGodot.xcframework"
+addon_zip_path="$output_dir/SwiftGodot-$tag.zip"
+scripts/package-godot-addon "$tag" "$output_dir/SwiftGodot.xcframework" "$output_dir" >/dev/null
 
 if [[ -n "${SWIFT_GODOT_NODEPLOY:-}" ]]; then
     echo "Skipping deployment stage."
@@ -206,7 +201,7 @@ macro_zip_path="$output_dir/SwiftGodotMacros.artifactbundle.zip"
 macro_asset_url="https://github.com/$source_repo/releases/download/$tag/SwiftGodotMacros.artifactbundle.zip"
 macro_checksum=$(swift package compute-checksum "$macro_zip_path")
 
-gh release create "$tag" "$zip_path" "$macro_zip_path" -R "$source_repo" -F "$release_notes" --target "$commit"
+gh release create "$tag" "$zip_path" "$macro_zip_path" "$addon_zip_path" -R "$source_repo" -F "$release_notes" --target "$commit"
 
 gdextension_target_dir="$binary_repo_dir/Sources/GDExtension"
 rm -rf "$gdextension_target_dir"
