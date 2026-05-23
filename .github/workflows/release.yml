@@ -29,7 +29,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  SWIFT_GODOT_RELEASE_XCODE: "26.4.1"
+  SWIFT_GODOT_RELEASE_XCODE: "26.4.0"
 
 jobs:
   prepare:
