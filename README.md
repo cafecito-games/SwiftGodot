@@ -56,6 +56,21 @@ targets: [
 
 The `SwiftGodot` product carries the prebuilt runtime *and* the prebuilt macro compiler plugin, so `@Godot`, `@Callable`, `@Export`, `#initSwiftExtension`, etc. work without depending on `swift-syntax` or building macros from source. The plugin is shipped as a universal macOS (arm64 + x86_64) artifact bundle; if you're on a Swift toolchain that's incompatible with the prebuilt plugin, use the source build above instead.
 
+## Using SwiftGodot as a Godot addon
+
+Godot projects that use Swift-based addons can install the shared SwiftGodot binary addon with gpm:
+
+```toml
+[addons.SwiftGodot]
+source      = "github-release"
+repo        = "cafecito-games/SwiftGodot"
+version     = "v<X.Y.Z>"
+asset       = "SwiftGodot-v<X.Y.Z>.zip"
+source_path = "addons/SwiftGodot"
+```
+
+This addon ships ONLY the SwiftGodot binaries and a plugin.cfg. It does not register a GDExtension. Other GDExtensions that link against SwiftGodot (e.g. cafecito-games/AuthenticationKit, cafecito-games/PurchaseKit) reference these binaries via their own `.gdextension`'s `[dependencies]` block at the path `res://addons/SwiftGodot/bin/<platform>/SwiftGodot.{xcframework,framework}`. AuthenticationKit and PurchaseKit no longer bundle SwiftGodot themselves; this addon must be installed alongside them.
+
 ## Targets
 
 | Target | Description |

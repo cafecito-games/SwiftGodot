@@ -6,6 +6,7 @@ all:
 	echo    - preview-docs: Start local web server serving the documentation
 	echo    - push-docs: Pushes the existing documentation, requires SwiftGodotDocs peer checked out
 	echo    - release: Builds an xcframework package, documentation and pushes documentation
+	echo    - package-godot-addon: Packages SwiftGodot as a binary-only Godot addon
 
 build-docs:
 	GENERATE_DOCS=1 DOCC_HTML_DIR=/Users/miguel/cvs/swift-docc-render-artifact/dist swift package \
@@ -30,6 +31,13 @@ release: check-args build-release build-docs push-docs
 
 build-release: check-args
 	sh -x scripts/release $(VERSION) $(NOTES) `git rev-parse HEAD`
+
+package-godot-addon:
+	@tag="$${TAG:-$${VERSION:-}}"; \
+	if test -z "$$tag"; then echo "Set TAG=vX.Y.Z or VERSION=vX.Y.Z"; exit 1; fi; \
+	xcframework="$${XCFRAMEWORK:-$${SWIFT_GODOT_XCFRAMEWORK:-.build/release-verify/SwiftGodot.xcframework}}"; \
+	output_dir="$${OUTPUT_DIR:-.}"; \
+	scripts/package-godot-addon "$$tag" "$$xcframework" "$$output_dir"
 
 check-args:
 	@if test x$(VERSION)$(NOTES) = x; then echo You need to provide both VERSION=XX NOTES=FILENAME arguments to this makefile target; exit 1; fi

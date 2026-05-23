@@ -1,0 +1,99 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+    cat <<'EOF'
+Usage: scripts/package-godot-addon TAG SWIFTGODOT_XCFRAMEWORK [OUTPUT_DIR]
+
+Stages a binary-only Godot addon at OUTPUT_DIR/dist/addons/SwiftGodot and writes
+OUTPUT_DIR/SwiftGodot-TAG.zip. The zip extracts to addons/SwiftGodot.
+EOF
+}
+
+if [[ $# -lt 2 || $# -gt 3 ]]; then
+    usage
+    exit 1
+fi
+
+tag=$1
+xcframework=$2
+output_dir=${3:-.}
+
+case "$tag" in
+    ""|*/*)
+        echo "TAG must be non-empty and must not contain /"
+        exit 1
+        ;;
+esac
+
+absolute_path() {
+    case "$1" in
+        /*)
+            printf '%s\n' "$1"
+            ;;
+        *)
+            printf '%s/%s\n' "$(pwd)" "$1"
+            ;;
+    esac
+}
+
+xcframework=$(absolute_path "$xcframework")
+output_dir=$(absolute_path "$output_dir")
+
+if [[ ! -d "$xcframework" ]]; then
+    echo "Expected SwiftGodot xcframework directory: $xcframework"
+    exit 1
+fi
+
+if [[ ! -f LICENSE ]]; then
+    echo "Expected to run from the SwiftGodot repository root"
+    exit 1
+fi
+
+mac_framework=
+if [[ -d "$xcframework/macos-arm64/SwiftGodot.framework" ]]; then
+    mac_framework="$xcframework/macos-arm64/SwiftGodot.framework"
+else
+    mac_framework_candidates=()
+    for candidate in "$xcframework"/macos-*/SwiftGodot.framework; do
+        [[ -d "$candidate" ]] && mac_framework_candidates+=("$candidate")
+    done
+
+    if [[ ${#mac_framework_candidates[@]} -eq 1 ]]; then
+        mac_framework="${mac_framework_candidates[0]}"
+    else
+        echo "Expected exactly one macOS SwiftGodot.framework slice in $xcframework"
+        exit 1
+    fi
+fi
+
+mkdir -p "$output_dir"
+
+dist_dir="$output_dir/dist"
+addon_dir="$dist_dir/addons/SwiftGodot"
+zip_path="$output_dir/SwiftGodot-$tag.zip"
+plugin_version=${tag#v}
+
+rm -rf "$addon_dir"
+mkdir -p "$addon_dir/bin/ios" "$addon_dir/bin/macos_arm64"
+
+cat > "$addon_dir/plugin.cfg" <<EOF
+[plugin]
+name="SwiftGodot"
+description="Shared SwiftGodot xcframework/framework for iOS/macOS GDExtensions. Binary-only addon; consumed via \`[dependencies]\` of other gdextensions."
+author="cafecito-games"
+version="$plugin_version"
+script=""
+EOF
+
+cp LICENSE "$addon_dir/LICENSE"
+rsync -a "$xcframework" "$addon_dir/bin/ios/"
+rsync -a "$mac_framework" "$addon_dir/bin/macos_arm64/"
+
+rm -f "$zip_path"
+(
+    cd "$dist_dir"
+    zip -qryX "$zip_path" addons/SwiftGodot
+)
+
+printf '%s\n' "$zip_path"

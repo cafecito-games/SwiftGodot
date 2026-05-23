@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Release tag, for example 0.1.0
+        description: Release tag, for example v0.1.0 or 0.1.0
         required: true
         type: string
       commit:
@@ -61,11 +61,6 @@ jobs:
           RELEASE_COMMIT: ${{ inputs.commit }}
           RELEASE_TOKEN: ${{ secrets.SWIFT_GODOT_RELEASE_TOKEN }}
         run: |
-          if [[ "$RELEASE_TAG" == v* ]]; then
-            echo "::error title=Invalid tag::Use 0.xx.yy style tags instead of v-prefixed tags."
-            exit 1
-          fi
-
           if [[ -z "$RELEASE_COMMIT" ]]; then
             RELEASE_COMMIT="$GITHUB_SHA"
           fi

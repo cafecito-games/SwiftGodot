@@ -51,6 +51,7 @@ jobs:
         scripts/test-binary-manifest
         scripts/test-package-resolution
         scripts/test-distribution-package-staging
+        scripts/test-package-godot-addon
         scripts/test-release-toolchain
 
     - name: Build macro artifact bundle (exercise release script)
