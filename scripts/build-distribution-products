@@ -105,6 +105,7 @@ else
     cp Package.distribution.swift "$release_package/Package.swift"
     rsync -a --delete Sources/GDExtension "$release_package/Sources/"
     rsync -a --delete --exclude "_generated" Sources/SwiftGodot "$release_package/Sources/"
+    rsync -a --delete Sources/SwiftGodotEmbed "$release_package/Sources/"
 
     mkdir -p "$release_package/Sources/SwiftGodot/_generated"
 
@@ -118,11 +119,14 @@ if [[ -n "$stage_only" ]]; then
 fi
 
 echo "Phase 2: building distribution products..."
+# Building SwiftGodotEmbed transitively builds SwiftGodot (its only dependency),
+# so a single xcodebuild invocation produces both PackageFrameworks/*.framework
+# bundles.
 (
     cd "$release_package"
     xcodebuild \
         -quiet \
-        -scheme SwiftGodot \
+        -scheme SwiftGodotEmbed \
         -destination "$destination" \
         -configuration "$configuration" \
         -derivedDataPath "$derived_data" \

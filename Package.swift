@@ -48,6 +48,12 @@ var products: [Product] = [
         targets: ["ManualExtension"]
     ),
 
+    .library(
+        name: "SwiftGodotEmbed",
+        type: .dynamic,
+        targets: ["SwiftGodotEmbed"]
+    ),
+
     .executable(
         name: "SwiftGodotTestRunner",
         targets: ["SwiftGodotTestRunner"]
@@ -181,6 +187,17 @@ var targets: [Target] = [
         name: "ManualExtension",
         dependencies: ["SwiftGodot"],
         exclude: ["ManualExtension.gdextension", "README.md"],
+        swiftSettings: [.swiftLanguageMode(.v6)]
+    ),
+
+    // No-op GDExtension shipped inside the SwiftGodot Godot addon. Its sole
+    // purpose is to give Godot's iOS/macOS exporters a registered extension
+    // that declares SwiftGodot under `[dependencies]`, so SwiftGodot.framework
+    // is embedded into the exported app exactly once. Registers no Godot
+    // classes; see SwiftGodotEmbed.swift for the manual entry point.
+    .target(
+        name: "SwiftGodotEmbed",
+        dependencies: ["SwiftGodot"],
         swiftSettings: [.swiftLanguageMode(.v6)]
     ),
 

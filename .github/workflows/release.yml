@@ -183,7 +183,9 @@ jobs:
         run: |
           tar -czf "$RUNNER_TEMP/swiftgodot-x86-products.tgz" -C "$DERIVED_DATA" \
             Build/Products/Release/PackageFrameworks/SwiftGodot.framework \
+            Build/Products/Release/PackageFrameworks/SwiftGodotEmbed.framework \
             Build/Products/Release/SwiftGodot.swiftmodule \
+            Build/Products/Release/SwiftGodotEmbed.swiftmodule \
             Build/Intermediates.noindex/GeneratedModuleMaps
 
       - name: Upload release products
@@ -246,7 +248,9 @@ jobs:
         run: |
           tar -czf "$RUNNER_TEMP/swiftgodot-ios-products.tgz" -C "$DERIVED_DATA" \
             Build/Products/Release-iphoneos/PackageFrameworks/SwiftGodot.framework \
+            Build/Products/Release-iphoneos/PackageFrameworks/SwiftGodotEmbed.framework \
             Build/Products/Release-iphoneos/SwiftGodot.swiftmodule \
+            Build/Products/Release-iphoneos/SwiftGodotEmbed.swiftmodule \
             Build/Intermediates.noindex/GeneratedModuleMaps-iphoneos
 
       - name: Upload release products
@@ -310,7 +314,9 @@ jobs:
         run: |
           tar -czf "$RUNNER_TEMP/swiftgodot-ios-simulator-products.tgz" -C "$DERIVED_DATA" \
             Build/Products/Release-iphonesimulator/PackageFrameworks/SwiftGodot.framework \
+            Build/Products/Release-iphonesimulator/PackageFrameworks/SwiftGodotEmbed.framework \
             Build/Products/Release-iphonesimulator/SwiftGodot.swiftmodule \
+            Build/Products/Release-iphonesimulator/SwiftGodotEmbed.swiftmodule \
             Build/Intermediates.noindex/GeneratedModuleMaps-iphonesimulator
 
       - name: Upload release products
@@ -373,7 +379,9 @@ jobs:
         run: |
           tar -czf "$RUNNER_TEMP/swiftgodot-arm64-products.tgz" -C "$DERIVED_DATA" \
             Build/Products/Release/PackageFrameworks/SwiftGodot.framework \
+            Build/Products/Release/PackageFrameworks/SwiftGodotEmbed.framework \
             Build/Products/Release/SwiftGodot.swiftmodule \
+            Build/Products/Release/SwiftGodotEmbed.swiftmodule \
             Build/Intermediates.noindex/GeneratedModuleMaps
 
       - name: Upload release products

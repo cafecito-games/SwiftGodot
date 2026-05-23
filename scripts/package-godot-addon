@@ -3,21 +3,35 @@ set -euo pipefail
 
 usage() {
     cat <<'EOF'
-Usage: scripts/package-godot-addon TAG SWIFTGODOT_XCFRAMEWORK [OUTPUT_DIR]
+Usage: scripts/package-godot-addon TAG SWIFTGODOT_XCFRAMEWORK SWIFTGODOTEMBED_XCFRAMEWORK [OUTPUT_DIR]
 
-Stages a binary-only Godot addon at OUTPUT_DIR/dist/addons/SwiftGodot and writes
-OUTPUT_DIR/SwiftGodot-TAG.zip. The zip extracts to addons/SwiftGodot.
+Stages the SwiftGodot Godot addon at OUTPUT_DIR/dist/addons/SwiftGodot and
+writes OUTPUT_DIR/SwiftGodot-TAG.zip. The zip extracts to addons/SwiftGodot.
+
+The addon ships:
+  - plugin.cfg, LICENSE
+  - SwiftGodotEmbed.gdextension      — registered, no-op GDExtension
+  - bin/ios/SwiftGodot.xcframework
+  - bin/ios/SwiftGodotEmbed.xcframework
+  - bin/macos_arm64/SwiftGodot.framework
+  - bin/macos_arm64/SwiftGodotEmbed.framework
+
+The .gdextension declares SwiftGodot under `[dependencies]` so Godot's
+iOS/macOS exporters embed SwiftGodot.framework into the exported app exactly
+once. Downstream GDExtensions that link SwiftGodot do NOT need to list it in
+their own `[dependencies]` block as long as this addon is installed.
 EOF
 }
 
-if [[ $# -lt 2 || $# -gt 3 ]]; then
+if [[ $# -lt 3 || $# -gt 4 ]]; then
     usage
     exit 1
 fi
 
 tag=$1
 xcframework=$2
-output_dir=${3:-.}
+embed_xcframework=$3
+output_dir=${4:-.}
 
 case "$tag" in
     ""|*/*)
@@ -38,10 +52,16 @@ absolute_path() {
 }
 
 xcframework=$(absolute_path "$xcframework")
+embed_xcframework=$(absolute_path "$embed_xcframework")
 output_dir=$(absolute_path "$output_dir")
 
 if [[ ! -d "$xcframework" ]]; then
     echo "Expected SwiftGodot xcframework directory: $xcframework"
+    exit 1
+fi
+
+if [[ ! -d "$embed_xcframework" ]]; then
+    echo "Expected SwiftGodotEmbed xcframework directory: $embed_xcframework"
     exit 1
 fi
 
@@ -59,22 +79,34 @@ copy_without_symlinks() {
     rsync -aL "$source" "$destination_parent/"
 }
 
-mac_framework=
-if [[ -d "$xcframework/macos-arm64/SwiftGodot.framework" ]]; then
-    mac_framework="$xcframework/macos-arm64/SwiftGodot.framework"
-else
-    mac_framework_candidates=()
-    for candidate in "$xcframework"/macos-*/SwiftGodot.framework; do
-        [[ -d "$candidate" ]] && mac_framework_candidates+=("$candidate")
+# Pick the macOS arm64 slice from an xcframework. Falls back to a unique
+# macos-* slice when no exact "macos-arm64" directory exists.
+pick_macos_framework() {
+    local xcf=$1
+    local module=$2
+    local resolved
+
+    if [[ -d "$xcf/macos-arm64/$module.framework" ]]; then
+        printf '%s\n' "$xcf/macos-arm64/$module.framework"
+        return
+    fi
+
+    local candidates=()
+    for candidate in "$xcf"/macos-*/"$module.framework"; do
+        [[ -d "$candidate" ]] && candidates+=("$candidate")
     done
 
-    if [[ ${#mac_framework_candidates[@]} -eq 1 ]]; then
-        mac_framework="${mac_framework_candidates[0]}"
-    else
-        echo "Expected exactly one macOS SwiftGodot.framework slice in $xcframework"
-        exit 1
+    if [[ ${#candidates[@]} -eq 1 ]]; then
+        printf '%s\n' "${candidates[0]}"
+        return
     fi
-fi
+
+    echo "Expected exactly one macOS $module.framework slice in $xcf"
+    exit 1
+}
+
+mac_framework=$(pick_macos_framework "$xcframework" "SwiftGodot")
+mac_embed_framework=$(pick_macos_framework "$embed_xcframework" "SwiftGodotEmbed")
 
 mkdir -p "$output_dir"
 
@@ -89,15 +121,37 @@ mkdir -p "$addon_dir/bin/ios" "$addon_dir/bin/macos_arm64"
 cat > "$addon_dir/plugin.cfg" <<EOF
 [plugin]
 name="SwiftGodot"
-description="Shared SwiftGodot xcframework/framework for iOS/macOS GDExtensions. Binary-only addon; consumed via \`[dependencies]\` of other gdextensions."
+description="Shared SwiftGodot xcframework/framework for iOS/macOS GDExtensions. Registers a no-op SwiftGodotEmbed extension that owns embedding SwiftGodot.framework into exported apps; downstream GDExtensions should not list SwiftGodot in their own [dependencies]."
 author="cafecito-games"
 version="$plugin_version"
 script=""
 EOF
 
+cat > "$addon_dir/SwiftGodotEmbed.gdextension" <<'EOF'
+[configuration]
+entry_symbol = "swift_godot_embed_entry_point"
+compatibility_minimum = "4.4"
+
+[libraries]
+ios.debug = "res://addons/SwiftGodot/bin/ios/SwiftGodotEmbed.xcframework"
+ios.release = "res://addons/SwiftGodot/bin/ios/SwiftGodotEmbed.xcframework"
+ios.simulator.debug = "res://addons/SwiftGodot/bin/ios/SwiftGodotEmbed.xcframework"
+ios.simulator.release = "res://addons/SwiftGodot/bin/ios/SwiftGodotEmbed.xcframework"
+macos.arm64 = "res://addons/SwiftGodot/bin/macos_arm64/SwiftGodotEmbed.framework"
+
+[dependencies]
+ios.debug = { "res://addons/SwiftGodot/bin/ios/SwiftGodot.xcframework": "" }
+ios.release = { "res://addons/SwiftGodot/bin/ios/SwiftGodot.xcframework": "" }
+ios.simulator.debug = { "res://addons/SwiftGodot/bin/ios/SwiftGodot.xcframework": "" }
+ios.simulator.release = { "res://addons/SwiftGodot/bin/ios/SwiftGodot.xcframework": "" }
+macos.arm64 = { "res://addons/SwiftGodot/bin/macos_arm64/SwiftGodot.framework": "" }
+EOF
+
 cp LICENSE "$addon_dir/LICENSE"
 copy_without_symlinks "$xcframework" "$addon_dir/bin/ios"
+copy_without_symlinks "$embed_xcframework" "$addon_dir/bin/ios"
 copy_without_symlinks "$mac_framework" "$addon_dir/bin/macos_arm64"
+copy_without_symlinks "$mac_embed_framework" "$addon_dir/bin/macos_arm64"
 
 if find "$addon_dir" -type l -print | grep -q .; then
     echo "Refusing to package addon with symlinks; gpm cannot extract them:"

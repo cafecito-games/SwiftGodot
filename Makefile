@@ -36,8 +36,9 @@ package-godot-addon:
 	@tag="$${TAG:-$${VERSION:-}}"; \
 	if test -z "$$tag"; then echo "Set TAG=vX.Y.Z or VERSION=vX.Y.Z"; exit 1; fi; \
 	xcframework="$${XCFRAMEWORK:-$${SWIFT_GODOT_XCFRAMEWORK:-.build/release-verify/SwiftGodot.xcframework}}"; \
+	embed_xcframework="$${EMBED_XCFRAMEWORK:-$${SWIFT_GODOT_EMBED_XCFRAMEWORK:-.build/release-verify/SwiftGodotEmbed.xcframework}}"; \
 	output_dir="$${OUTPUT_DIR:-.}"; \
-	scripts/package-godot-addon "$$tag" "$$xcframework" "$$output_dir"
+	scripts/package-godot-addon "$$tag" "$$xcframework" "$$embed_xcframework" "$$output_dir"
 
 check-args:
 	@if test x$(VERSION)$(NOTES) = x; then echo You need to provide both VERSION=XX NOTES=FILENAME arguments to this makefile target; exit 1; fi
