@@ -63,14 +63,12 @@ let package = Package(
 
         // No-op embed shim. The Godot addon ships it as a registered
         // GDExtension whose `[dependencies]` references SwiftGodot.framework,
-        // so Godot's exporters embed SwiftGodot exactly once.
+        // so Godot's exporters embed SwiftGodot exactly once. C target with
+        // no SwiftGodot dependency so SwiftPM does not statically link the
+        // entire SwiftGodot module into this binary.
         .target(
             name: "SwiftGodotEmbed",
-            dependencies: ["SwiftGodot"],
-            swiftSettings: [
-                .swiftLanguageMode(.v5),
-                .unsafeFlags(["-suppress-warnings"]),
-            ]
+            publicHeadersPath: "include"
         ),
     ]
 )
