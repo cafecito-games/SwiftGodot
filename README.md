@@ -69,7 +69,15 @@ asset       = "SwiftGodot-v<X.Y.Z>.zip"
 source_path = "addons/SwiftGodot"
 ```
 
-This addon ships ONLY the SwiftGodot binaries and a plugin.cfg. It does not register a GDExtension. Other GDExtensions that link against SwiftGodot (e.g. cafecito-games/AuthenticationKit, cafecito-games/PurchaseKit) reference these binaries via their own `.gdextension`'s `[dependencies]` block at the path `res://addons/SwiftGodot/bin/<platform>/SwiftGodot.{xcframework,framework}`. AuthenticationKit and PurchaseKit no longer bundle SwiftGodot themselves; this addon must be installed alongside them.
+Starting with 0.2.0, the addon registers a single no-op GDExtension named **SwiftGodotEmbed** whose only job is to own embedding `SwiftGodot.framework` / `SwiftGodot.xcframework` into iOS and macOS exports. Its `[dependencies]` block points at the bundled SwiftGodot binary, so Godot's exporter copies SwiftGodot into `App.app/Frameworks/` exactly once regardless of how many downstream Swift GDExtensions are installed alongside it.
+
+Because of this:
+
+- Downstream GDExtensions (e.g. cafecito-games/AuthenticationKit, cafecito-games/PurchaseKit) that link against SwiftGodot **must not** list SwiftGodot under their own `.gdextension`'s `[dependencies]`. Embedding is owned exclusively by SwiftGodotEmbed.
+- They still depend on this addon at runtime: SwiftGodotEmbed is what causes the shared SwiftGodot binary to be present in the exported app, and dynamic loading via `@rpath/SwiftGodot.framework/SwiftGodot` resolves through that.
+- SwiftGodotEmbed registers zero Godot classes; it is loaded purely for its side effect on the exporter's copy-frameworks phase.
+
+**Compatibility note for downstream addon authors:** if your `.gdextension` declares SwiftGodot under `[dependencies]`, remove it when targeting the SwiftGodot addon ≥ 0.2.0. Two extensions that both list the same SwiftGodot path cause Godot's iOS exporter to emit two `Embed Frameworks` entries for the same path, which Xcode rejects with `Multiple commands produce '.../Frameworks/SwiftGodot.framework'` during archive.
 
 ## Targets
 

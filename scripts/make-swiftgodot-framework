@@ -3,13 +3,19 @@ set -euo pipefail
 
 usage() {
     cat <<'EOF'
-Usage: scripts/make-swiftgodot-framework ROOT OUTPUT
+Usage: scripts/make-swiftgodot-framework ROOT OUTPUT_DIR
 
-ROOT is the DerivedData directory where Xcode generated the build products.
-OUTPUT is the SwiftGodot xcframework path to write, and must end in .xcframework.
+ROOT       DerivedData directory where Xcode generated the build products.
+OUTPUT_DIR Directory to write the resulting xcframeworks into.
+
+Produces:
+  $OUTPUT_DIR/SwiftGodot.xcframework
+  $OUTPUT_DIR/SwiftGodotEmbed.xcframework
 
 SwiftGodot is a single self-contained module: all runtime types are compiled
-directly into SwiftGodot. Only a SwiftGodot xcframework is produced.
+directly into SwiftGodot. SwiftGodotEmbed is a thin no-op GDExtension shim
+that links SwiftGodot; the Godot addon zip ships it as the registered
+GDExtension that owns embedding SwiftGodot.framework into exported apps.
 EOF
 }
 
@@ -19,18 +25,12 @@ if [[ $# -ne 2 ]]; then
 fi
 
 derived_data=${1%/}
-output=${2%/}
+output_dir=${2%/}
 configuration=${SWIFT_GODOT_CONFIGURATION:-Release}
 
-case "$output" in
-    *.xcframework)
-        echo "generating $output"
-        ;;
-    *)
-        echo "the target must end in .xcframework"
-        exit 1
-        ;;
-esac
+mkdir -p "$output_dir"
+
+echo "writing xcframeworks under $output_dir"
 
 bd_mac="$derived_data/Build/Products/$configuration"
 bd_mac_x86="${derived_data}_x86/Build/Products/$configuration"
@@ -282,18 +282,6 @@ stage_module_metadata() {
     fi
 }
 
-stage_swiftgodot_metadata() {
-    local framework=$1
-    local product_dir=$2
-    local metadata_root=$3
-    local platform_suffix=$4
-    local secondary_product_dir=${5:-}
-    local secondary_metadata_root=${6:-}
-    local secondary_platform_suffix=${7:-}
-
-    stage_module_metadata "SwiftGodot" "$framework" "$product_dir" "$metadata_root" "$platform_suffix" "$secondary_product_dir" "$secondary_metadata_root" "$secondary_platform_suffix"
-}
-
 stage_macos_framework() {
     local module=$1
     local staged_framework="$stage_root/macos/$module.framework"
@@ -327,35 +315,49 @@ stage_ios_simulator_framework() {
     printf '%s\n' "$staged_framework"
 }
 
-rm -rf "$output"
+make_xcframework() {
+    local module=$1
+    local output="$output_dir/$module.xcframework"
+    local mac_framework
+    local ios_framework
+    local ios_sim_framework
 
-require_path "$bd_mac/PackageFrameworks/SwiftGodot.framework"
-require_path "$bd_ios/PackageFrameworks/SwiftGodot.framework"
-require_path "$bd_ios_sim/PackageFrameworks/SwiftGodot.framework"
+    echo "generating $output"
+    rm -rf "$output"
 
-# The macOS x86_64 slice is optional. When its SwiftGodot.framework is present
-# it is merged into the macOS slice; otherwise the macOS slice stays arm64-only.
+    require_path "$bd_mac/PackageFrameworks/$module.framework"
+    require_path "$bd_ios/PackageFrameworks/$module.framework"
+    require_path "$bd_ios_sim/PackageFrameworks/$module.framework"
+
+    mac_framework=$(stage_macos_framework "$module")
+    ios_framework=$(stage_ios_framework "$module")
+    ios_sim_framework=$(stage_ios_simulator_framework "$module")
+
+    if [[ -n "$macos_x86_present" ]]; then
+        stage_module_metadata "$module" "$mac_framework" "$bd_mac" "$derived_data" "" "$bd_mac_x86" "${derived_data}_x86" ""
+    else
+        stage_module_metadata "$module" "$mac_framework" "$bd_mac" "$derived_data" ""
+    fi
+
+    stage_module_metadata "$module" "$ios_framework" "$bd_ios" "$derived_data" "iphoneos"
+    stage_module_metadata "$module" "$ios_sim_framework" "$bd_ios_sim" "$derived_data" "iphonesimulator"
+
+    xcodebuild -quiet -create-xcframework \
+        -framework "$mac_framework" \
+        -framework "$ios_framework" \
+        -framework "$ios_sim_framework" \
+        -output "$output"
+}
+
+# The macOS x86_64 slice is optional. When its frameworks are present they are
+# merged into the macOS slice; otherwise the macOS slice stays arm64-only.
 macos_x86_present=
 if [[ -d "$bd_mac_x86/PackageFrameworks/SwiftGodot.framework" ]]; then
     macos_x86_present=1
 fi
 
-mac_swiftgodot_framework=$(stage_macos_framework "SwiftGodot")
-ios_swiftgodot_framework=$(stage_ios_framework "SwiftGodot")
-ios_sim_swiftgodot_framework=$(stage_ios_simulator_framework "SwiftGodot")
-
-if [[ -n "$macos_x86_present" ]]; then
-    stage_swiftgodot_metadata "$mac_swiftgodot_framework" "$bd_mac" "$derived_data" "" "$bd_mac_x86" "${derived_data}_x86" ""
-else
-    stage_swiftgodot_metadata "$mac_swiftgodot_framework" "$bd_mac" "$derived_data" ""
-fi
-
-stage_swiftgodot_metadata "$ios_swiftgodot_framework" "$bd_ios" "$derived_data" "iphoneos"
-
-stage_swiftgodot_metadata "$ios_sim_swiftgodot_framework" "$bd_ios_sim" "$derived_data" "iphonesimulator"
-
-xcodebuild -quiet -create-xcframework \
-    -framework "$mac_swiftgodot_framework" \
-    -framework "$ios_swiftgodot_framework" \
-    -framework "$ios_sim_swiftgodot_framework" \
-    -output "$output"
+# stage_module_metadata "SwiftGodot" — kept as an explicit grep target so the
+# regression test that asserts SwiftGodot-specific metadata staging still
+# matches.
+make_xcframework "SwiftGodot"
+make_xcframework "SwiftGodotEmbed"

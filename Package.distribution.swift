@@ -20,6 +20,11 @@ let package = Package(
             name: "SwiftGodotStatic",
             targets: ["SwiftGodot"]
         ),
+        .library(
+            name: "SwiftGodotEmbed",
+            type: .dynamic,
+            targets: ["SwiftGodotEmbed"]
+        ),
     ],
     traits: [
         .trait(
@@ -53,6 +58,18 @@ let package = Package(
                         "-Xfrontend", "-lto=llvm-full",
                     ]
                 ),
+            ]
+        ),
+
+        // No-op embed shim. The Godot addon ships it as a registered
+        // GDExtension whose `[dependencies]` references SwiftGodot.framework,
+        // so Godot's exporters embed SwiftGodot exactly once.
+        .target(
+            name: "SwiftGodotEmbed",
+            dependencies: ["SwiftGodot"],
+            swiftSettings: [
+                .swiftLanguageMode(.v5),
+                .unsafeFlags(["-suppress-warnings"]),
             ]
         ),
     ]
