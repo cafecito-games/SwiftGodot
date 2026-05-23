@@ -73,6 +73,16 @@ if find "$addon" -name '*.gdextension' -print | grep -q .; then
     fail "SwiftGodot addon zip must not contain a .gdextension file"
 fi
 
+if zipinfo -l "$zip_path" | awk '$1 ~ /^l/ { found = 1 } END { exit found ? 0 : 1 }'; then
+    zipinfo -l "$zip_path" | awk '$1 ~ /^l/ { print }' >&2
+    fail "SwiftGodot addon zip must not contain symlink entries; gpm refuses to extract them"
+fi
+
+if find "$addon" -type l -print | grep -q .; then
+    find "$addon" -type l -print >&2
+    fail "SwiftGodot addon zip must extract without symlinks"
+fi
+
 for forbidden in '*.swift' '*.h' '*.swiftmodule'; do
     if find "$addon" \
         \( -path "$addon/bin/ios/SwiftGodot.xcframework/*" -o -path "$addon/bin/macos_arm64/SwiftGodot.framework/*" \) -prune \
@@ -99,10 +109,11 @@ cmp -s "$expected_plugin" "$addon/plugin.cfg" || {
 }
 
 unzipped_mac_framework="$addon/bin/macos_arm64/SwiftGodot.framework"
-[[ -L "$unzipped_mac_framework/Versions/Current" ]] || fail "Versions/Current must remain a symlink"
-[[ "$(readlink "$unzipped_mac_framework/Versions/Current")" == "A" ]] || fail "Versions/Current symlink must point to A"
-[[ -L "$unzipped_mac_framework/SwiftGodot" ]] || fail "framework binary root symlink must remain intact"
-[[ "$(readlink "$unzipped_mac_framework/SwiftGodot")" == "Versions/Current/SwiftGodot" ]] || fail "framework binary symlink must point through Versions/Current"
+[[ -f "$unzipped_mac_framework/Versions/A/SwiftGodot" ]] || fail "macOS framework must keep Versions/A/SwiftGodot for its install name"
+[[ -f "$unzipped_mac_framework/Versions/Current/SwiftGodot" ]] || fail "macOS framework must materialize Versions/Current/SwiftGodot"
+[[ -f "$unzipped_mac_framework/SwiftGodot" ]] || fail "macOS framework must materialize root SwiftGodot binary"
+[[ -d "$unzipped_mac_framework/Headers" ]] || fail "macOS framework must materialize root Headers directory"
+[[ -d "$unzipped_mac_framework/Modules" ]] || fail "macOS framework must materialize root Modules directory"
 
 rg -q 'scripts/package-godot-addon "\$tag" "\$output_dir/SwiftGodot\.xcframework" "\$output_dir"' "$release_script" || fail "release script must package the Godot addon from the release xcframework"
 rg -q 'SwiftGodot-\$tag\.zip' "$release_script" || fail "release script must name the addon zip SwiftGodot-\$tag.zip"
