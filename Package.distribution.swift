@@ -63,14 +63,17 @@ let package = Package(
 
         // No-op embed shim. The Godot addon ships it as a registered
         // GDExtension whose `[dependencies]` references SwiftGodot.framework,
-        // so Godot's exporters embed SwiftGodot exactly once.
+        // so Godot's exporters embed SwiftGodot exactly once. The entry point
+        // is implemented in C (see SwiftGodotEmbedEntry.c); a Swift
+        // implementation gets dead-stripped to `return 1` by LTO, leaving
+        // GDExtensionInitialization.initialize null and triggering
+        // `initialize_library: Parameter "initialization.initialize" is null.`
+        // warnings on every init-level transition. The SwiftGodot dependency
+        // is retained so building the SwiftGodotEmbed scheme transitively
+        // builds SwiftGodot.framework, which the Godot addon ships alongside.
         .target(
             name: "SwiftGodotEmbed",
-            dependencies: ["SwiftGodot"],
-            swiftSettings: [
-                .swiftLanguageMode(.v5),
-                .unsafeFlags(["-suppress-warnings"]),
-            ]
+            dependencies: ["SwiftGodot", "GDExtensionC"]
         ),
     ]
 )
