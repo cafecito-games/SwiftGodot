@@ -194,11 +194,20 @@ var targets: [Target] = [
     // purpose is to give Godot's iOS/macOS exporters a registered extension
     // that declares SwiftGodot under `[dependencies]`, so SwiftGodot.framework
     // is embedded into the exported app exactly once. Registers no Godot
-    // classes; see SwiftGodotEmbed.swift for the manual entry point.
+    // classes.
+    //
+    // The entry point is implemented in C (see SwiftGodotEmbedEntry.c). A
+    // pure-Swift implementation that delegates to SwiftGodot's
+    // `initializeSwiftModule` gets dead-stripped by cross-module optimization
+    // into `return 1`, leaving the GDExtensionInitialization struct's
+    // `initialize` callback unset and producing
+    // `initialize_library: Parameter "initialization.initialize" is null.`
+    // warnings on every init-level transition. The `SwiftGodot` dependency is
+    // retained so building the SwiftGodotEmbed scheme transitively builds
+    // SwiftGodot.framework, which the Godot addon ships alongside.
     .target(
         name: "SwiftGodotEmbed",
-        dependencies: ["SwiftGodot"],
-        swiftSettings: [.swiftLanguageMode(.v6)]
+        dependencies: ["SwiftGodot", "GDExtensionC"]
     ),
 
     // The full SwiftGodot API: hand-written core + the generated Godot API,
