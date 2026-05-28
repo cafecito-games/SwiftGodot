@@ -162,26 +162,30 @@ else
         fi
     }
 
-    for module in SwiftGodot SwiftGodotEmbed; do
-        require_prebuilt_artifact "$derived_data/Build/Products/$configuration/PackageFrameworks/$module.framework"
-        require_prebuilt_artifact "$derived_data/Build/Products/$configuration/$module.swiftmodule"
-        require_prebuilt_artifact "$derived_data/Build/Intermediates.noindex/GeneratedModuleMaps/$module.modulemap"
-        require_prebuilt_artifact "$derived_data/Build/Intermediates.noindex/GeneratedModuleMaps/$module-Swift.h"
-        if [[ -n "$include_macos_x86" ]]; then
-            require_prebuilt_artifact "${derived_data}_x86/Build/Products/$configuration/PackageFrameworks/$module.framework"
-            require_prebuilt_artifact "${derived_data}_x86/Build/Products/$configuration/$module.swiftmodule"
-            require_prebuilt_artifact "${derived_data}_x86/Build/Intermediates.noindex/GeneratedModuleMaps/$module.modulemap"
-            require_prebuilt_artifact "${derived_data}_x86/Build/Intermediates.noindex/GeneratedModuleMaps/$module-Swift.h"
-        fi
-        require_prebuilt_artifact "$derived_data/Build/Products/$configuration-iphoneos/PackageFrameworks/$module.framework"
-        require_prebuilt_artifact "$derived_data/Build/Products/$configuration-iphoneos/$module.swiftmodule"
-        require_prebuilt_artifact "$derived_data/Build/Intermediates.noindex/GeneratedModuleMaps-iphoneos/$module.modulemap"
-        require_prebuilt_artifact "$derived_data/Build/Intermediates.noindex/GeneratedModuleMaps-iphoneos/$module-Swift.h"
-        require_prebuilt_artifact "$derived_data/Build/Products/$configuration-iphonesimulator/PackageFrameworks/$module.framework"
-        require_prebuilt_artifact "$derived_data/Build/Products/$configuration-iphonesimulator/$module.swiftmodule"
-        require_prebuilt_artifact "$derived_data/Build/Intermediates.noindex/GeneratedModuleMaps-iphonesimulator/$module.modulemap"
-        require_prebuilt_artifact "$derived_data/Build/Intermediates.noindex/GeneratedModuleMaps-iphonesimulator/$module-Swift.h"
-    done
+    # SwiftGodot is a Swift module: requires .swiftmodule + generated -Swift.h.
+    # SwiftGodotEmbed is a C-only shim: only the .framework needs to exist.
+    require_prebuilt_artifact "$derived_data/Build/Products/$configuration/PackageFrameworks/SwiftGodot.framework"
+    require_prebuilt_artifact "$derived_data/Build/Products/$configuration/SwiftGodot.swiftmodule"
+    require_prebuilt_artifact "$derived_data/Build/Intermediates.noindex/GeneratedModuleMaps/SwiftGodot.modulemap"
+    require_prebuilt_artifact "$derived_data/Build/Intermediates.noindex/GeneratedModuleMaps/SwiftGodot-Swift.h"
+    require_prebuilt_artifact "$derived_data/Build/Products/$configuration/PackageFrameworks/SwiftGodotEmbed.framework"
+    if [[ -n "$include_macos_x86" ]]; then
+        require_prebuilt_artifact "${derived_data}_x86/Build/Products/$configuration/PackageFrameworks/SwiftGodot.framework"
+        require_prebuilt_artifact "${derived_data}_x86/Build/Products/$configuration/SwiftGodot.swiftmodule"
+        require_prebuilt_artifact "${derived_data}_x86/Build/Intermediates.noindex/GeneratedModuleMaps/SwiftGodot.modulemap"
+        require_prebuilt_artifact "${derived_data}_x86/Build/Intermediates.noindex/GeneratedModuleMaps/SwiftGodot-Swift.h"
+        require_prebuilt_artifact "${derived_data}_x86/Build/Products/$configuration/PackageFrameworks/SwiftGodotEmbed.framework"
+    fi
+    require_prebuilt_artifact "$derived_data/Build/Products/$configuration-iphoneos/PackageFrameworks/SwiftGodot.framework"
+    require_prebuilt_artifact "$derived_data/Build/Products/$configuration-iphoneos/SwiftGodot.swiftmodule"
+    require_prebuilt_artifact "$derived_data/Build/Intermediates.noindex/GeneratedModuleMaps-iphoneos/SwiftGodot.modulemap"
+    require_prebuilt_artifact "$derived_data/Build/Intermediates.noindex/GeneratedModuleMaps-iphoneos/SwiftGodot-Swift.h"
+    require_prebuilt_artifact "$derived_data/Build/Products/$configuration-iphoneos/PackageFrameworks/SwiftGodotEmbed.framework"
+    require_prebuilt_artifact "$derived_data/Build/Products/$configuration-iphonesimulator/PackageFrameworks/SwiftGodot.framework"
+    require_prebuilt_artifact "$derived_data/Build/Products/$configuration-iphonesimulator/SwiftGodot.swiftmodule"
+    require_prebuilt_artifact "$derived_data/Build/Intermediates.noindex/GeneratedModuleMaps-iphonesimulator/SwiftGodot.modulemap"
+    require_prebuilt_artifact "$derived_data/Build/Intermediates.noindex/GeneratedModuleMaps-iphonesimulator/SwiftGodot-Swift.h"
+    require_prebuilt_artifact "$derived_data/Build/Products/$configuration-iphonesimulator/PackageFrameworks/SwiftGodotEmbed.framework"
 fi
 
 SWIFT_GODOT_CONFIGURATION="$configuration" scripts/make-swiftgodot-framework "$derived_data/" "$output_dir"

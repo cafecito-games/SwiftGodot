@@ -317,6 +317,11 @@ stage_ios_simulator_framework() {
 
 make_xcframework() {
     local module=$1
+    # When "swift", stage the SwiftPM-generated module map and -Swift.h so
+    # consumers can `import` the framework. C-only targets like
+    # SwiftGodotEmbed don't have a -Swift.h, and nothing imports them from
+    # SwiftPM, so the module-metadata dance is skipped.
+    local kind=${2:-swift}
     local output="$output_dir/$module.xcframework"
     local mac_framework
     local ios_framework
@@ -333,14 +338,16 @@ make_xcframework() {
     ios_framework=$(stage_ios_framework "$module")
     ios_sim_framework=$(stage_ios_simulator_framework "$module")
 
-    if [[ -n "$macos_x86_present" ]]; then
-        stage_module_metadata "$module" "$mac_framework" "$bd_mac" "$derived_data" "" "$bd_mac_x86" "${derived_data}_x86" ""
-    else
-        stage_module_metadata "$module" "$mac_framework" "$bd_mac" "$derived_data" ""
-    fi
+    if [[ "$kind" == "swift" ]]; then
+        if [[ -n "$macos_x86_present" ]]; then
+            stage_module_metadata "$module" "$mac_framework" "$bd_mac" "$derived_data" "" "$bd_mac_x86" "${derived_data}_x86" ""
+        else
+            stage_module_metadata "$module" "$mac_framework" "$bd_mac" "$derived_data" ""
+        fi
 
-    stage_module_metadata "$module" "$ios_framework" "$bd_ios" "$derived_data" "iphoneos"
-    stage_module_metadata "$module" "$ios_sim_framework" "$bd_ios_sim" "$derived_data" "iphonesimulator"
+        stage_module_metadata "$module" "$ios_framework" "$bd_ios" "$derived_data" "iphoneos"
+        stage_module_metadata "$module" "$ios_sim_framework" "$bd_ios_sim" "$derived_data" "iphonesimulator"
+    fi
 
     xcodebuild -quiet -create-xcframework \
         -framework "$mac_framework" \
@@ -359,5 +366,5 @@ fi
 # stage_module_metadata "SwiftGodot" — kept as an explicit grep target so the
 # regression test that asserts SwiftGodot-specific metadata staging still
 # matches.
-make_xcframework "SwiftGodot"
-make_xcframework "SwiftGodotEmbed"
+make_xcframework "SwiftGodot" swift
+make_xcframework "SwiftGodotEmbed" c

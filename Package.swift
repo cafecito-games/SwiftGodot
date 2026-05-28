@@ -192,22 +192,18 @@ var targets: [Target] = [
 
     // No-op GDExtension shipped inside the SwiftGodot Godot addon. Its sole
     // purpose is to give Godot's iOS/macOS exporters a registered extension
-    // that declares SwiftGodot under `[dependencies]`, so SwiftGodot.framework
-    // is embedded into the exported app exactly once. Registers no Godot
-    // classes.
+    // whose .gdextension lists SwiftGodot under `[dependencies]`, so
+    // SwiftGodot.framework is embedded into the exported app exactly once.
     //
-    // The entry point is implemented in C (see SwiftGodotEmbedEntry.c). A
-    // pure-Swift implementation that delegates to SwiftGodot's
-    // `initializeSwiftModule` gets dead-stripped by cross-module optimization
-    // into `return 1`, leaving the GDExtensionInitialization struct's
-    // `initialize` callback unset and producing
-    // `initialize_library: Parameter "initialization.initialize" is null.`
-    // warnings on every init-level transition. The `SwiftGodot` dependency is
-    // retained so building the SwiftGodotEmbed scheme transitively builds
-    // SwiftGodot.framework, which the Godot addon ships alongside.
+    // Intentionally a C target with no SwiftGodot dependency: SwiftPM links
+    // same-package target dependencies statically, so a Swift shim depending
+    // on SwiftGodot would inline the entire SwiftGodot module (~33 MB per
+    // slice). The C shim is a few KB; the .gdextension's [dependencies]
+    // block is what triggers SwiftGodot embedding, not this binary's link
+    // graph.
     .target(
         name: "SwiftGodotEmbed",
-        dependencies: ["SwiftGodot", "GDExtensionC"]
+        publicHeadersPath: "include"
     ),
 
     // The full SwiftGodot API: hand-written core + the generated Godot API,
