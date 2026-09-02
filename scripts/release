@@ -176,23 +176,27 @@ else
     require_prebuilt_artifact "$derived_data/Build/Intermediates.noindex/GeneratedModuleMaps/SwiftGodot.modulemap"
     require_prebuilt_artifact "$derived_data/Build/Intermediates.noindex/GeneratedModuleMaps/SwiftGodot-Swift.h"
     require_prebuilt_artifact "$derived_data/Build/Products/$configuration/PackageFrameworks/SwiftGodotEmbed.framework"
+    require_prebuilt_artifact "$derived_data/Build/Products/$configuration/GDExtensionC.o"
     if [[ -n "$include_macos_x86" ]]; then
         require_prebuilt_artifact "${derived_data}_x86/Build/Products/$configuration/PackageFrameworks/SwiftGodot.framework"
         require_prebuilt_artifact "${derived_data}_x86/Build/Products/$configuration/SwiftGodot.swiftmodule"
         require_prebuilt_artifact "${derived_data}_x86/Build/Intermediates.noindex/GeneratedModuleMaps/SwiftGodot.modulemap"
         require_prebuilt_artifact "${derived_data}_x86/Build/Intermediates.noindex/GeneratedModuleMaps/SwiftGodot-Swift.h"
         require_prebuilt_artifact "${derived_data}_x86/Build/Products/$configuration/PackageFrameworks/SwiftGodotEmbed.framework"
+        require_prebuilt_artifact "${derived_data}_x86/Build/Products/$configuration/GDExtensionC.o"
     fi
     require_prebuilt_artifact "$derived_data/Build/Products/$configuration-iphoneos/PackageFrameworks/SwiftGodot.framework"
     require_prebuilt_artifact "$derived_data/Build/Products/$configuration-iphoneos/SwiftGodot.swiftmodule"
     require_prebuilt_artifact "$derived_data/Build/Intermediates.noindex/GeneratedModuleMaps-iphoneos/SwiftGodot.modulemap"
     require_prebuilt_artifact "$derived_data/Build/Intermediates.noindex/GeneratedModuleMaps-iphoneos/SwiftGodot-Swift.h"
     require_prebuilt_artifact "$derived_data/Build/Products/$configuration-iphoneos/PackageFrameworks/SwiftGodotEmbed.framework"
+    require_prebuilt_artifact "$derived_data/Build/Products/$configuration-iphoneos/GDExtensionC.o"
     require_prebuilt_artifact "$derived_data/Build/Products/$configuration-iphonesimulator/PackageFrameworks/SwiftGodot.framework"
     require_prebuilt_artifact "$derived_data/Build/Products/$configuration-iphonesimulator/SwiftGodot.swiftmodule"
     require_prebuilt_artifact "$derived_data/Build/Intermediates.noindex/GeneratedModuleMaps-iphonesimulator/SwiftGodot.modulemap"
     require_prebuilt_artifact "$derived_data/Build/Intermediates.noindex/GeneratedModuleMaps-iphonesimulator/SwiftGodot-Swift.h"
     require_prebuilt_artifact "$derived_data/Build/Products/$configuration-iphonesimulator/PackageFrameworks/SwiftGodotEmbed.framework"
+    require_prebuilt_artifact "$derived_data/Build/Products/$configuration-iphonesimulator/GDExtensionC.o"
 fi
 
 SWIFT_GODOT_CONFIGURATION="$configuration" scripts/make-swiftgodot-framework "$derived_data/" "$output_dir"
@@ -209,20 +213,15 @@ zip_path="$output_dir/SwiftGodot.xcframework.zip"
 asset_url="https://github.com/$source_repo/releases/download/$tag/SwiftGodot.xcframework.zip"
 swiftgodot_checksum=$(swift package compute-checksum "$zip_path")
 
+gdextension_zip_path="$output_dir/GDExtensionC.xcframework.zip"
+(cd "$output_dir"; ditto -c -k --sequesterRsrc --keepParent GDExtensionC.xcframework GDExtensionC.xcframework.zip)
+gdextension_asset_url="https://github.com/$source_repo/releases/download/$tag/GDExtensionC.xcframework.zip"
+gdextension_checksum=$(swift package compute-checksum "$gdextension_zip_path")
+
 scripts/build-macro-artifactbundle "$output_dir" "$tag"
 macro_zip_path="$output_dir/SwiftGodotMacros.artifactbundle.zip"
 macro_asset_url="https://github.com/$source_repo/releases/download/$tag/SwiftGodotMacros.artifactbundle.zip"
 macro_checksum=$(swift package compute-checksum "$macro_zip_path")
-
-gh release create "$tag" "$zip_path" "$macro_zip_path" "$android_aar" "$addon_zip_path" -R "$source_repo" -F "$release_notes" --target "$commit"
-
-gdextension_target_dir="$binary_repo_dir/Sources/GDExtension"
-rm -rf "$gdextension_target_dir"
-mkdir -p "$gdextension_target_dir/include"
-cp Sources/GDExtension/GDExtension.h "$gdextension_target_dir/GDExtension.h"
-cp Sources/GDExtension/GDExtensionSupport.c "$gdextension_target_dir/GDExtensionSupport.c"
-cp Sources/GDExtension/include/GDExtensionSupport.h "$gdextension_target_dir/include/GDExtensionSupport.h"
-cp Sources/GDExtension/include/gdextension_interface.h "$gdextension_target_dir/include/gdextension_interface.h"
 
 # Drop any previously vendored SwiftGodotMacroLibrary sources; we now ship a
 # prebuilt compiler plugin via SwiftGodotMacros.artifactbundle.zip.
@@ -241,6 +240,13 @@ cat > "$binary_repo_dir/binaries.json" <<EOF
       "url": "$asset_url",
       "checksum": "$swiftgodot_checksum",
       "localPath": "Binaries/SwiftGodot.xcframework"
+    },
+    {
+      "name": "GDExtensionC",
+      "file": "GDExtensionC.xcframework.zip",
+      "url": "$gdextension_asset_url",
+      "checksum": "$gdextension_checksum",
+      "localPath": "Binaries/GDExtensionC.xcframework"
     },
     {
       "name": "SwiftGodotMacroLibrary",
@@ -280,19 +286,33 @@ let package = Package(
             name: "SwiftGodot",
             path: "Binaries/SwiftGodot.xcframework"),
         .binaryTarget(
+            name: "GDExtensionC",
+            path: "Binaries/GDExtensionC.xcframework"),
+        .binaryTarget(
             name: "SwiftGodotMacroLibrary",
             path: "Binaries/SwiftGodotMacros.artifactbundle"),
-        .target(
-            name: "GDExtensionC",
-            path: "Sources/GDExtension"),
         .testTarget(name: "SwiftGodotTests", dependencies: ["SwiftGodot", "GDExtensionC"]),
     ]
 )
 EOF
 
+# Exercise exactly the path-based package shape that downstream repositories
+# consume before creating immutable releases or tags.
+rm -rf "$binary_repo_dir/Binaries"
+mkdir -p "$binary_repo_dir/Binaries"
+rsync -a "$output_dir/SwiftGodot.xcframework" "$binary_repo_dir/Binaries/"
+rsync -a "$output_dir/GDExtensionC.xcframework" "$binary_repo_dir/Binaries/"
+rsync -a "$output_dir/SwiftGodotMacros.artifactbundle" "$binary_repo_dir/Binaries/"
+scripts/test-binary-package-consumer "$binary_repo_dir"
+
+gh release create "$tag" "$zip_path" "$gdextension_zip_path" "$macro_zip_path" "$android_aar" "$addon_zip_path" -R "$source_repo" -F "$release_notes" --target "$commit"
+
 (
     cd "$binary_repo_dir"
-    git add Package.swift Sources/GDExtension binaries.json .gitignore
+    git add Package.swift binaries.json .gitignore
+    if [[ -d Sources/GDExtension ]] || git ls-files --error-unmatch Sources/GDExtension >/dev/null 2>&1; then
+        git rm -rf --ignore-unmatch Sources/GDExtension
+    fi
     if [[ -d Sources/SwiftGodotMacroLibrary ]] || git ls-files --error-unmatch Sources/SwiftGodotMacroLibrary >/dev/null 2>&1; then
         git rm -rf --ignore-unmatch Sources/SwiftGodotMacroLibrary
     fi

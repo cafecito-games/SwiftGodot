@@ -186,6 +186,7 @@ jobs:
           tar -czf "$RUNNER_TEMP/swiftgodot-x86-products.tgz" -C "$DERIVED_DATA" \
             Build/Products/Release/PackageFrameworks/SwiftGodot.framework \
             Build/Products/Release/PackageFrameworks/SwiftGodotEmbed.framework \
+            Build/Products/Release/GDExtensionC.o \
             Build/Products/Release/SwiftGodot.swiftmodule \
             Build/Intermediates.noindex/GeneratedModuleMaps
 
@@ -250,6 +251,7 @@ jobs:
           tar -czf "$RUNNER_TEMP/swiftgodot-ios-products.tgz" -C "$DERIVED_DATA" \
             Build/Products/Release-iphoneos/PackageFrameworks/SwiftGodot.framework \
             Build/Products/Release-iphoneos/PackageFrameworks/SwiftGodotEmbed.framework \
+            Build/Products/Release-iphoneos/GDExtensionC.o \
             Build/Products/Release-iphoneos/SwiftGodot.swiftmodule \
             Build/Intermediates.noindex/GeneratedModuleMaps-iphoneos
 
@@ -315,6 +317,7 @@ jobs:
           tar -czf "$RUNNER_TEMP/swiftgodot-ios-simulator-products.tgz" -C "$DERIVED_DATA" \
             Build/Products/Release-iphonesimulator/PackageFrameworks/SwiftGodot.framework \
             Build/Products/Release-iphonesimulator/PackageFrameworks/SwiftGodotEmbed.framework \
+            Build/Products/Release-iphonesimulator/GDExtensionC.o \
             Build/Products/Release-iphonesimulator/SwiftGodot.swiftmodule \
             Build/Intermediates.noindex/GeneratedModuleMaps-iphonesimulator
 
@@ -379,6 +382,7 @@ jobs:
           tar -czf "$RUNNER_TEMP/swiftgodot-arm64-products.tgz" -C "$DERIVED_DATA" \
             Build/Products/Release/PackageFrameworks/SwiftGodot.framework \
             Build/Products/Release/PackageFrameworks/SwiftGodotEmbed.framework \
+            Build/Products/Release/GDExtensionC.o \
             Build/Products/Release/SwiftGodot.swiftmodule \
             Build/Intermediates.noindex/GeneratedModuleMaps
 

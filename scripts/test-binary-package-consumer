@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ $# -ne 1 || ! -f "$1/Package.swift" ]]; then
+    echo "Usage: scripts/test-binary-package-consumer BINARY_PACKAGE_DIR" >&2
+    exit 1
+fi
+
+binary_package_dir=$(cd "$1" && pwd)
+work_dir=$(mktemp -d)
+trap 'rm -rf "$work_dir"' EXIT
+
+mkdir -p "$work_dir/Sources/BinaryConsumerProbe"
+cat > "$work_dir/Package.swift" <<EOF
+// swift-tools-version: 6.2
+import PackageDescription
+
+let package = Package(
+    name: "BinaryConsumerProbe",
+    platforms: [.macOS(.v14)],
+    products: [
+        .library(name: "BinaryConsumerProbe", type: .dynamic, targets: ["BinaryConsumerProbe"]),
+    ],
+    dependencies: [
+        .package(name: "SwiftGodotBinary", path: "$binary_package_dir"),
+    ],
+    targets: [
+        .target(
+            name: "BinaryConsumerProbe",
+            dependencies: [
+                .product(name: "SwiftGodot", package: "SwiftGodotBinary"),
+            ]
+        ),
+    ]
+)
+EOF
+
+cat > "$work_dir/Sources/BinaryConsumerProbe/Probe.swift" <<'EOF'
+import SwiftGodot
+
+public enum BinaryConsumerProbe {
+    public static let importedType = String(describing: Node.self)
+}
+EOF
+
+swift build \
+    --package-path "$work_dir" \
+    --product BinaryConsumerProbe \
+    --configuration release \
+    --scratch-path "$work_dir/.build"
+
+if otool -L "$work_dir/.build/release/libBinaryConsumerProbe.dylib" | rg -q 'GDExtensionC'; then
+    echo "GDExtensionC must remain a static build-only dependency" >&2
+    exit 1
+fi
+
+echo "binary package consumer test passed"

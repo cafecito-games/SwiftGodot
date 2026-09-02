@@ -25,6 +25,14 @@ let package = Package(
             type: .dynamic,
             targets: ["SwiftGodotEmbed"]
         ),
+        // A static framework keeps the Clang module independently discoverable
+        // while Swift validates SwiftGodot.swiftinterface, without adding a
+        // runtime framework dependency for consuming GDExtensions.
+        .library(
+            name: "GDExtensionC",
+            type: .static,
+            targets: ["GDExtensionC"]
+        ),
     ],
     traits: [
         .trait(
