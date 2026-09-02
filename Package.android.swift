@@ -38,14 +38,21 @@ let package = Package(
                 .define("SWIFTGODOT_WITH_MULTI_PROCESS", .when(traits: [withMultiProcessTrait])),
                 .unsafeFlags([
                     "-enable-library-evolution",
+                    "-no-verify-emitted-module-interface",
                     "-suppress-warnings",
                     "-Xfrontend", "-conditional-runtime-records",
                 ]),
+            ],
+            linkerSettings: [
+                .unsafeFlags(["-Xlinker", "-soname", "-Xlinker", "libSwiftGodot.so"]),
             ]
         ),
         .target(
             name: "SwiftGodotEmbed",
-            publicHeadersPath: "include"
+            publicHeadersPath: "include",
+            linkerSettings: [
+                .unsafeFlags(["-Xlinker", "-soname", "-Xlinker", "libSwiftGodotEmbed.so"]),
+            ]
         ),
     ]
 )

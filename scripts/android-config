@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+
+# Android release inputs. These values are intentionally kept in one place so
+# local builds and CI produce ABI-compatible artifacts.
+export SWIFT_ANDROID_VERSION=6.3.3
+export SWIFT_ANDROID_SDK_ID=swift-6.3.3-RELEASE_android
+export SWIFT_ANDROID_API=28
+export SWIFT_ANDROID_NDK_VERSION=27.3.13750724
+export SWIFT_ANDROID_TRIPLES="aarch64-unknown-linux-android28 x86_64-unknown-linux-android28"

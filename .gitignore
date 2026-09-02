@@ -26,3 +26,5 @@ Sources/SwiftGodot/_generated/*
 Tests/SwiftGodotTestProject/test_results.json
 /Testbed/bin/SwiftGodot
 .worktrees/
+/android/.gradle/
+/android/build/

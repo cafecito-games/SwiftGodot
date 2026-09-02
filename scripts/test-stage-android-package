@@ -26,6 +26,9 @@ rg -q 'type: \.dynamic' "$output/Package.swift" || fail "Android products must b
 rg -q 'name: "SwiftGodotEmbed"' "$output/Package.swift" || fail "SwiftGodotEmbed product missing"
 rg -q '\.swiftLanguageMode\(\.v6\)' "$output/Package.swift" || fail "Swift 6 mode missing"
 rg -q -- '-enable-library-evolution' "$output/Package.swift" || fail "library evolution missing"
+rg -q -- '-no-verify-emitted-module-interface' "$output/Package.swift" || fail "C-importing interface verification workaround missing"
+rg -q 'libSwiftGodot[.]so' "$output/Package.swift" || fail "SwiftGodot SONAME linker setting missing"
+rg -q 'libSwiftGodotEmbed[.]so' "$output/Package.swift" || fail "SwiftGodotEmbed SONAME linker setting missing"
 if rg -q -- '-internalize-at-link|-lto=llvm-full' "$output/Package.swift"; then
     fail "Android manifest must not internalize public symbols or use Apple release LTO flags"
 fi

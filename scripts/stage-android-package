@@ -34,7 +34,7 @@ cp "$repository_root/Package.android.swift" "$output_dir/Package.swift"
 rsync -aL "$repository_root/Sources/GDExtension" "$output_dir/Sources/"
 rsync -aL --exclude _generated "$repository_root/Sources/SwiftGodot" "$output_dir/Sources/"
 rsync -aL "$repository_root/Sources/SwiftGodotEmbed" "$output_dir/Sources/"
-find "$generated_sources" -type f -name '*.swift' -exec cp {} "$output_dir/Sources/SwiftGodot/_generated/" \;
+find "$generated_sources" -type f -name '*.swift' -exec cp -p {} "$output_dir/Sources/SwiftGodot/_generated/" \;
 
 if ! find "$output_dir/Sources/SwiftGodot/_generated" -type f -name '*.swift' -print -quit | grep -q .; then
     echo "Error: no generated Swift sources were staged" >&2

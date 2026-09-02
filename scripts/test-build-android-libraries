@@ -1,0 +1,94 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+fail() {
+    echo "FAIL: $*" >&2
+    exit 1
+}
+
+repo_root=$(cd "$(dirname "$0")/.." && pwd)
+work_dir=$(mktemp -d)
+trap 'rm -rf "$work_dir"' EXIT
+
+fake_bin="$work_dir/bin"
+android_home="$work_dir/android-sdk"
+ndk_root="$android_home/ndk/27.3.13750724"
+mkdir -p "$fake_bin" "$ndk_root"
+printf '%s\n' 'Pkg.Revision = 27.3.13750724' > "$ndk_root/source.properties"
+
+cat > "$fake_bin/swift" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%q ' "$@" >> "$SWIFT_TEST_LOG"
+printf '\n' >> "$SWIFT_TEST_LOG"
+if [[ "${1:-}" == "--version" ]]; then
+    echo "Swift version 6.3.3 (swift-6.3.3-RELEASE)"
+    exit 0
+fi
+if [[ "${1:-} ${2:-}" == "sdk list" ]]; then
+    echo "${SWIFT_TEST_SDK_LIST:-swift-6.3.3-RELEASE_android}"
+    exit 0
+fi
+scratch=
+product=
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --scratch-path) scratch=$2; shift 2 ;;
+        --product) product=$2; shift 2 ;;
+        *) shift ;;
+    esac
+done
+if [[ -n "$scratch" && -n "$product" ]]; then
+    mkdir -p "$scratch/release"
+    printf 'fake elf\n' > "$scratch/release/lib${product}.so"
+elif [[ -n "$scratch" ]]; then
+    generated_root="$scratch/plugins/outputs/test/SwiftGodot"
+    mkdir -p \
+        "$generated_root/tools/CodeGeneratorPlugin/GeneratedSources/SwiftGodot" \
+        "$generated_root/destination/CodeGeneratorPlugin/GeneratedSources/SwiftGodot"
+    printf '%s\n' 'public enum GeneratedForTest {}' > \
+        "$generated_root/destination/CodeGeneratorPlugin/GeneratedSources/SwiftGodot/GeneratedForTest.swift"
+fi
+EOF
+chmod +x "$fake_bin/swift"
+
+cat > "$fake_bin/java" <<'EOF'
+#!/usr/bin/env bash
+echo 'openjdk version "17.0.12"' >&2
+EOF
+chmod +x "$fake_bin/java"
+
+export PATH="$fake_bin:$PATH"
+export SWIFT_TEST_LOG="$work_dir/swift.log"
+export ANDROID_HOME="$android_home"
+export ANDROID_NDK_ROOT="$ndk_root"
+export SWIFT_GODOT_ANDROID_WORK_DIR="$work_dir/android-build"
+
+output="$work_dir/output"
+"$repo_root/scripts/build-android-libraries" "$output"
+
+for expected in \
+    'build .* -c release --swift-sdk aarch64-unknown-linux-android28 --product SwiftGodot' \
+    'build .* -c release --swift-sdk aarch64-unknown-linux-android28 --product SwiftGodotEmbed' \
+    'build .* -c release --swift-sdk x86_64-unknown-linux-android28 --product SwiftGodot' \
+    'build .* -c release --swift-sdk x86_64-unknown-linux-android28 --product SwiftGodotEmbed'
+do
+    grep -Eq "$expected" "$SWIFT_TEST_LOG" || fail "missing Swift invocation matching: $expected"
+done
+
+for library in \
+    jni/arm64-v8a/libSwiftGodot.so \
+    jni/arm64-v8a/libSwiftGodotEmbed.so \
+    jni/x86_64/libSwiftGodot.so \
+    jni/x86_64/libSwiftGodotEmbed.so
+do
+    [[ -f "$output/$library" ]] || fail "missing staged library: $library"
+done
+
+missing_log="$work_dir/missing-sdk.log"
+if SWIFT_TEST_SDK_LIST=none "$repo_root/scripts/build-android-libraries" "$work_dir/missing" >"$missing_log" 2>&1; then
+    fail "build unexpectedly succeeded without the Android Swift SDK"
+fi
+grep -q 'swift-6.3.3-RELEASE_android' "$missing_log" || fail "missing SDK diagnostic did not name the required SDK"
+
+echo "Android cross-build orchestration tests passed"
