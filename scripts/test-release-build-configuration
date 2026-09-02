@@ -13,6 +13,10 @@ rg -q 'Build/Products/Release-iphoneos/PackageFrameworks/SwiftGodot.framework' .
 rg -q 'SWIFT_GODOT_CONFIGURATION.*Release' .github/workflows/release.yml || fail "release workflow must set SWIFT_GODOT_CONFIGURATION to Release"
 rg -q 'SWIFT_GODOT_ANDROID_AAR' scripts/release .github/workflows/release.yml || fail "release path must pass the prebuilt Android AAR"
 rg -q 'SwiftGodot-release\.aar' .github/workflows/release.yml || fail "release workflow must stage the publishable Android AAR"
+for workflow in .github/workflows/swift.yml .github/workflows/release.yml; do
+    rg -q 'SWIFT_GODOT_ANDROID_SDK_ROOT=\$sdk_root.*GITHUB_ENV' "$workflow" ||
+        fail "$workflow must persist the discovered Swift Android SDK root"
+done
 
 if rg -q 'Build/Products/Debug' .github/workflows/release.yml scripts/release scripts/make-swiftgodot-framework; then
     fail "release packaging should not hard-code Debug product paths"
