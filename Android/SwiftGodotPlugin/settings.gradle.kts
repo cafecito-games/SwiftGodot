@@ -16,3 +16,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "SwiftGodotAndroidPlugin"
 include(":plugin")
+include(":test-plugin")

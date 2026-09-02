@@ -31,3 +31,4 @@ Tests/SwiftGodotTestProject/test_results.json
 /Android/SwiftGodotPlugin/.gradle/
 /Android/SwiftGodotPlugin/build/
 /Android/SwiftGodotPlugin/plugin/build/
+/Android/SwiftGodotPlugin/test-plugin/build/

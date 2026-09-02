@@ -1,0 +1,12 @@
+[configuration]
+
+entry_symbol = "swiftgodot_android_test_entry"
+compatibility_minimum = 4.7
+android_aar_plugin = true
+
+[libraries]
+
+android.debug.arm64 = "res://addons/SwiftGodotAndroidTest/bin/arm64-v8a/libAndroidTestExtension.so"
+android.release.arm64 = "res://addons/SwiftGodotAndroidTest/bin/arm64-v8a/libAndroidTestExtension.so"
+android.debug.x86_64 = "res://addons/SwiftGodotAndroidTest/bin/x86_64/libAndroidTestExtension.so"
+android.release.x86_64 = "res://addons/SwiftGodotAndroidTest/bin/x86_64/libAndroidTestExtension.so"
