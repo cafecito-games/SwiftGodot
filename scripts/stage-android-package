@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+    echo "Usage: scripts/stage-android-package GENERATED_SOURCES OUTPUT_DIR" >&2
+}
+
+if [[ $# -ne 2 ]]; then
+    usage
+    exit 2
+fi
+
+script_dir=$(cd "$(dirname "$0")" && pwd)
+repository_root=$(cd "$script_dir/.." && pwd)
+generated_sources=$1
+output_dir=$2
+
+[[ -d "$generated_sources" ]] || {
+    echo "Error: generated Swift source directory does not exist: $generated_sources" >&2
+    exit 1
+}
+
+case "$output_dir" in
+    ""|/|"$repository_root")
+        echo "Error: refusing unsafe output directory: $output_dir" >&2
+        exit 1
+        ;;
+esac
+
+rm -rf "$output_dir"
+mkdir -p "$output_dir/Sources/SwiftGodot/_generated"
+
+cp "$repository_root/Package.android.swift" "$output_dir/Package.swift"
+rsync -aL "$repository_root/Sources/GDExtension" "$output_dir/Sources/"
+rsync -aL --exclude _generated "$repository_root/Sources/SwiftGodot" "$output_dir/Sources/"
+rsync -aL "$repository_root/Sources/SwiftGodotEmbed" "$output_dir/Sources/"
+find "$generated_sources" -type f -name '*.swift' -exec cp {} "$output_dir/Sources/SwiftGodot/_generated/" \;
+
+if ! find "$output_dir/Sources/SwiftGodot/_generated" -type f -name '*.swift' -print -quit | grep -q .; then
+    echo "Error: no generated Swift sources were staged" >&2
+    exit 1
+fi
+
+echo "Staged Android package at $output_dir"

@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+fail() {
+    echo "FAIL: $*" >&2
+    exit 1
+}
+
+work_dir=$(mktemp -d)
+trap 'rm -rf "$work_dir"' EXIT
+
+generated="$work_dir/generated"
+output="$work_dir/output"
+mkdir -p "$generated"
+printf '%s\n' 'public enum FakeGenerated {}' > "$generated/FakeGenerated.swift"
+
+scripts/stage-android-package "$generated" "$output"
+
+[[ -f "$output/Package.swift" ]] || fail "staged Package.swift missing"
+[[ -d "$output/Sources/GDExtension" ]] || fail "staged GDExtension sources missing"
+[[ -d "$output/Sources/SwiftGodot" ]] || fail "staged SwiftGodot sources missing"
+[[ -d "$output/Sources/SwiftGodotEmbed" ]] || fail "staged SwiftGodotEmbed sources missing"
+[[ -f "$output/Sources/SwiftGodot/_generated/FakeGenerated.swift" ]] || fail "generated Swift source missing"
+
+rg -q 'type: \.dynamic' "$output/Package.swift" || fail "Android products must be dynamic"
+rg -q 'name: "SwiftGodotEmbed"' "$output/Package.swift" || fail "SwiftGodotEmbed product missing"
+rg -q '\.swiftLanguageMode\(\.v6\)' "$output/Package.swift" || fail "Swift 6 mode missing"
+rg -q -- '-enable-library-evolution' "$output/Package.swift" || fail "library evolution missing"
+if rg -q -- '-internalize-at-link|-lto=llvm-full' "$output/Package.swift"; then
+    fail "Android manifest must not internalize public symbols or use Apple release LTO flags"
+fi
+
+if find "$output" -type l -print | grep -q .; then
+    fail "staged Android package must not contain symlinks"
+fi
+
+echo "Android distribution staging tests passed"
