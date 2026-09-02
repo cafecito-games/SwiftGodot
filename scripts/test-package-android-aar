@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+fail() {
+    echo "FAIL: $*" >&2
+    exit 1
+}
+
+repo_root=$(cd "$(dirname "$0")/.." && pwd)
+work_dir=$(mktemp -d)
+trap 'rm -rf "$work_dir"' EXIT
+
+jni_root="$work_dir/jni"
+output="$work_dir/output"
+unpacked="$work_dir/unpacked"
+for abi in arm64-v8a x86_64; do
+    mkdir -p "$jni_root/$abi"
+    printf 'fixture %s SwiftGodot\n' "$abi" > "$jni_root/$abi/libSwiftGodot.so"
+    printf 'fixture %s SwiftGodotEmbed\n' "$abi" > "$jni_root/$abi/libSwiftGodotEmbed.so"
+done
+
+"$repo_root/scripts/package-android-aar" "$jni_root" "$output"
+aar="$output/SwiftGodot-release.aar"
+[[ -f "$aar" ]] || fail "release AAR missing"
+
+mkdir -p "$unpacked"
+unzip -q "$aar" -d "$unpacked"
+
+[[ -f "$unpacked/AndroidManifest.xml" ]] || fail "AndroidManifest.xml missing"
+[[ -f "$unpacked/classes.jar" ]] || fail "classes.jar missing"
+[[ -f "$unpacked/jni/arm64-v8a/libSwiftGodot.so" ]] || fail "arm64-v8a SwiftGodot missing"
+[[ -f "$unpacked/jni/arm64-v8a/libSwiftGodotEmbed.so" ]] || fail "arm64-v8a embed missing"
+[[ -f "$unpacked/jni/x86_64/libSwiftGodot.so" ]] || fail "x86_64 SwiftGodot missing"
+[[ -f "$unpacked/jni/x86_64/libSwiftGodotEmbed.so" ]] || fail "x86_64 embed missing"
+[[ -f "$unpacked/assets/addons/SwiftGodot/SwiftGodotEmbed.gdextension" ]] ||
+    fail "SwiftGodotEmbed.gdextension asset missing"
+
+rg -q 'org[.]godotengine[.]plugin[.]v2[.]SwiftGodot' "$unpacked/AndroidManifest.xml" ||
+    fail "Godot v2 plugin metadata missing"
+unzip -l "$unpacked/classes.jar" | rg -q \
+    'games/cafecito/swiftgodot/SwiftGodotPlugin[.]class' ||
+    fail "compiled Kotlin initializer missing"
+rg -q 'android_aar_plugin[[:space:]]*=[[:space:]]*true' \
+    "$unpacked/assets/addons/SwiftGodot/SwiftGodotEmbed.gdextension" ||
+    fail "gdextension does not identify an Android AAR plugin"
+
+if [[ -d "$repo_root/Android/SwiftGodotPlugin/plugin/src/main/jniLibs" ]]; then
+    fail "packager left generated JNI inputs in the source tree"
+fi
+
+echo "Android AAR packaging tests passed"
