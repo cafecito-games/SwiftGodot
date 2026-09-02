@@ -323,31 +323,56 @@ jobs:
         repositories: custom-godot
         permission-contents: read
 
-    # The runner exposes /dev/kvm but only to the kvm group, so the emulator
-    # falls back to software emulation and never finishes booting.
-    - name: Grant access to KVM
+    # Launch the emulator directly instead of through a third-party action. The
+    # action booted a google_apis image on a pixel_6 profile and never reached
+    # sys.boot_completed on this runner, and it captures no emulator log to
+    # diagnose from. This mirrors the launch that works in Foundry-Java.
+    - name: Launch x86_64 emulator
       run: |
-        printf 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"\n' |
-          sudo tee /etc/udev/rules.d/99-kvm4all.rules
-        sudo udevadm control --reload-rules
-        sudo udevadm trigger --name-match=kvm
-        test -w /dev/kvm
+        test -c /dev/kvm
+        sudo chmod 666 /dev/kvm
+        sdkmanager "emulator" "system-images;android-35;default;x86_64"
+        ANDROID_AVD_HOME="$RUNNER_TEMP/android-avd"
+        echo "ANDROID_AVD_HOME=$ANDROID_AVD_HOME" >> "$GITHUB_ENV"
+        export ANDROID_AVD_HOME
+        mkdir -p "$ANDROID_AVD_HOME"
+        echo no | avdmanager create avd --force --name test \
+          --package "system-images;android-35;default;x86_64"
+        # Bound the data partition, then let -wipe-data format it at boot.
+        scripts/configure-android-emulator
+        nohup "$ANDROID_HOME/emulator/emulator" \
+          -avd test \
+          -port 5554 \
+          -no-window \
+          -no-audio \
+          -no-boot-anim \
+          -no-snapshot \
+          -wipe-data \
+          -gpu swiftshader_indirect \
+          > "$RUNNER_TEMP/swiftgodot-emulator.log" 2>&1 &
+
+    - name: Wait for emulator boot
+      run: |
+        adb start-server
+        attempt=1
+        while [[ "$attempt" -le 180 ]]; do
+          if [[ "$(adb -s emulator-5554 shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" == "1" ]]; then
+            adb -s emulator-5554 devices -l
+            exit 0
+          fi
+          sleep 2
+          attempt=$((attempt + 1))
+        done
+        adb devices -l
+        echo "--- emulator log ---" >&2
+        tail -80 "$RUNNER_TEMP/swiftgodot-emulator.log" >&2
+        exit 1
 
     - name: Run x86_64 Android emulator smoke test
-      uses: reactivecircus/android-emulator-runner@v2
       env:
         GH_TOKEN: ${{ steps.custom-godot-token.outputs.token }}
-      with:
-        api-level: 35
-        arch: x86_64
-        target: google_apis
-        profile: pixel_6
-        # The action appends rather than replaces the profile's existing value,
-        # so normalize it in the pre-launch hook before the emulator reads it.
-        disk-size: 3G
-        pre-emulator-launch-script: scripts/configure-android-emulator
-        disable-animations: true
-        script: scripts/test-android-runtime x86_64
+        ANDROID_SERIAL: emulator-5554
+      run: scripts/test-android-runtime x86_64
 
     - name: Upload Android diagnostics
       if: always()
@@ -358,4 +383,5 @@ jobs:
           .build/android-aar/SwiftGodot-release.aar
           .build/android-test/SwiftGodotAndroidTest-release.aar
           .build/android-runtime-x86_64/project/build/SwiftGodotAndroidTest.apk
+          ${{ runner.temp }}/swiftgodot-emulator.log
         if-no-files-found: warn

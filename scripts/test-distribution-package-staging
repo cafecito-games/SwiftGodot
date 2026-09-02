@@ -33,8 +33,8 @@ rg -q 'sudo apt-get install -y ripgrep' .github/workflows/swift.yml || fail "And
 rg -q 'scripts/build-android-libraries' .github/workflows/swift.yml || fail "CI must cross-build Android libraries"
 rg -q 'scripts/build-android-test-extension' .github/workflows/swift.yml || fail "CI must build the independent Android consumer"
 rg -q 'scripts/test-android-runtime x86_64' .github/workflows/swift.yml || fail "CI must execute the x86_64 Android runtime smoke test"
-rg -q 'disk-size: 3G' .github/workflows/swift.yml || fail "Android CI must use a bounded emulator data partition"
-rg -q 'pre-emulator-launch-script: scripts/configure-android-emulator' .github/workflows/swift.yml || fail "Android CI must replace duplicate AVD partition settings before launch"
+rg -q 'scripts/configure-android-emulator' .github/workflows/swift.yml || fail "Android CI must use a bounded emulator data partition"
+rg -q 'SWIFT_GODOT_ANDROID_EMULATOR_DISK_SIZE|disk\.dataPartition\.size' scripts/configure-android-emulator || fail "the emulator configuration helper must set the AVD data partition"
 rg -q 'swift-6\.3\.3-RELEASE_android' .github/workflows/swift.yml .github/workflows/release.yml || fail "Android workflows must install the pinned Swift SDK"
 rg -q '^  build-android:' .github/workflows/release.yml || fail "release workflow must build the Android AAR"
 android_release_abi_job=$(job_block .github/workflows/release.yml build-android-abi)

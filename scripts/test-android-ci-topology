@@ -86,10 +86,26 @@ grep -Fq 'runs-on: ubuntu-24.04' <<< "$emulator_job" ||
     fail "the Android emulator job must stay on a KVM-capable GitHub runner"
 grep -Fq 'scripts/test-android-runtime x86_64' <<< "$emulator_job" ||
     fail "the emulator smoke test must run in the packaging job"
-grep -Fq 'name: Grant access to KVM' <<< "$emulator_job" ||
+grep -Fq 'test -c /dev/kvm' <<< "$emulator_job" ||
+    fail "the emulator job must fail fast when /dev/kvm is absent"
+grep -Fq 'sudo chmod 666 /dev/kvm' <<< "$emulator_job" ||
     fail "the emulator job must make /dev/kvm writable before launching"
-grep -Fq 'test -w /dev/kvm' <<< "$emulator_job" ||
-    fail "the emulator job must fail fast when hardware acceleration is unavailable"
+
+# The emulator is launched directly: the third-party action never reached
+# sys.boot_completed here and captured no log to diagnose from.
+if grep -Fq 'reactivecircus/android-emulator-runner' <<< "$emulator_job"; then
+    fail "the emulator must be launched directly, not through the action"
+fi
+grep -Fq 'system-images;android-35;default;x86_64' <<< "$emulator_job" ||
+    fail "the emulator must use the default system image, not a google_apis one"
+grep -Eq '^[[:space:]]+-wipe-data[[:space:]]*\\$' <<< "$emulator_job" ||
+    fail "the emulator must wipe data so the resized partition is formatted at boot"
+grep -Fq 'scripts/configure-android-emulator' <<< "$emulator_job" ||
+    fail "the emulator job must bound the AVD data partition"
+grep -Fq 'getprop sys.boot_completed' <<< "$emulator_job" ||
+    fail "the emulator job must wait for an observable boot"
+grep -Fq 'swiftgodot-emulator.log' <<< "$emulator_job" ||
+    fail "the emulator job must capture an emulator log to diagnose from"
 
 abi_job=$(job_block "$ci_workflow" android-abi)
 grep -Fq 'runs-on: blacksmith-8vcpu-ubuntu-2404' <<< "$abi_job" ||
