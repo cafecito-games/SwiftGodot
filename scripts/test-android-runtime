@@ -14,6 +14,7 @@ repository_root=$(cd "$script_dir/.." && pwd)
 release_tag=v4.7.2-20260826.1
 godot_version=4.7.2.stable.cafecito_dc0a505af.ed1daf0bf
 editor_sha=6e9945ad00d7c6877f1c3a98224c17c5ff0caf8cf42b716e9152569f6b2ac71e
+linux_editor_sha=2c94cdefddfe78ede2b5fa11b7aec6affdff5496584fe59b3f9a967ff7fefd55
 templates_sha=a3570264cfedba3b716d6b1bc33ff1b78351b965d0dcae6262b4c1a009b01bb8
 cache_dir=${SWIFT_GODOT_ANDROID_RUNTIME_CACHE:-"$repository_root/.build/android-runtime-cache"}
 work_dir=${SWIFT_GODOT_ANDROID_RUNTIME_WORK_DIR:-"$repository_root/.build/android-runtime-$abi"}
@@ -89,15 +90,32 @@ if [[ -z "${SWIFT_GODOT_RUNTIME_SKIP_SETUP:-}" ]]; then
     write_export_plugin "$test_addon" SwiftGodotAndroidTest-release.aar SwiftGodotAndroidTest
 
     if [[ -z "$godot_command" ]]; then
-        editor_zip="$cache_dir/godot_macos_editor.arm64.zip"
-        download_release_asset godot_macos_editor.arm64.zip "$editor_zip" "$editor_sha"
         editor_dir="$cache_dir/editor"
-        if [[ ! -d "$editor_dir/Godot.app" ]]; then
+        case "$(uname -s)" in
+        Darwin)
+            editor_archive="$cache_dir/godot_macos_editor.arm64.zip"
+            download_release_asset godot_macos_editor.arm64.zip "$editor_archive" "$editor_sha"
+            if [[ ! -d "$editor_dir" ]]; then
+                mkdir -p "$editor_dir"
+                unzip -q "$editor_archive" -d "$editor_dir"
+            fi
+            godot_command=$(find "$editor_dir" -type f -path '*/Contents/MacOS/Godot' -print -quit)
+            ;;
+        Linux)
+            editor_archive="$cache_dir/godot_linux_editor.x86_64.tar.gz"
+            download_release_asset godot_linux_editor.x86_64.tar.gz "$editor_archive" "$linux_editor_sha"
+            if [[ ! -d "$editor_dir" ]]; then
+                mkdir -p "$editor_dir"
+                tar -xzf "$editor_archive" -C "$editor_dir"
+            fi
+            godot_command=$(find "$editor_dir" -maxdepth 2 -type f -perm -111 -name 'godot*' -print -quit)
+            ;;
+        *) die "unsupported host platform: $(uname -s)" ;;
+        esac
+        if [[ -z "$godot_command" ]]; then
             rm -rf "$editor_dir"
-            mkdir -p "$editor_dir"
-            unzip -q "$editor_zip" -d "$editor_dir"
+            die "custom Godot editor executable was not found in $editor_archive"
         fi
-        godot_command="$editor_dir/Godot.app/Contents/MacOS/Godot"
     fi
     [[ -x "$godot_command" ]] || die "Godot editor is not executable: $godot_command"
     [[ "$($godot_command --version | head -1)" == "$godot_version" ]] || die "unexpected Godot editor version"
