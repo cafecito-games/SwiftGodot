@@ -30,18 +30,24 @@ jobs:
       with:
         xcode-version: "latest-stable"
 
+    - name: Create custom Godot access token
+      id: custom-godot-token
+      uses: actions/create-github-app-token@v3
+      with:
+        app-id: ${{ secrets.CAFECITO_CI_BOT_APP_ID }}
+        private-key: ${{ secrets.CAFECITO_CI_BOT_PRIVATE_KEY }}
+        owner: cafecito-games
+        repositories: custom-godot
+        permission-contents: read
+
     - name: Install ripgrep
       run: brew install ripgrep
 
     - name: Install custom Godot
       env:
-        GH_TOKEN: ${{ secrets.SWIFT_GODOT_RELEASE_TOKEN }}
+        GH_TOKEN: ${{ steps.custom-godot-token.outputs.token }}
       run: |
         test "$(uname -m)" = arm64
-        if [[ -z "$GH_TOKEN" ]]; then
-          echo "::error title=Missing secret::SWIFT_GODOT_RELEASE_TOKEN must have Contents read access to cafecito-games/custom-godot."
-          exit 1
-        fi
 
         archive="$RUNNER_TEMP/godot_macos_editor.arm64.zip"
         install_dir="$RUNNER_TEMP/custom-godot"
