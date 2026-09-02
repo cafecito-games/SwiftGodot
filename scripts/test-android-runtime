@@ -1,0 +1,149 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+    echo "Usage: scripts/test-android-runtime {arm64-v8a|x86_64}" >&2
+}
+
+if [[ $# -ne 1 ]]; then usage; exit 2; fi
+abi=$1
+case "$abi" in arm64-v8a|x86_64) ;; *) usage; exit 2 ;; esac
+
+script_dir=$(cd "$(dirname "$0")" && pwd)
+repository_root=$(cd "$script_dir/.." && pwd)
+release_tag=v4.7.2-20260826.1
+godot_version=4.7.2.stable.cafecito_dc0a505af.ed1daf0bf
+editor_sha=6e9945ad00d7c6877f1c3a98224c17c5ff0caf8cf42b716e9152569f6b2ac71e
+templates_sha=a3570264cfedba3b716d6b1bc33ff1b78351b965d0dcae6262b4c1a009b01bb8
+cache_dir=${SWIFT_GODOT_ANDROID_RUNTIME_CACHE:-"$repository_root/.build/android-runtime-cache"}
+work_dir=${SWIFT_GODOT_ANDROID_RUNTIME_WORK_DIR:-"$repository_root/.build/android-runtime-$abi"}
+project_dir="$work_dir/project"
+apk="$project_dir/build/SwiftGodotAndroidTest.apk"
+godot_command=${SWIFT_GODOT_GODOT_COMMAND:-}
+adb_command=${SWIFT_GODOT_ADB_COMMAND:-adb}
+timeout_seconds=${SWIFT_GODOT_ANDROID_TIMEOUT:-120}
+serial=${ANDROID_SERIAL:-}
+
+die() { echo "Error: $*" >&2; exit 1; }
+sha256() { shasum -a 256 "$1" | awk '{print $1}'; }
+
+case "$work_dir" in
+    ""|/|"$repository_root") die "refusing unsafe runtime work directory: $work_dir" ;;
+esac
+
+download_release_asset() {
+    local name=$1 destination=$2 expected=$3
+    if [[ ! -f "$destination" ]]; then
+        mkdir -p "$(dirname "$destination")"
+        gh release download "$release_tag" --repo cafecito-games/custom-godot --pattern "$name" --output "$destination"
+    fi
+    [[ "$(sha256 "$destination")" == "$expected" ]] || die "SHA-256 mismatch for $name"
+}
+
+write_export_plugin() {
+    local addon=$1 aar_name=$2 plugin_name=$3
+    cat > "$addon/plugin.cfg" <<EOF
+[plugin]
+name="$plugin_name"
+description="SwiftGodot Android runtime verification plugin"
+author="cafecito-games"
+version="test"
+script="export_plugin.gd"
+EOF
+    cat > "$addon/export_plugin.gd" <<EOF
+@tool
+extends EditorPlugin
+var export_plugin
+func _enter_tree():
+\texport_plugin = AndroidExportPlugin.new()
+\tadd_export_plugin(export_plugin)
+func _exit_tree():
+\tremove_export_plugin(export_plugin)
+\texport_plugin = null
+class AndroidExportPlugin extends EditorExportPlugin:
+\tfunc _supports_platform(platform):
+\t\treturn platform is EditorExportPlatformAndroid
+\tfunc _get_android_libraries(platform, debug):
+\t\treturn PackedStringArray(["res://addons/$plugin_name/bin/$aar_name"])
+\tfunc _get_name():
+\t\treturn "$plugin_name"
+EOF
+}
+
+rm -rf "$project_dir"
+mkdir -p "$work_dir"
+rsync -aL "$repository_root/Tests/AndroidTestProject/" "$project_dir/"
+
+if [[ -z "${SWIFT_GODOT_RUNTIME_SKIP_SETUP:-}" ]]; then
+    root_aar=${SWIFT_GODOT_ANDROID_AAR:-"$repository_root/.build/android-aar/SwiftGodot-release.aar"}
+    test_aar=${SWIFT_GODOT_ANDROID_TEST_AAR:-"$repository_root/.build/android-test/SwiftGodotAndroidTest-release.aar"}
+    [[ -f "$root_aar" ]] || die "SwiftGodot AAR missing: $root_aar"
+    [[ -f "$test_aar" ]] || die "Android test AAR missing: $test_aar"
+
+    root_addon="$project_dir/addons/SwiftGodot"
+    test_addon="$project_dir/addons/SwiftGodotAndroidTest"
+    mkdir -p "$root_addon/bin" "$test_addon/bin"
+    cp "$root_aar" "$root_addon/bin/SwiftGodot-release.aar"
+    cp "$test_aar" "$test_addon/bin/SwiftGodotAndroidTest-release.aar"
+    write_export_plugin "$root_addon" SwiftGodot-release.aar SwiftGodot
+    write_export_plugin "$test_addon" SwiftGodotAndroidTest-release.aar SwiftGodotAndroidTest
+
+    if [[ -z "$godot_command" ]]; then
+        editor_zip="$cache_dir/godot_macos_editor.arm64.zip"
+        download_release_asset godot_macos_editor.arm64.zip "$editor_zip" "$editor_sha"
+        editor_dir="$cache_dir/editor"
+        if [[ ! -d "$editor_dir/Godot.app" ]]; then
+            rm -rf "$editor_dir"
+            mkdir -p "$editor_dir"
+            unzip -q "$editor_zip" -d "$editor_dir"
+        fi
+        godot_command="$editor_dir/Godot.app/Contents/MacOS/Godot"
+    fi
+    [[ -x "$godot_command" ]] || die "Godot editor is not executable: $godot_command"
+    [[ "$($godot_command --version | head -1)" == "$godot_version" ]] || die "unexpected Godot editor version"
+
+    templates_zip="$cache_dir/android.zip"
+    download_release_asset android.zip "$templates_zip" "$templates_sha"
+    export GODOT_DATA_PATH="$cache_dir/godot-data"
+    template_dir="$GODOT_DATA_PATH/export_templates/$godot_version"
+    if [[ ! -d "$template_dir" ]]; then
+        mkdir -p "$template_dir"
+        unzip -q "$templates_zip" -d "$template_dir"
+    fi
+else
+    [[ -n "$godot_command" ]] || die "SWIFT_GODOT_GODOT_COMMAND is required when setup is skipped"
+fi
+
+mkdir -p "$(dirname "$apk")"
+"$godot_command" --headless --path "$project_dir" --editor --quit
+"$godot_command" --headless --path "$project_dir" --export-debug Android "$apk"
+[[ -f "$apk" ]] || die "Godot export did not produce $apk"
+
+apk_entries=$(unzip -Z1 "$apk")
+for packaged_abi in arm64-v8a x86_64; do
+    for library in libSwiftGodot.so libSwiftGodotEmbed.so libAndroidTestExtension.so; do
+        grep -Fxq "lib/$packaged_abi/$library" <<< "$apk_entries" || die "APK missing lib/$packaged_abi/$library"
+    done
+done
+
+if [[ -n "$serial" ]]; then adb=("$adb_command" -s "$serial"); else adb=("$adb_command"); fi
+"${adb[@]}" wait-for-device
+"${adb[@]}" logcat -c
+"${adb[@]}" install -r "$apk"
+"${adb[@]}" shell monkey -p games.cafecito.swiftgodot.runtime_test 1 >/dev/null
+
+deadline=$((SECONDS + timeout_seconds))
+success="SWIFTGODOT_ANDROID_OK:$abi:42"
+while (( SECONDS < deadline )); do
+    logs=$("${adb[@]}" logcat -d 2>&1 || true)
+    if grep -Fq "$success" <<< "$logs"; then
+        echo "$success"
+        exit 0
+    fi
+    if grep -Eq 'SWIFTGODOT_ANDROID_FAIL|dlopen failed|GDExtension.*(failed|error)|Cannot open dynamic library' <<< "$logs"; then
+        printf '%s\n' "$logs" >&2
+        die "Android runtime reported a loader or GDExtension failure"
+    fi
+    sleep 1
+done
+die "timed out after ${timeout_seconds}s waiting for $success"
