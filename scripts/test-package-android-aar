@@ -70,6 +70,10 @@ rg -q 'android_aar_plugin[[:space:]]*=[[:space:]]*true' \
 
 "$repo_root/scripts/validate-android-aar" "$aar"
 
+second_output="$work_dir/second-output"
+"$repo_root/scripts/package-android-aar" "$jni_root" "$second_output" >/dev/null
+cmp "$aar" "$second_output/SwiftGodot-release.aar" || fail "AAR output is not reproducible"
+
 bad_aar="$work_dir/wrong-architecture.aar"
 cp "$jni_root/arm64-v8a/libSwiftGodot.so" "$unpacked/jni/x86_64/libSwiftGodot.so"
 (cd "$unpacked" && zip -qr "$bad_aar" .)
