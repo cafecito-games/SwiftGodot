@@ -323,6 +323,16 @@ jobs:
         repositories: custom-godot
         permission-contents: read
 
+    # The runner exposes /dev/kvm but only to the kvm group, so the emulator
+    # falls back to software emulation and never finishes booting.
+    - name: Grant access to KVM
+      run: |
+        printf 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"\n' |
+          sudo tee /etc/udev/rules.d/99-kvm4all.rules
+        sudo udevadm control --reload-rules
+        sudo udevadm trigger --name-match=kvm
+        test -w /dev/kvm
+
     - name: Run x86_64 Android emulator smoke test
       uses: reactivecircus/android-emulator-runner@v2
       env:

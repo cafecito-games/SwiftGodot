@@ -86,6 +86,10 @@ grep -Fq 'runs-on: ubuntu-24.04' <<< "$emulator_job" ||
     fail "the Android emulator job must stay on a KVM-capable GitHub runner"
 grep -Fq 'scripts/test-android-runtime x86_64' <<< "$emulator_job" ||
     fail "the emulator smoke test must run in the packaging job"
+grep -Fq 'name: Grant access to KVM' <<< "$emulator_job" ||
+    fail "the emulator job must make /dev/kvm writable before launching"
+grep -Fq 'test -w /dev/kvm' <<< "$emulator_job" ||
+    fail "the emulator job must fail fast when hardware acceleration is unavailable"
 
 abi_job=$(job_block "$ci_workflow" android-abi)
 grep -Fq 'runs-on: blacksmith-8vcpu-ubuntu-2404' <<< "$abi_job" ||
