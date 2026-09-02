@@ -169,11 +169,40 @@ if [[ -n "${SWIFT_GODOT_ANDROID_EXPORT_ONLY:-}" ]]; then
     exit 0
 fi
 
+package=games.cafecito.swiftgodot.runtime_test
 if [[ -n "$serial" ]]; then adb=("$adb_command" -s "$serial"); else adb=("$adb_command"); fi
+
+diagnostics_dir="$work_dir/diagnostics"
+mkdir -p "$diagnostics_dir"
+
+# Capture device state on every exit, not only on the failures we anticipated.
+# An unexpected abort used to leave nothing behind to diagnose from.
+# shellcheck disable=SC2329  # invoked through the EXIT trap below
+capture_diagnostics() {
+    local status=$?
+    {
+        printf 'serial=%s\n' "${serial:-<default>}"
+        "${adb[@]}" devices -l || true
+        "${adb[@]}" shell getprop || true
+        "${adb[@]}" shell dumpsys activity processes || true
+    } > "$diagnostics_dir/device.txt" 2>&1
+    "${adb[@]}" logcat -d > "$diagnostics_dir/logcat.txt" 2>&1 || true
+    return "$status"
+}
+trap capture_diagnostics EXIT
+
 "${adb[@]}" wait-for-device
 "${adb[@]}" logcat -c
 "${adb[@]}" install -r "$apk"
-"${adb[@]}" shell monkey -p games.cafecito.swiftgodot.runtime_test 1 >/dev/null
+
+# monkey reports "No activities found to run" on stdout and still exits 0, so
+# discarding its output turns a launch that never happened into a silent
+# 120 second wait for a marker that was never going to appear.
+launch_output=$("${adb[@]}" shell monkey -p "$package" 1 2>&1 || true)
+printf '%s\n' "$launch_output"
+if grep -Eqi 'no activities found|monkey aborted|Error:' <<< "$launch_output"; then
+    die "could not launch $package: $launch_output"
+fi
 
 logcat_dump="$work_dir/logcat.txt"
 
@@ -193,7 +222,7 @@ while (( SECONDS < deadline )); do
     if grep -Fq "$success" <<< "$logs"; then
         exit_deadline=$((SECONDS + exit_timeout_seconds))
         while (( SECONDS < exit_deadline )); do
-            if ! "${adb[@]}" shell pidof games.cafecito.swiftgodot.runtime_test >/dev/null 2>&1; then
+            if ! "${adb[@]}" shell pidof "$package" >/dev/null 2>&1; then
                 echo "$success"
                 exit 0
             fi
@@ -209,4 +238,9 @@ while (( SECONDS < deadline )); do
 done
 
 save_logcat "${logs:-$("${adb[@]}" logcat -d 2>&1 || true)}"
+if [[ -n "$("${adb[@]}" shell pidof "$package" 2>/dev/null | tr -d '\r')" ]]; then
+    echo "$package is still running; it started but never reached the marker" >&2
+else
+    echo "$package is not running; it exited or never started" >&2
+fi
 die "timed out after ${timeout_seconds}s waiting for $success"

@@ -55,6 +55,12 @@ if [[ "$*" == *"shell pidof games.cafecito.swiftgodot.runtime_test"* ]]; then
     [[ -n "${ADB_STAYS_RUNNING:-}" ]] && echo 1234 && exit 0
     exit 1
 fi
+if [[ "$*" == *"shell monkey"* ]]; then
+    if [[ -n "${ADB_MONKEY_FAILS:-}" ]]; then
+        echo "** No activities found to run, monkey aborted."
+    fi
+    exit 0
+fi
 if [[ "$*" == *"logcat -d"* ]]; then
     case "${ADB_SCENARIO:-success}" in
         success) echo "SWIFTGODOT_ANDROID_OK:x86_64:42" ;;
@@ -90,6 +96,18 @@ if run_case success GODOT_FAIL=1 >/dev/null 2>&1; then
 fi
 if run_case success ADB_STAYS_RUNNING=1 >/dev/null 2>&1; then
     fail "a test application that remains running should fail"
+fi
+
+# A launch that never happened must be reported as such, not as a marker
+# timeout, and must not wait out the full runtime budget first.
+launch_log="$work_dir/launch.log"
+if run_case success ADB_MONKEY_FAILS=1 >"$launch_log" 2>&1; then
+    fail "a failed application launch should fail the run"
+fi
+grep -q 'could not launch games.cafecito.swiftgodot.runtime_test' "$launch_log" ||
+    fail "a failed launch must name the package it could not start"
+if grep -q 'timed out after' "$launch_log"; then
+    fail "a failed launch must not be reported as a marker timeout"
 fi
 
 rg -q 'v4\.7\.2-20260902\.2' "$runtime" || fail "custom Godot release pin missing"
