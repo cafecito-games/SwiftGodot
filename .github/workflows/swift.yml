@@ -150,6 +150,7 @@ jobs:
         scripts/test-build-android-test-extension
         scripts/test-android-runtime-harness
         scripts/test-reclaim-android-build-space
+        scripts/test-configure-android-emulator
         scripts/build-android-libraries .build/android
         scripts/package-android-aar .build/android/jni .build/android-aar
         scripts/build-android-test-extension .build/android-test
@@ -177,8 +178,10 @@ jobs:
         arch: x86_64
         target: google_apis
         profile: pixel_6
-        # Keep the AVD below the space left after cross-building both Android ABIs.
-        disk-size: 4G
+        # The action appends rather than replaces the profile's existing value,
+        # so normalize it in the pre-launch hook before the emulator reads it.
+        disk-size: 3G
+        pre-emulator-launch-script: scripts/configure-android-emulator
         disable-animations: true
         script: scripts/test-android-runtime x86_64
 

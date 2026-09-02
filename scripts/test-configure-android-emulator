@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+fail() { echo "FAIL: $*" >&2; exit 1; }
+repo_root=$(cd "$(dirname "$0")/.." && pwd)
+configure="$repo_root/scripts/configure-android-emulator"
+[[ -x "$configure" ]] || fail "emulator configuration helper missing"
+
+work_dir=$(mktemp -d)
+trap 'rm -rf "$work_dir"' EXIT
+config="$work_dir/config.ini"
+cat > "$config" <<'EOF'
+hw.cpu.ncore=2
+disk.dataPartition.size=6G
+hw.keyboard=no
+disk.dataPartition.size=4G
+EOF
+
+SWIFT_GODOT_ANDROID_AVD_CONFIG="$config" "$configure"
+
+[[ $(grep -c '^disk\.dataPartition\.size=' "$config") -eq 1 ]] ||
+    fail "partition setting must occur exactly once"
+grep -Fxq 'disk.dataPartition.size=3G' "$config" || fail "partition must be normalized to 3G"
+grep -Fxq 'hw.cpu.ncore=2' "$config" || fail "unrelated AVD settings must be preserved"
+grep -Fxq 'hw.keyboard=no' "$config" || fail "unrelated trailing AVD settings must be preserved"
+
+if SWIFT_GODOT_ANDROID_AVD_CONFIG="$config" SWIFT_GODOT_ANDROID_EMULATOR_DISK_SIZE='3G; false' "$configure" >/dev/null 2>&1; then
+    fail "invalid partition size must be rejected"
+fi
+
+echo "Android emulator configuration tests passed"

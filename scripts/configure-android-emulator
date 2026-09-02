@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+partition_size=${SWIFT_GODOT_ANDROID_EMULATOR_DISK_SIZE:-3G}
+[[ "$partition_size" =~ ^[0-9]+[KMG]$ ]] || {
+    echo "Error: invalid Android emulator partition size: $partition_size" >&2
+    exit 1
+}
+
+avd_home=${ANDROID_AVD_HOME:-"$HOME/.android/avd"}
+config=${SWIFT_GODOT_ANDROID_AVD_CONFIG:-"$avd_home/test.avd/config.ini"}
+[[ -f "$config" ]] || {
+    echo "Error: Android emulator config not found: $config" >&2
+    exit 1
+}
+
+temporary=$(mktemp "$(dirname "$config")/config.ini.XXXXXX")
+cleanup() { rm -f "$temporary"; }
+trap cleanup EXIT
+
+awk -F= '$1 != "disk.dataPartition.size"' "$config" > "$temporary"
+printf 'disk.dataPartition.size=%s\n' "$partition_size" >> "$temporary"
+mv "$temporary" "$config"
+trap - EXIT
+
+[[ $(grep -c '^disk\.dataPartition\.size=' "$config") -eq 1 ]]
+grep -Fxq "disk.dataPartition.size=$partition_size" "$config"
+echo "Configured Android emulator data partition: $partition_size"
