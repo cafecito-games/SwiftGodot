@@ -118,6 +118,12 @@ grep -Fq 'res://addons/SwiftGodot/bin/SwiftGodot-release.aar' "$generated" ||
     fail "generated export plugin does not contribute the AAR"
 [[ -f "$plugin_dir/plugin.cfg" ]] || fail "generated plugin.cfg missing"
 
+# Godot refuses to export an Android preset unless the project opts into
+# ETC2/ASTC VRAM compression.
+rg -q '^textures/vram_compression/import_etc2_astc=true$' \
+    "$repo_root/Tests/AndroidTestProject/project.godot" ||
+    fail "the Android test project must enable ETC2/ASTC texture compression"
+
 rg -q 'godot_template_version=4\.7\.2\.stable$' "$runtime" ||
     fail "export templates must resolve by Godot's short version"
 rg -q 'android_source\.zip' "$runtime" ||
