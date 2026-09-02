@@ -152,6 +152,11 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v6
 
+    # The Blacksmith Ubuntu image does not ship the Swift release signing keys
+    # that setup-swift needs to verify its Swiftly download.
+    - name: Import Swift signing keys
+      run: curl -fsSL --compressed https://swift.org/keys/all-keys.asc | gpg --import -
+
     - name: Set up Swift 6.3.3
       uses: swift-actions/setup-swift@v3
       with:
@@ -197,6 +202,11 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@v6
+
+    # The Blacksmith Ubuntu image does not ship the Swift release signing keys
+    # that setup-swift needs to verify its Swiftly download.
+    - name: Import Swift signing keys
+      run: curl -fsSL --compressed https://swift.org/keys/all-keys.asc | gpg --import -
 
     - name: Set up Swift 6.3.3
       uses: swift-actions/setup-swift@v3

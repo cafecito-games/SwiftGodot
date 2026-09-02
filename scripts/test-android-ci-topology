@@ -66,6 +66,18 @@ for workflow in "$ci_workflow" "$release_workflow"; do
     fi
     rg -q 'echo "ANDROID_NDK_ROOT=\$ANDROID_HOME/ndk/' "$workflow" ||
         fail "$workflow must export a derived ANDROID_NDK_ROOT"
+
+    # The Blacksmith image ships no Swift release signing keys, so setup-swift
+    # cannot verify its Swiftly download without importing them first.
+    setup_swift_jobs=$(rg -c 'uses: swift-actions/setup-swift@' "$workflow" || true)
+    key_imports=$(rg -c 'name: Import Swift signing keys' "$workflow" || true)
+    [[ -n "$setup_swift_jobs" && "$key_imports" == "$setup_swift_jobs" ]] ||
+        fail "$workflow must import Swift signing keys once per setup-swift job"
+    rg -q 'swift[.]org/keys/all-keys[.]asc' "$workflow" ||
+        fail "$workflow must import the Swift release signing keys from swift.org"
+    if rg -q 'skip-verify-signature: true' "$workflow"; then
+        fail "$workflow must not disable Swift toolchain signature verification"
+    fi
 done
 
 # The emulator needs /dev/kvm, which the larger runners do not provide.
