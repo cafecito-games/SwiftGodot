@@ -38,6 +38,16 @@ void duplicate_runtime(void) __asm__("$s10SwiftGodot17duplicate_fixtureyyF");
 void duplicate_runtime(void) {}
 int consumer_fixture(void) { return swiftgodot_fixture(); }
 EOF
+cat > "$work_dir/consumer-with-local-specialization.c" <<'EOF'
+extern int swiftgodot_fixture(void);
+static __attribute__((used, noinline)) void local_specialization(void)
+    __asm__("$s10SwiftGodot20local_specializationyyF");
+static void local_specialization(void) {}
+int consumer_fixture(void) {
+    local_specialization();
+    return swiftgodot_fixture();
+}
+EOF
 
 good="$work_dir/good"
 for target_abi in aarch64-linux-android28:arm64-v8a x86_64-linux-android28:x86_64; do
@@ -111,6 +121,13 @@ consumer_with_runtime_copy="$work_dir/consumer-with-runtime-copy.so"
     -Wl,-soname,libConsumerWithRuntimeCopy.so -o "$consumer_with_runtime_copy"
 expect_failure 'defines SwiftGodot runtime symbols' \
     "$repo_root/scripts/validate-android-elf" "$good" "$consumer_with_runtime_copy"
+
+consumer_with_local_specialization="$work_dir/consumer-with-local-specialization.so"
+"$toolchain/aarch64-linux-android28-clang" -shared -fPIC \
+    "$work_dir/consumer-with-local-specialization.c" -L"$good/arm64-v8a" -lSwiftGodot \
+    -Wl,-soname,libConsumerWithLocalSpecialization.so \
+    -o "$consumer_with_local_specialization"
+"$repo_root/scripts/validate-android-elf" "$good" "$consumer_with_local_specialization"
 
 unexpected_abi="$work_dir/unexpected-abi"
 cp -R "$good" "$unexpected_abi"
