@@ -2,11 +2,12 @@
 
 ## Goal
 
-Make Android a first-class supported SwiftGodot target. Releases must include a publishable Godot v2 Android plugin AAR with prebuilt `arm64-v8a` and `x86_64` libraries, distributed inside the existing versioned GitHub Release/Godot addon zip. Verification must prove that a separately built Swift GDExtension dynamically links to the packaged SwiftGodot runtime and executes inside a Godot 4.6 Android application.
+Make Android a first-class supported SwiftGodot target. Releases must include a publishable Godot v2 Android plugin AAR with prebuilt `arm64-v8a` and `x86_64` libraries, distributed inside the existing versioned GitHub Release/Godot addon zip. Verification must prove that a separately built Swift GDExtension dynamically links to the packaged SwiftGodot runtime and executes inside the Cafecito Godot 4.7.2 Android application.
 
 ## Compatibility Contract
 
-- Godot: 4.6.x, matching the compatibility line used by this fork.
+- Godot API and runtime: Cafecito Games custom Godot release `v4.7.2-20260826.1`, reporting `4.7.2.stable.cafecito_dc0a505af.ed1daf0bf`.
+- Godot Android Gradle compile dependency: `org.godotengine:godot:4.7.2.stable`; runtime verification uses the custom release rather than the Maven artifact's stock runtime.
 - Swift: 6.3.3 host toolchain and the exactly matching official Swift SDK for Android.
 - Android API: 28 minimum.
 - Android NDK: r27d.
@@ -67,7 +68,7 @@ The Android plugin contains:
 
 The `.gdextension` identifies `SwiftGodotEmbed` as its entry library. The shared SwiftGodot runtime is an explicit native dependency packaged by the same AAR, not another independently registered GDExtension.
 
-The Android plugin project commits a pinned Gradle wrapper and plugin versions compatible with Godot 4.6.x. Builds use that wrapper rather than an arbitrary system Gradle installation.
+The Android plugin project commits a pinned Gradle wrapper and plugin versions compatible with Godot 4.7.2. Builds use that wrapper rather than an arbitrary system Gradle installation.
 
 ### Addon and release packaging
 
@@ -149,7 +150,7 @@ CI cross-compiles SwiftGodot, SwiftGodotEmbed, and the independent Android test 
 
 ### APK export test
 
-A minimal Godot 4.6 project installs the completed SwiftGodot addon and a separately packaged test-extension AAR. With Gradle Build enabled, Godot exports a debug APK. APK inspection confirms that both ABI directories contain the SwiftGodot, embed, test-extension, and runtime libraries exactly once.
+A minimal Godot 4.7.2 project installs the completed SwiftGodot addon and a separately packaged test-extension AAR. With Gradle Build enabled, the custom Cafecito editor and Android templates export a debug APK. APK inspection confirms that both ABI directories contain the SwiftGodot, embed, test-extension, and runtime libraries exactly once.
 
 ### Runtime test
 
@@ -167,6 +168,8 @@ The harness installs and launches the APK, captures `adb logcat`, fails on loade
 
 ## CI and Release Integration
 
+The workflow pins the private `cafecito-games/custom-godot` release tag `v4.7.2-20260826.1`. It verifies the macOS editor archive SHA-256 `6e9945ad00d7c6877f1c3a98224c17c5ff0caf8cf42b716e9152569f6b2ac71e` and Android archive SHA-256 `a3570264cfedba3b716d6b1bc33ff1b78351b965d0dcae6262b4c1a009b01bb8` before use. CI accesses the private release with the existing Cafecito CI GitHub App credentials.
+
 The normal pull-request workflow gains Android jobs that:
 
 1. install pinned matching Swift and Android SDKs plus the NDK;
@@ -181,7 +184,7 @@ The release workflow builds the Android AAR from the release commit and feeds it
 
 The README support statement changes from Apple-only to macOS, iOS, and Android, while explaining that Android consumes a Godot v2 plugin and Gradle export. A dedicated Android guide documents:
 
-- required Swift 6.3.3, Swift Android SDK 6.3.3, Android API 28, NDK r27d, JDK 17, the bundled Gradle wrapper, and Godot 4.6.x versions;
+- required Swift 6.3.3, Swift Android SDK 6.3.3, Android API 28, NDK r27d, JDK 17, the bundled Gradle wrapper, and the exact Cafecito Godot 4.7.2 release;
 - installing and building the SwiftGodot addon;
 - cross-building downstream Swift extensions;
 - creating their AAR and `.gdextension` entries;
@@ -206,7 +209,7 @@ Android support is complete when all of the following are true:
 2. The generated Swift code and hand-written runtime build without Darwin-only imports on Android.
 3. The AAR contains both ABI directories, the complete native dependency closure, valid Godot v2 metadata, and the `.gdextension` asset.
 4. The independent test extension dynamically depends on the packaged `libSwiftGodot.so` and does not embed a second copy.
-5. Godot 4.6 exports the fixture project through the Gradle Android exporter.
+5. Cafecito Godot 4.7.2 exports the fixture project through the Gradle Android exporter using the matching custom Android templates.
 6. The exported APK contains every required native library exactly once for both ABIs.
 7. The x86_64 APK executes successfully on an emulator in CI.
 8. The arm64-v8a APK executes successfully on an ARM64 emulator or device and records the same runtime marker.

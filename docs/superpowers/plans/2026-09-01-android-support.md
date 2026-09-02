@@ -2,11 +2,11 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Ship and runtime-verify a Godot 4.6 v2 Android plugin AAR containing shared SwiftGodot libraries for `arm64-v8a` and `x86_64` inside the existing release addon.
+**Goal:** Ship and runtime-verify a Godot 4.7.2 v2 Android plugin AAR containing shared SwiftGodot libraries for `arm64-v8a` and `x86_64` inside the existing release addon.
 
 **Architecture:** Generate SwiftGodot sources on the host, cross-compile a dynamic Android distribution with the official Swift 6.3.3 SDK, and package the ELF libraries plus their shared runtime closure in a pinned Gradle AAR. A separately compiled Swift test extension depends dynamically on `libSwiftGodot.so`; Godot exports and runs the combined plugins on Android emulators.
 
-**Tech Stack:** Swift 6.3.3, SwiftPM cross-compilation SDK, Android API 28, NDK r27d, JDK 17, Gradle 8.14.3, Android Gradle Plugin 8.13.2, Kotlin 2.2.21, Godot 4.6 v2 Android plugins, Bash, `llvm-readelf`, `adb`.
+**Tech Stack:** Swift 6.3.3, SwiftPM cross-compilation SDK, Android API 28, NDK r27d, JDK 17, Gradle 8.14.3, Android Gradle Plugin 8.13.2, Kotlin 2.2.21, Cafecito Godot 4.7.2 v2 Android plugins, Bash, `llvm-readelf`, `adb`.
 
 ---
 
@@ -258,7 +258,7 @@ Expected: failure because the Gradle plugin project and packager do not exist.
 
 - [ ] **Step 3: Add the pinned Gradle project**
 
-Pin Gradle 8.14.3, AGP 8.13.2, Kotlin 2.2.21, `compileSdk = 36`, `minSdk = 28`, Java/Kotlin 17, Godot Maven dependency `org.godotengine:godot:4.6.0.stable`, and both ABI filters. The Kotlin class extends `GodotPlugin`, returns `SwiftGodot`, and returns `res://addons/SwiftGodot/SwiftGodotEmbed.gdextension` from `getPluginGDExtensionLibrariesPaths()`.
+Pin Gradle 8.14.3, AGP 8.13.2, Kotlin 2.2.21, `compileSdk = 36`, `minSdk = 28`, Java/Kotlin 17, Godot Maven compile dependency `org.godotengine:godot:4.7.2.stable`, and both ABI filters. The Kotlin class extends `GodotPlugin`, returns `SwiftGodot`, and returns `res://addons/SwiftGodot/SwiftGodotEmbed.gdextension` from `getPluginGDExtensionLibrariesPaths()`.
 
 - [ ] **Step 4: Add packaging and verify GREEN**
 
@@ -390,7 +390,7 @@ Expected: failure because the harness does not exist.
 
 - [ ] **Step 3: Implement bounded export/runtime orchestration**
 
-The harness installs the Godot 4.6 Android build template when absent, stages both AAR addons into the fixture, exports a debug APK with Gradle Build, checks both APK ABI directories, starts the requested emulator/device serial, clears logcat, installs with `adb install -r`, launches the Godot activity, and waits at most 120 seconds for the exact success marker.
+The harness installs the Android templates from Cafecito custom Godot release `v4.7.2-20260826.1` when absent, verifies the archive SHA-256 `a3570264cfedba3b716d6b1bc33ff1b78351b965d0dcae6262b4c1a009b01bb8`, stages both AAR addons into the fixture, exports a debug APK with Gradle Build, checks both APK ABI directories, starts the requested emulator/device serial, clears logcat, installs with `adb install -r`, launches the Godot activity, and waits at most 120 seconds for the exact success marker. The macOS editor archive is pinned to SHA-256 `6e9945ad00d7c6877f1c3a98224c17c5ff0caf8cf42b716e9152569f6b2ac71e` and must report `4.7.2.stable.cafecito_dc0a505af.ed1daf0bf`.
 
 - [ ] **Step 4: Confirm harness GREEN**
 
