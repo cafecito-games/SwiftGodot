@@ -13,6 +13,10 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  GODOT_RELEASE_TAG: v4.7.2-20260826.1
+  GODOT_EDITOR_SHA256: 6e9945ad00d7c6877f1c3a98224c17c5ff0caf8cf42b716e9152569f6b2ac71e
+
 jobs:
   build-and-test-macos:
     runs-on: blacksmith-6vcpu-macos-26
@@ -26,10 +30,46 @@ jobs:
       with:
         xcode-version: "latest-stable"
 
-    - name: Install Homebrew dependencies
+    - name: Create custom Godot access token
+      id: custom-godot-token
+      uses: actions/create-github-app-token@v3
+      with:
+        app-id: ${{ secrets.CAFECITO_CI_BOT_APP_ID }}
+        private-key: ${{ secrets.CAFECITO_CI_BOT_PRIVATE_KEY }}
+        owner: cafecito-games
+        repositories: custom-godot
+        permission-contents: read
+
+    - name: Install ripgrep
+      run: brew install ripgrep
+
+    - name: Install custom Godot
+      env:
+        GH_TOKEN: ${{ steps.custom-godot-token.outputs.token }}
       run: |
-        brew install godot ripgrep
+        test "$(uname -m)" = arm64
+
+        archive="$RUNNER_TEMP/godot_macos_editor.arm64.zip"
+        install_dir="$RUNNER_TEMP/custom-godot"
+        bin_dir="$RUNNER_TEMP/custom-godot-bin"
+
+        gh release download "$GODOT_RELEASE_TAG" \
+          --repo cafecito-games/custom-godot \
+          --pattern godot_macos_editor.arm64.zip \
+          --dir "$RUNNER_TEMP"
+        echo "$GODOT_EDITOR_SHA256  $archive" | shasum -a 256 --check
+
+        mkdir -p "$install_dir" "$bin_dir"
+        unzip -q "$archive" -d "$install_dir"
+        ln -s "$install_dir/godot_macos_editor.app/Contents/MacOS/Godot" "$bin_dir/godot"
+        echo "$bin_dir" >> "$GITHUB_PATH"
+
+        export PATH="$bin_dir:$PATH"
         godot --version
+        test "$(godot --version)" = "4.7.2.stable.cafecito_dc0a505af.ed1daf0bf"
+
+    - name: Show ripgrep version
+      run: |
         rg --version
 
     - name: Build
