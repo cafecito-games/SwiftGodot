@@ -13,6 +13,9 @@ script_dir=$(cd "$(dirname "$0")" && pwd)
 repository_root=$(cd "$script_dir/.." && pwd)
 release_tag=v4.7.2-20260826.1
 godot_version=4.7.2.stable.cafecito_dc0a505af.ed1daf0bf
+# Godot resolves export templates by major.minor.patch.status only; the custom
+# build name and hash that --version reports are not part of the directory.
+godot_template_version=4.7.2.stable
 editor_sha=6e9945ad00d7c6877f1c3a98224c17c5ff0caf8cf42b716e9152569f6b2ac71e
 linux_editor_sha=2c94cdefddfe78ede2b5fa11b7aec6affdff5496584fe59b3f9a967ff7fefd55
 templates_sha=a3570264cfedba3b716d6b1bc33ff1b78351b965d0dcae6262b4c1a009b01bb8
@@ -52,23 +55,26 @@ author="cafecito-games"
 version="test"
 script="export_plugin.gd"
 EOF
+    # Indent with spaces: an unquoted heredoc passes a backslash escape through
+    # verbatim, so a "\t" here would reach GDScript as two literal characters
+    # and fail to parse.
     cat > "$addon/export_plugin.gd" <<EOF
 @tool
 extends EditorPlugin
 var export_plugin
 func _enter_tree():
-\texport_plugin = AndroidExportPlugin.new()
-\tadd_export_plugin(export_plugin)
+    export_plugin = AndroidExportPlugin.new()
+    add_export_plugin(export_plugin)
 func _exit_tree():
-\tremove_export_plugin(export_plugin)
-\texport_plugin = null
+    remove_export_plugin(export_plugin)
+    export_plugin = null
 class AndroidExportPlugin extends EditorExportPlugin:
-\tfunc _supports_platform(platform):
-\t\treturn platform is EditorExportPlatformAndroid
-\tfunc _get_android_libraries(platform, debug):
-\t\treturn PackedStringArray(["res://addons/$plugin_name/bin/$aar_name"])
-\tfunc _get_name():
-\t\treturn "$plugin_name"
+    func _supports_platform(platform):
+        return platform is EditorExportPlatformAndroid
+    func _get_android_libraries(platform, debug):
+        return PackedStringArray(["res://addons/$plugin_name/bin/$aar_name"])
+    func _get_name():
+        return "$plugin_name"
 EOF
 }
 
@@ -123,12 +129,20 @@ if [[ -z "${SWIFT_GODOT_RUNTIME_SKIP_SETUP:-}" ]]; then
 
     templates_zip="$cache_dir/android.zip"
     download_release_asset android.zip "$templates_zip" "$templates_sha"
-    export GODOT_DATA_PATH="$cache_dir/godot-data"
-    template_dir="$GODOT_DATA_PATH/export_templates/$godot_version"
-    if [[ ! -d "$template_dir" ]]; then
+    # Godot reads export templates from its own data directory, not from
+    # GODOT_DATA_PATH.
+    case "$(uname -s)" in
+        Darwin) template_root="$HOME/Library/Application Support/Godot/export_templates" ;;
+        *) template_root="${XDG_DATA_HOME:-$HOME/.local/share}/godot/export_templates" ;;
+    esac
+    template_dir="$template_root/$godot_template_version"
+    if [[ ! -f "$template_dir/android_source.zip" ]]; then
+        rm -rf "$template_dir"
         mkdir -p "$template_dir"
         unzip -q "$templates_zip" -d "$template_dir"
     fi
+    [[ -f "$template_dir/android_source.zip" ]] ||
+        die "Android export template missing: $template_dir/android_source.zip"
 else
     [[ -n "$godot_command" ]] || die "SWIFT_GODOT_GODOT_COMMAND is required when setup is skipped"
 fi

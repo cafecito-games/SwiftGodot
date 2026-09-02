@@ -98,4 +98,29 @@ rg -q '6e9945ad00d7c6877f1c3a98224c17c5ff0caf8cf42b716e9152569f6b2ac71e' "$runti
 rg -q '120' "$runtime" || fail "bounded runtime timeout missing"
 rg -q -- '--install-android-build-template' "$runtime" || fail "Gradle build template installation missing"
 
+# The generated editor plugin is real GDScript: an unquoted heredoc would pass
+# a "\t" escape through verbatim and Godot would refuse to parse the file.
+plugin_dir="$work_dir/generated-addon"
+mkdir -p "$plugin_dir"
+sed -n '/^write_export_plugin/,/^}/p' "$runtime" > "$work_dir/write-export-plugin.sh"
+# shellcheck disable=SC1091
+. "$work_dir/write-export-plugin.sh"
+write_export_plugin "$plugin_dir" SwiftGodot-release.aar SwiftGodot
+
+generated="$plugin_dir/export_plugin.gd"
+[[ -f "$generated" ]] || fail "generated export plugin missing"
+if grep -q '[\]' "$generated"; then
+    fail "generated export plugin contains a literal backslash instead of indentation"
+fi
+grep -Eq '^[[:space:]]+export_plugin = AndroidExportPlugin\.new\(\)$' "$generated" ||
+    fail "generated export plugin body is not indented"
+grep -Fq 'res://addons/SwiftGodot/bin/SwiftGodot-release.aar' "$generated" ||
+    fail "generated export plugin does not contribute the AAR"
+[[ -f "$plugin_dir/plugin.cfg" ]] || fail "generated plugin.cfg missing"
+
+rg -q 'godot_template_version=4\.7\.2\.stable$' "$runtime" ||
+    fail "export templates must resolve by Godot's short version"
+rg -q 'android_source\.zip' "$runtime" ||
+    fail "the harness must verify the Android export template landed"
+
 echo "Android runtime harness tests passed"
