@@ -176,6 +176,8 @@ jobs:
         arch: x86_64
         target: google_apis
         profile: pixel_6
+        # Keep the AVD below the space left after cross-building both Android ABIs.
+        disk-size: 4G
         disable-animations: true
         script: scripts/test-android-runtime x86_64
 

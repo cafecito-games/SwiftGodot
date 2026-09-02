@@ -16,6 +16,7 @@ rg -q 'sudo apt-get install -y ripgrep' .github/workflows/swift.yml || fail "And
 rg -q 'scripts/build-android-libraries' .github/workflows/swift.yml || fail "CI must cross-build Android libraries"
 rg -q 'scripts/build-android-test-extension' .github/workflows/swift.yml || fail "CI must build the independent Android consumer"
 rg -q 'scripts/test-android-runtime x86_64' .github/workflows/swift.yml || fail "CI must execute the x86_64 Android runtime smoke test"
+rg -q 'disk-size: 4G' .github/workflows/swift.yml || fail "Android CI must use a bounded emulator data partition"
 rg -q 'swift-6\.3\.3-RELEASE_android' .github/workflows/swift.yml .github/workflows/release.yml || fail "Android workflows must install the pinned Swift SDK"
 rg -q '^  build-android:' .github/workflows/release.yml || fail "release workflow must build the Android AAR"
 rg -q 'sudo apt-get install -y ripgrep' .github/workflows/release.yml || fail "Android release builds must install ripgrep"
