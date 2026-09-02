@@ -16,6 +16,8 @@ rg -q 'SwiftGodot-release\.aar' .github/workflows/release.yml || fail "release w
 for workflow in .github/workflows/swift.yml .github/workflows/release.yml; do
     rg -q 'SWIFT_GODOT_ANDROID_SDK_ROOT=\$sdk_root.*GITHUB_ENV' "$workflow" ||
         fail "$workflow must persist the discovered Swift Android SDK root"
+    rg -q 'scripts/reclaim-android-build-space' "$workflow" ||
+        fail "$workflow must reclaim disposable build space before Android export or emulation"
 done
 
 if rg -q 'Build/Products/Debug' .github/workflows/release.yml scripts/release scripts/make-swiftgodot-framework; then
