@@ -140,10 +140,21 @@ if [[ -z "${SWIFT_GODOT_RUNTIME_SKIP_SETUP:-}" ]]; then
         *) template_root="${XDG_DATA_HOME:-$HOME/.local/share}/godot/export_templates" ;;
     esac
     template_dir="$template_root/$godot_template_version"
-    if [[ ! -f "$template_dir/android_source.zip" ]]; then
-        rm -rf "$template_dir"
+    # This directory is shared with whatever else the user has installed for
+    # this Godot version, so never clear it; overwrite only the entries the
+    # archive owns. The stamp records which archive those entries came from,
+    # because a present-but-stale android_source.zip is indistinguishable from
+    # a current one by name alone.
+    template_stamp="$template_dir/.swiftgodot-android-templates"
+    installed_templates=
+    if [[ -f "$template_stamp" ]]; then
+        installed_templates=$(cat "$template_stamp")
+    fi
+    if [[ ! -f "$template_dir/android_source.zip" || "$installed_templates" != "$templates_sha" ]]; then
         mkdir -p "$template_dir"
-        unzip -q "$templates_zip" -d "$template_dir"
+        unzip -o -q "$templates_zip" -d "$template_dir"
+        printf '%s\n' "$templates_sha" > "$template_stamp"
+        echo "Installed Android export templates $templates_sha into $template_dir"
     fi
     [[ -f "$template_dir/android_source.zip" ]] ||
         die "Android export template missing: $template_dir/android_source.zip"

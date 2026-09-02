@@ -164,4 +164,15 @@ rg -q 'godot_template_version=4\.7\.2\.stable$' "$runtime" ||
 rg -q 'android_source\.zip' "$runtime" ||
     fail "the harness must verify the Android export template landed"
 
+# The export templates directory is shared with the user's other installs for
+# the same Godot version, and a stale android_source.zip looks identical to a
+# current one by name.
+if rg -q 'rm -rf "\$template_dir"' "$runtime"; then
+    fail "the runtime test must not clear the shared export templates directory"
+fi
+rg -q 'unzip -o -q "\$templates_zip"' "$runtime" ||
+    fail "Android templates must overwrite in place rather than replace the directory"
+rg -q 'swiftgodot-android-templates' "$runtime" ||
+    fail "installed Android templates must be stamped with their source archive"
+
 echo "Android runtime harness tests passed"
