@@ -426,6 +426,7 @@ jobs:
           swift sdk install "$SWIFT_ANDROID_SDK_URL" --checksum "$SWIFT_ANDROID_SDK_SHA256"
           sdk_root=$(find "$HOME" -type d -path '*/swift-6.3.3-RELEASE_android.artifactbundle/swift-android' -print -quit)
           test -n "$sdk_root"
+          echo "SWIFT_GODOT_ANDROID_SDK_ROOT=$sdk_root" >> "$GITHUB_ENV"
           ANDROID_NDK_HOME="$ANDROID_HOME/ndk/27.3.13750724" "$sdk_root/scripts/setup-android-sdk.sh"
 
       - name: Create custom Godot access token
