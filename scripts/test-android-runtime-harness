@@ -118,6 +118,12 @@ grep -Fq 'res://addons/SwiftGodot/bin/SwiftGodot-release.aar' "$generated" ||
     fail "generated export plugin does not contribute the AAR"
 [[ -f "$plugin_dir/plugin.cfg" ]] || fail "generated plugin.cfg missing"
 
+# The SwiftGodot AAR declares minSdk 28, so the export preset must raise
+# Godot's default of 24 or the manifest merger rejects the build.
+rg -q '^gradle_build/min_sdk="28"$' \
+    "$repo_root/Tests/AndroidTestProject/export_presets.cfg" ||
+    fail "the Android test project must export with a minimum SDK of 28"
+
 # Godot refuses to export an Android preset unless the project opts into
 # ETC2/ASTC VRAM compression.
 rg -q '^textures/vram_compression/import_etc2_astc=true$' \

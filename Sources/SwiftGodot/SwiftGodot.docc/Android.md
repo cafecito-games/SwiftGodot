@@ -267,6 +267,19 @@ whenever generation does run.
 
 Use a Gradle Build export so Godot discovers and merges both v2 plugin AARs. The APK must contain one copy of each native library under `lib/arm64-v8a` and `lib/x86_64`.
 
+Set the export preset's **Min SDK** to 28. The Godot Android build template
+defaults to 24, and the SwiftGodot AAR declares 28 because that is the API
+level the Swift Android SDK targets. A lower value fails during the export's
+Gradle build with a manifest merger error that names the AAR rather than the
+preset:
+
+```
+Manifest merger failed : uses-sdk:minSdkVersion 24 cannot be smaller than
+version 28 declared in library [SwiftGodot-release.aar]
+```
+
+In `export_presets.cfg` that setting is `gradle_build/min_sdk="28"`.
+
 Run the repository smoke test against an attached emulator or device:
 
 ```sh

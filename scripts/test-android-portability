@@ -30,5 +30,7 @@ rg -q 'Package[.]swift' "$android_guide" || fail "Android guide must include a d
 rg -q 'AndroidManifest[.]xml' "$android_guide" || fail "Android guide must include consumer plugin metadata"
 rg -q 'MyExtension[.]gdextension' "$android_guide" || fail "Android guide must include desktop and Android GDExtension entries"
 rg -q 'assembleRelease' "$android_guide" || fail "Android guide must explain how to build the consumer AAR"
+rg -q 'gradle_build/min_sdk="28"' "$android_guide" ||
+    fail "Android guide must document the export preset minimum SDK"
 
 echo "Android portability tests passed"
