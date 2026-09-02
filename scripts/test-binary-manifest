@@ -7,9 +7,17 @@ fail() {
 }
 
 rg -q 'swift package compute-checksum "\$zip_path"' scripts/release || fail "SwiftGodot checksum must be computed from the release zip"
+rg -q 'swift package compute-checksum "\$gdextension_zip_path"' scripts/release || fail "GDExtensionC checksum must be computed from the release zip"
 rg -q 'swift package compute-checksum "\$macro_zip_path"' scripts/release || fail "macro checksum must be computed from the release zip"
 rg -q '"checksum": "\$swiftgodot_checksum"' scripts/release || fail "SwiftGodot manifest entry must include checksum"
+rg -q '"checksum": "\$gdextension_checksum"' scripts/release || fail "GDExtensionC manifest entry must include checksum"
 rg -q '"checksum": "\$macro_checksum"' scripts/release || fail "macro manifest entry must include checksum"
+rg -q '"name": "GDExtensionC"' scripts/release || fail "binaries.json must include GDExtensionC"
+rg -q 'path: "Binaries/GDExtensionC\.xcframework"' scripts/release || fail "binary package must use the GDExtensionC xcframework"
+if rg -q 'name: "GDExtensionC",[[:space:]]*path: "Sources/GDExtension"' scripts/release; then
+    fail "binary package must not fall back to the source GDExtensionC target"
+fi
+rg -q 'scripts/test-binary-package-consumer "\$binary_repo_dir"' scripts/release || fail "release must clean-build a binary-package consumer before publishing"
 
 # The runtime ships inside SwiftGodot.xcframework; it must not be released or
 # referenced as a separate binary artifact (duplicate class registration).

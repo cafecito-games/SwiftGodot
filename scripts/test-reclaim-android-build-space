@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+fail() {
+    echo "FAIL: $*" >&2
+    exit 1
+}
+
+repo_root=$(cd "$(dirname "$0")/.." && pwd)
+work_dir=$(mktemp -d)
+trap 'rm -rf "$work_dir"' EXIT
+
+for path in \
+    .build/android-distribution \
+    .build/android-test-extension \
+    .build/android \
+    Android/SwiftGodotPlugin/.gradle \
+    Android/SwiftGodotPlugin/plugin/build \
+    Android/SwiftGodotPlugin/test-plugin/build
+do
+    mkdir -p "$work_dir/$path"
+    printf 'scratch\n' > "$work_dir/$path/scratch"
+done
+
+mkdir -p "$work_dir/.build/android-aar" "$work_dir/.build/android-test"
+printf 'root aar\n' > "$work_dir/.build/android-aar/SwiftGodot-release.aar"
+printf 'test aar\n' > "$work_dir/.build/android-test/SwiftGodotAndroidTest-release.aar"
+
+SWIFT_GODOT_REPOSITORY_ROOT="$work_dir" "$repo_root/scripts/reclaim-android-build-space"
+
+for path in \
+    .build/android-distribution \
+    .build/android-test-extension \
+    .build/android \
+    Android/SwiftGodotPlugin/.gradle \
+    Android/SwiftGodotPlugin/plugin/build \
+    Android/SwiftGodotPlugin/test-plugin/build
+do
+    [[ ! -e "$work_dir/$path" ]] || fail "scratch path was not removed: $path"
+done
+
+[[ -f "$work_dir/.build/android-aar/SwiftGodot-release.aar" ]] || fail "root AAR was removed"
+[[ -f "$work_dir/.build/android-test/SwiftGodotAndroidTest-release.aar" ]] || fail "test AAR was removed"
+
+echo "Android build-space reclamation tests passed"

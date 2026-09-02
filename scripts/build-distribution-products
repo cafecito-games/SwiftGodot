@@ -143,3 +143,4 @@ build_scheme() {
 
 build_scheme SwiftGodot
 build_scheme SwiftGodotEmbed
+build_scheme GDExtensionC

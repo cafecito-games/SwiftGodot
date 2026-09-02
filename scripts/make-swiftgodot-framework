@@ -11,11 +11,15 @@ OUTPUT_DIR Directory to write the resulting xcframeworks into.
 Produces:
   $OUTPUT_DIR/SwiftGodot.xcframework
   $OUTPUT_DIR/SwiftGodotEmbed.xcframework
+  $OUTPUT_DIR/GDExtensionC.xcframework
 
 SwiftGodot is a single self-contained module: all runtime types are compiled
 directly into SwiftGodot. SwiftGodotEmbed is a thin no-op GDExtension shim
 that links SwiftGodot; the Godot addon zip ships it as the registered
 GDExtension that owns embedding SwiftGodot.framework into exported apps.
+GDExtensionC is a static XCFramework that makes the Clang module imported by
+SwiftGodot.swiftinterface discoverable to binary-package consumers without
+adding a runtime framework dependency.
 EOF
 }
 
@@ -368,3 +372,4 @@ fi
 # matches.
 make_xcframework "SwiftGodot" swift
 make_xcframework "SwiftGodotEmbed" c
+SWIFT_GODOT_CONFIGURATION="$configuration" scripts/make-gdextension-xcframework "$derived_data" "$output_dir"

@@ -183,7 +183,7 @@ done
 
 rg -q 'scripts/package-godot-addon "\$tag" "\$output_dir/SwiftGodot\.xcframework" "\$output_dir/SwiftGodotEmbed\.xcframework" "\$android_aar" "\$output_dir"' "$release_script" || fail "release script must package the Godot addon from Apple artifacts and the Android AAR"
 rg -q 'SwiftGodot-\$tag\.zip' "$release_script" || fail "release script must name the addon zip SwiftGodot-\$tag.zip"
-rg -q 'gh release create "\$tag" "\$zip_path" "\$macro_zip_path" "\$android_aar" "\$addon_zip_path"' "$release_script" || fail "release script must upload the Android AAR and addon zip with the release assets"
+rg -q 'gh release create "\$tag" "\$zip_path" "\$gdextension_zip_path" "\$macro_zip_path" "\$android_aar" "\$addon_zip_path"' "$release_script" || fail "release script must upload the binary artifacts, Android AAR, and addon zip"
 if rg -q 'no longer using vXXX|v-prefixed tags|\[\[ "\$RELEASE_TAG" == v\* \]\]' "$release_script" .github/workflows/release.yml; then
     fail "release path must allow v-prefixed tags for Godot addon assets"
 fi
