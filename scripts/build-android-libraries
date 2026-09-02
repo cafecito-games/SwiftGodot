@@ -22,7 +22,7 @@ swift_command=${SWIFT_GODOT_SWIFT_COMMAND:-swift}
 java_command=${SWIFT_GODOT_JAVA_COMMAND:-java}
 work_dir=${SWIFT_GODOT_ANDROID_WORK_DIR:-"$repository_root/.build/android-distribution"}
 staged_package=${SWIFT_GODOT_ANDROID_PACKAGE:-"$work_dir/package"}
-scratch_root=${SWIFT_GODOT_ANDROID_SCRATCH_ROOT:-"$work_dir/build"}
+scratch_root="$work_dir/build"
 
 die() {
     echo "Error: $*" >&2

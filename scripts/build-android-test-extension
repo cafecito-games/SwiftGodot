@@ -25,10 +25,11 @@ distribution_work_dir=${SWIFT_GODOT_ANDROID_WORK_DIR:-"$repository_root/.build/a
 staged_package=${SWIFT_GODOT_ANDROID_PACKAGE:-"$distribution_work_dir/package"}
 runtime_root=${SWIFT_GODOT_ANDROID_LIBRARIES:-"$repository_root/.build/android"}
 consumer_package="$work_dir/consumer-package"
-# SwiftPM reuses a dependency's build products across root packages that share a
-# scratch path, so the consumer links the SwiftGodot that was just built for
-# this ABI instead of recompiling the whole module.
-scratch_root=${SWIFT_GODOT_ANDROID_SCRATCH_ROOT:-"$distribution_work_dir/build"}
+# The consumer needs a scratch path of its own. Sharing the one the runtime
+# build populated makes SwiftPM reuse that build description instead of
+# replanning for this root package, and the build fails with
+# "No target named 'AndroidTestExtension-<triple>-release.dylib'".
+scratch_root="$work_dir/build"
 validation_root="$work_dir/validation-jni"
 
 die() {

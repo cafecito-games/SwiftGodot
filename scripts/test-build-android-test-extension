@@ -116,12 +116,14 @@ for abi in arm64-v8a x86_64; do
     [[ -f "$consumer" ]] || fail "missing test extension for $abi"
     [[ ! -e "$output/jni/$abi/libSwiftGodot.so" ]] || fail "test extension output must not own libSwiftGodot.so"
 done
-# The consumer must build in the scratch path the runtime build already
-# populated, so SwiftPM links the SwiftGodot it just built instead of
-# recompiling the whole module.
+# The consumer needs its own scratch path; sharing the runtime one makes
+# SwiftPM reuse a build description that has no AndroidTestExtension target.
 for abi in arm64-v8a x86_64; do
-    grep -Fq -- "--scratch-path $work_dir/distribution/build/$abi" "$SWIFT_TEST_LOG" ||
-        fail "consumer build for $abi must share the runtime scratch path"
+    grep -Fq -- "--scratch-path $work_dir/build/build/$abi" "$SWIFT_TEST_LOG" ||
+        fail "consumer build for $abi must use its own scratch path"
+    if grep -Fq -- "--scratch-path $work_dir/distribution/build/$abi" "$SWIFT_TEST_LOG"; then
+        fail "consumer build for $abi must not reuse the runtime scratch path"
+    fi
 done
 
 [[ ! -s "$GRADLE_TEST_LOG" ]] || fail "the per-ABI builder must not assemble the test AAR"
