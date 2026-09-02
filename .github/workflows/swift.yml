@@ -104,6 +104,7 @@ jobs:
   android:
     name: Android x86_64 runtime and both ABI artifacts
     runs-on: ubuntu-24.04
+    timeout-minutes: 120
 
     steps:
     - name: Checkout
@@ -151,6 +152,12 @@ jobs:
         scripts/build-android-libraries .build/android
         scripts/package-android-aar .build/android/jni .build/android-aar
         scripts/build-android-test-extension .build/android-test
+
+    - name: Reclaim Android build disk
+      run: |
+        df -h .
+        rm -rf .build/android-distribution .build/android-test-extension
+        df -h .
 
     - name: Create custom Godot access token
       id: custom-godot-token
