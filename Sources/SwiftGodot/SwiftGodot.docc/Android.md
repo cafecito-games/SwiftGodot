@@ -253,10 +253,12 @@ that selection to build each ABI on its own runner, then merges the per-ABI JNI
 trees with `scripts/aggregate-android-jni` before packaging. A published AAR
 always carries both ABIs regardless of the selection.
 
-`scripts/build-android-test-extension` builds the consumer in the same SwiftPM
-scratch path as `scripts/build-android-libraries`, so it links the SwiftGodot
-that was just built for the ABI rather than recompiling the module. Override
-`SWIFT_GODOT_ANDROID_SCRATCH_ROOT` to separate them. Set
+`scripts/build-android-test-extension` builds the consumer in a scratch path of
+its own, so it recompiles SwiftGodot for each ABI. Pointing it at the scratch
+path `scripts/build-android-libraries` populated does not work: SwiftPM reuses
+that build description rather than replanning for the consumer's root package,
+and the build fails with `No target named
+'AndroidTestExtension-<triple>-release.dylib' in build description`. Set
 `SWIFT_GODOT_GENERATED_SOURCES_CACHE` to a directory to reuse previously
 generated bindings and skip the host generation build; it is repopulated
 whenever generation does run.
