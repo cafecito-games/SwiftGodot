@@ -100,6 +100,15 @@ rg -q '4\.7\.2\.stable\.cafecito_6b0b715d9\.ed1daf0bf' "$runtime" || fail "custo
 rg -q '120' "$runtime" || fail "bounded runtime timeout missing"
 rg -q -- '--install-android-build-template' "$runtime" || fail "Gradle build template installation missing"
 
+# A timeout that prints nothing about what the application did is not
+# diagnosable; every failure path must save the device log.
+timeout_log="$work_dir/timeout.log"
+if run_case timeout >"$timeout_log" 2>&1; then
+    fail "timeout scenario should fail"
+fi
+grep -q 'Saved device log to' "$timeout_log" ||
+    fail "a runtime timeout must save the device log"
+
 # The generated editor plugin is real GDScript: an unquoted heredoc would pass
 # a "\t" escape through verbatim and Godot would refuse to parse the file.
 plugin_dir="$work_dir/generated-addon"

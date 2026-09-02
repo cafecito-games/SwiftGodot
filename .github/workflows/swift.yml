@@ -383,5 +383,6 @@ jobs:
           .build/android-aar/SwiftGodot-release.aar
           .build/android-test/SwiftGodotAndroidTest-release.aar
           .build/android-runtime-x86_64/project/build/SwiftGodotAndroidTest.apk
+          .build/android-runtime-x86_64/logcat.txt
           ${{ runner.temp }}/swiftgodot-emulator.log
         if-no-files-found: warn

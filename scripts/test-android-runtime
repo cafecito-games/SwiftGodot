@@ -175,8 +175,19 @@ if [[ -n "$serial" ]]; then adb=("$adb_command" -s "$serial"); else adb=("$adb_c
 "${adb[@]}" install -r "$apk"
 "${adb[@]}" shell monkey -p games.cafecito.swiftgodot.runtime_test 1 >/dev/null
 
+logcat_dump="$work_dir/logcat.txt"
+
+# Every failure path saves the device log. A bare "timed out" says nothing
+# about what the application actually did.
+save_logcat() {
+    printf '%s\n' "$1" > "$logcat_dump"
+    echo "Saved device log to $logcat_dump" >&2
+    printf '%s\n' "$1" >&2
+}
+
 deadline=$((SECONDS + timeout_seconds))
 success="SWIFTGODOT_ANDROID_OK:$abi:42"
+logs=
 while (( SECONDS < deadline )); do
     logs=$("${adb[@]}" logcat -d 2>&1 || true)
     if grep -Fq "$success" <<< "$logs"; then
@@ -191,9 +202,11 @@ while (( SECONDS < deadline )); do
         die "Android test emitted success but did not terminate cleanly"
     fi
     if grep -Eq 'SWIFTGODOT_ANDROID_FAIL|dlopen failed|GDExtension.*(failed|error)|Cannot open dynamic library' <<< "$logs"; then
-        printf '%s\n' "$logs" >&2
+        save_logcat "$logs"
         die "Android runtime reported a loader or GDExtension failure"
     fi
     sleep 1
 done
+
+save_logcat "${logs:-$("${adb[@]}" logcat -d 2>&1 || true)}"
 die "timed out after ${timeout_seconds}s waiting for $success"
