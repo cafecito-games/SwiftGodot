@@ -8,11 +8,22 @@ fail() {
 
 printer="Generator/Generator/Printer.swift"
 basis_tests="Tests/SwiftGodotTestExtension/Math/BasisTests.swift"
+readme="README.md"
+android_guide="Sources/SwiftGodot/SwiftGodot.docc/Android.md"
 
 rg -q '#if canImport\(Darwin\)' "$printer" || fail "generated preamble must detect Darwin"
 rg -q '#elseif canImport\(Android\)' "$printer" || fail "generated preamble must detect the Android module"
 rg -q '#elseif canImport\(Bionic\)' "$printer" || fail "generated preamble must support the Bionic module name"
 rg -q '#error\("Unable to identify your C library\."\)' "$printer" || fail "generated preamble must reject unknown C libraries"
 rg -q '#if os\(Android\)' "$basis_tests" || fail "Basis tests must import Android math APIs conditionally"
+rg -q 'Android' "$readme" || fail "README must advertise Android support"
+[[ -f "$android_guide" ]] || fail "Android DocC guide missing"
+rg -q 'Godot 4\.7\.2' "$android_guide" || fail "Android guide must pin Godot 4.7.2"
+rg -q 'Swift 6\.3\.3' "$android_guide" || fail "Android guide must pin Swift 6.3.3"
+rg -q 'API 28' "$android_guide" || fail "Android guide must document API 28"
+rg -q 'arm64-v8a.*x86_64|x86_64.*arm64-v8a' "$android_guide" || fail "Android guide must document both supported ABIs"
+rg -q 'Gradle Build' "$android_guide" || fail "Android guide must explain Gradle export"
+rg -q 'lockstep' "$android_guide" || fail "Android guide must explain source/addon version lockstep"
+rg -q 'adb logcat' "$android_guide" || fail "Android guide must document loader diagnosis"
 
 echo "Android portability tests passed"

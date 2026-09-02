@@ -3,11 +3,11 @@
 This is a hard fork of [migueldeicaza/SwiftGodot](https://github.com/migueldeicaza/SwiftGodot), maintained by [Cafecito Games](https://github.com/cafecito-games).
 
 **Scope of this fork:**
-- Apple platforms only: **iOS and macOS**
-- Targets the **latest stable Godot release**
-- Requires **Swift 6** (swift-tools-version 6.3, strict concurrency)
+- Runtime support for **Android, iOS, and macOS**
+- Targets Cafecito's **Godot 4.7.2** build
+- Requires **Swift 6.3.3** for Android (swift-tools-version 6.3, strict concurrency)
 
-If you need cross-platform support, older Godot versions, or community-driven development, use the upstream project.
+If you need other platforms, older Godot versions, or community-driven development, use the upstream project.
 
 ---
 
@@ -70,6 +70,8 @@ source_path = "addons/SwiftGodot"
 ```
 
 Starting with 0.2.0, the addon registers a single no-op GDExtension named **SwiftGodotEmbed** whose only job is to own embedding `SwiftGodot.framework` / `SwiftGodot.xcframework` into iOS and macOS exports. Its `[dependencies]` block points at the bundled SwiftGodot binary, so Godot's exporter copies SwiftGodot into `App.app/Frameworks/` exactly once regardless of how many downstream Swift GDExtensions are installed alongside it.
+
+The same release addon is a Godot Android v2 plugin. Its prebuilt `SwiftGodot-release.aar` contains `arm64-v8a` and `x86_64` libraries plus their Swift runtime closure, and its editor export plugin adds the AAR automatically when **Gradle Build** is enabled. See <doc:Android> for the complete Android toolchain, source-consumer, export, and troubleshooting contract.
 
 Because of this:
 
