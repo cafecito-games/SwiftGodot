@@ -515,7 +515,7 @@ public struct GodotMacro: MemberMacro {
             """
             nonisolated override \(raw: accessControlLevel) class var classInitializer: Void {
                 let _ = super.classInitializer
-                MainActor.assumeIsolated {
+                SwiftGodot._assumeGodotMainActor {
                     _initializeClass()
                 }
             }
@@ -544,7 +544,7 @@ public struct GodotMacro: MemberMacro {
                 
                 var implementedOverridesDecl = "nonisolated override \(accessControlLevel) class func implementedOverrides () -> [StringName] {\n"
                 if !isTool {
-                    implementedOverridesDecl += "guard !MainActor.assumeIsolated({ Engine.isEditorHint() }) else { return [] }\n"
+                    implementedOverridesDecl += "guard !SwiftGodot._assumeGodotMainActor({ Engine.isEditorHint() }) else { return [] }\n"
                 }
                 implementedOverridesDecl += "return super.implementedOverrides () + [\n"
                 for name in stringNames {

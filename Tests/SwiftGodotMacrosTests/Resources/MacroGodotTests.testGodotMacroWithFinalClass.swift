@@ -3,7 +3,7 @@ final class Hi: Node {
 
     nonisolated override public class var classInitializer: Void {
         let _ = super.classInitializer
-        MainActor.assumeIsolated {
+        SwiftGodot._assumeGodotMainActor {
             _initializeClass()
         }
     }
@@ -20,7 +20,7 @@ final class Hi: Node {
     }
 
     nonisolated override public class func implementedOverrides () -> [StringName] {
-        guard !MainActor.assumeIsolated({ Engine.isEditorHint()
+        guard !SwiftGodot._assumeGodotMainActor({ Engine.isEditorHint()
             }) else {
             return []
         }

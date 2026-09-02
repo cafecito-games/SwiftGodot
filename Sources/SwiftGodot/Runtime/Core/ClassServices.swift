@@ -296,7 +296,7 @@ nonisolated func bind_call (_ udata: UnsafeMutableRawPointer?,
     let returnValueInt = returnValue.map { Int(bitPattern: $0) }
     let rErrorInt = r_error.map { Int(bitPattern: $0) }
 
-    MainActor.assumeIsolated {
+    _assumeGodotMainActor {
         guard let object = ref.value.value as? Object else { return }
         let variantArgs = variantArgsInt.flatMap { UnsafePointer<UnsafeRawPointer?>(bitPattern: $0) }
         let ret = withArguments(pargs: variantArgs, argc: argc) { arguments in
