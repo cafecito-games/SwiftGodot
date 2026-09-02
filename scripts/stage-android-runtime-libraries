@@ -1,0 +1,106 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+    echo "Usage: scripts/stage-android-runtime-libraries JNI_ROOT" >&2
+}
+
+if [[ $# -ne 1 ]]; then
+    usage
+    exit 2
+fi
+
+jni_root=$1
+script_dir=$(cd "$(dirname "$0")" && pwd)
+# shellcheck source=android-config
+source "$script_dir/android-config"
+
+die() {
+    echo "Error: $*" >&2
+    exit 1
+}
+
+[[ -d "$jni_root" ]] || die "JNI root does not exist: $jni_root"
+[[ -n "${ANDROID_NDK_ROOT:-}" && -d "$ANDROID_NDK_ROOT" ]] ||
+    die "ANDROID_NDK_ROOT must name an Android NDK"
+
+readelf_tool=$(find "$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt" -path '*/bin/llvm-readelf' -print -quit)
+[[ -x "$readelf_tool" ]] || die "llvm-readelf not found below ANDROID_NDK_ROOT"
+
+swift_sdk_root=${SWIFT_GODOT_ANDROID_SDK_ROOT:-}
+if [[ -z "$swift_sdk_root" ]]; then
+    for candidate in \
+        "$HOME/Library/org.swift.swiftpm/swift-sdks/${SWIFT_ANDROID_SDK_ID}.artifactbundle/swift-android" \
+        "$HOME/.swiftpm/swift-sdks/${SWIFT_ANDROID_SDK_ID}.artifactbundle/swift-android"
+    do
+        if [[ -d "$candidate/swift-resources" ]]; then
+            swift_sdk_root=$candidate
+            break
+        fi
+    done
+fi
+[[ -n "$swift_sdk_root" && -d "$swift_sdk_root/swift-resources" ]] ||
+    die "unable to locate $SWIFT_ANDROID_SDK_ID; set SWIFT_GODOT_ANDROID_SDK_ROOT"
+
+is_system_library() {
+    case "$1" in
+        libc.so|libdl.so|liblog.so|libm.so|libz.so|libandroid.so|libEGL.so|libGLESv2.so|libGLESv3.so|libOpenSLES.so|libvulkan.so|ld-android.so|linker|linker64)
+            return 0
+            ;;
+        *) return 1 ;;
+    esac
+}
+
+needed_libraries() {
+    "$readelf_tool" -d "$1" | sed -n 's/.*Shared library: \[\([^]]*\)\].*/\1/p'
+}
+
+for abi in arm64-v8a x86_64; do
+    abi_dir="$jni_root/$abi"
+    [[ -d "$abi_dir" ]] || die "missing ABI directory: $abi"
+    case "$abi" in
+        arm64-v8a)
+            swift_arch=swift-aarch64
+            ndk_triple=aarch64-linux-android
+            ;;
+        x86_64)
+            swift_arch=swift-x86_64
+            ndk_triple=x86_64-linux-android
+            ;;
+    esac
+
+    swift_library_dir="$swift_sdk_root/swift-resources/usr/lib/$swift_arch/android"
+    ndk_library_dir=$(find "$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt" \
+        -type d -path "*/sysroot/usr/lib/$ndk_triple" -print -quit)
+    [[ -d "$swift_library_dir" ]] || die "Swift runtime directory missing for $abi"
+    [[ -d "$ndk_library_dir" ]] || die "NDK runtime directory missing for $abi"
+
+    copied=1
+    while [[ $copied -ne 0 ]]; do
+        copied=0
+        while IFS= read -r library; do
+            while IFS= read -r dependency; do
+                [[ -n "$dependency" ]] || continue
+                if is_system_library "$dependency" || [[ -f "$abi_dir/$dependency" ]]; then
+                    continue
+                fi
+
+                source_library=
+                for search_dir in "$swift_library_dir" "$ndk_library_dir"; do
+                    candidate="$search_dir/$dependency"
+                    if [[ -f "$candidate" ]]; then
+                        source_library=$candidate
+                        break
+                    fi
+                done
+                [[ -n "$source_library" ]] ||
+                    die "unable to resolve $dependency required by $abi/$(basename "$library")"
+                cp -L "$source_library" "$abi_dir/$dependency"
+                echo "Staged $abi/$dependency"
+                copied=1
+            done < <(needed_libraries "$library")
+        done < <(find "$abi_dir" -maxdepth 1 -type f -name '*.so' -print | sort)
+    done
+done
+
+echo "Android Swift runtime dependency closure staged at $jni_root"

@@ -110,4 +110,9 @@ for triple in $SWIFT_ANDROID_TRIPLES; do
     done
 done
 
+if [[ -z "${SWIFT_GODOT_SKIP_ELF_VALIDATION:-}" ]]; then
+    "$script_dir/stage-android-runtime-libraries" "$output_dir/jni"
+    "$script_dir/validate-android-elf" "$output_dir/jni"
+fi
+
 echo "Android libraries staged at $output_dir/jni"

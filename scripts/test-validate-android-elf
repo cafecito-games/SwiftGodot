@@ -1,0 +1,98 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+fail() {
+    echo "FAIL: $*" >&2
+    exit 1
+}
+
+repo_root=$(cd "$(dirname "$0")/.." && pwd)
+work_dir=$(mktemp -d)
+trap 'rm -rf "$work_dir"' EXIT
+
+ndk_root=${ANDROID_NDK_ROOT:-"$HOME/Library/Android/sdk/ndk/27.3.13750724"}
+readelf_tool=$(find "$ndk_root/toolchains/llvm/prebuilt" -path '*/bin/llvm-readelf' -print -quit)
+toolchain=$(dirname "$readelf_tool")
+[[ -n "$toolchain" ]] || fail "Android NDK toolchain not found"
+
+cat > "$work_dir/swiftgodot.c" <<'EOF'
+int swiftgodot_fixture(void) { return 42; }
+EOF
+cat > "$work_dir/embed.c" <<'EOF'
+void swift_godot_embed_entry_point(void) {}
+EOF
+cat > "$work_dir/consumer.c" <<'EOF'
+extern int swiftgodot_fixture(void);
+int consumer_fixture(void) { return swiftgodot_fixture(); }
+EOF
+cat > "$work_dir/plain.c" <<'EOF'
+int plain_fixture(void) { return 0; }
+EOF
+
+good="$work_dir/good"
+for target_abi in aarch64-linux-android28:arm64-v8a x86_64-linux-android28:x86_64; do
+    target=${target_abi%%:*}
+    abi=${target_abi##*:}
+    compiler="$toolchain/${target}-clang"
+    abi_dir="$good/$abi"
+    mkdir -p "$abi_dir"
+    "$compiler" -shared -fPIC "$work_dir/swiftgodot.c" \
+        -Wl,-soname,libSwiftGodot.so -o "$abi_dir/libSwiftGodot.so"
+    "$compiler" -shared -fPIC "$work_dir/embed.c" \
+        -Wl,-soname,libSwiftGodotEmbed.so -o "$abi_dir/libSwiftGodotEmbed.so"
+    "$compiler" -shared -fPIC "$work_dir/consumer.c" -L"$abi_dir" -lSwiftGodot \
+        -Wl,-soname,libConsumer.so -o "$abi_dir/libConsumer.so"
+done
+
+"$repo_root/scripts/validate-android-elf" "$good" \
+    "$good/arm64-v8a/libConsumer.so" "$good/x86_64/libConsumer.so"
+
+expect_failure() {
+    local pattern=$1
+    shift
+    local log="$work_dir/failure.log"
+    if "$@" >"$log" 2>&1; then
+        fail "command unexpectedly succeeded; wanted diagnostic: $pattern"
+    fi
+    grep -Eqi "$pattern" "$log" || {
+        sed -n '1,80p' "$log" >&2
+        fail "missing expected diagnostic: $pattern"
+    }
+}
+
+wrong_abi="$work_dir/wrong-abi"
+cp -R "$good" "$wrong_abi"
+cp "$good/arm64-v8a/libSwiftGodot.so" "$wrong_abi/x86_64/libSwiftGodot.so"
+expect_failure 'x86_64.*(architecture|machine)' \
+    "$repo_root/scripts/validate-android-elf" "$wrong_abi"
+
+missing_entry="$work_dir/missing-entry"
+cp -R "$good" "$missing_entry"
+"$toolchain/aarch64-linux-android28-clang" -shared -fPIC "$work_dir/plain.c" \
+    -Wl,-soname,libSwiftGodotEmbed.so -o "$missing_entry/arm64-v8a/libSwiftGodotEmbed.so"
+expect_failure 'swift_godot_embed_entry_point' \
+    "$repo_root/scripts/validate-android-elf" "$missing_entry"
+
+missing_soname="$work_dir/missing-soname"
+cp -R "$good" "$missing_soname"
+"$toolchain/aarch64-linux-android28-clang" -shared -fPIC "$work_dir/swiftgodot.c" \
+    -o "$missing_soname/arm64-v8a/libSwiftGodot.so"
+expect_failure 'SONAME' "$repo_root/scripts/validate-android-elf" "$missing_soname"
+
+missing_dependency="$work_dir/missing-dependency"
+cp -R "$good" "$missing_dependency"
+"$toolchain/aarch64-linux-android28-clang" -shared -fPIC "$work_dir/plain.c" \
+    -Wl,-soname,libMissing.so -o "$work_dir/libMissing.so"
+"$toolchain/aarch64-linux-android28-clang" -shared -fPIC "$work_dir/consumer.c" \
+    -L"$work_dir" -Wl,--no-as-needed -lMissing -Wl,-soname,libBroken.so \
+    -o "$missing_dependency/arm64-v8a/libBroken.so"
+expect_failure 'libMissing[.]so' \
+    "$repo_root/scripts/validate-android-elf" "$missing_dependency"
+
+consumer_without_runtime="$work_dir/consumer-without-runtime.so"
+"$toolchain/aarch64-linux-android28-clang" -shared -fPIC "$work_dir/plain.c" \
+    -Wl,-soname,libConsumerWithoutRuntime.so -o "$consumer_without_runtime"
+expect_failure 'libSwiftGodot[.]so' \
+    "$repo_root/scripts/validate-android-elf" "$good" "$consumer_without_runtime"
+
+echo "Android ELF validation tests passed"

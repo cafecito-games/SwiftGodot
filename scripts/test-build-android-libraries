@@ -63,6 +63,7 @@ export SWIFT_TEST_LOG="$work_dir/swift.log"
 export ANDROID_HOME="$android_home"
 export ANDROID_NDK_ROOT="$ndk_root"
 export SWIFT_GODOT_ANDROID_WORK_DIR="$work_dir/android-build"
+export SWIFT_GODOT_SKIP_ELF_VALIDATION=1
 
 output="$work_dir/output"
 "$repo_root/scripts/build-android-libraries" "$output"
