@@ -24,6 +24,8 @@ die() {
 
 readelf_tool=$(find "$ndk_root/toolchains/llvm/prebuilt" -path '*/bin/llvm-readelf' -print -quit)
 [[ -x "$readelf_tool" ]] || die "llvm-readelf not found below ANDROID_NDK_ROOT"
+strings_tool=$(find "$ndk_root/toolchains/llvm/prebuilt" -path '*/bin/llvm-strings' -print -quit)
+[[ -x "$strings_tool" ]] || die "llvm-strings not found below ANDROID_NDK_ROOT"
 
 is_system_library() {
     case "$1" in
@@ -37,6 +39,13 @@ is_system_library() {
 needed_libraries() {
     "$readelf_tool" -d "$1" | sed -n 's/.*Shared library: \[\([^]]*\)\].*/\1/p'
 }
+
+while IFS= read -r abi_dir; do
+    case "$(basename "$abi_dir")" in
+        arm64-v8a|x86_64) ;;
+        *) die "unexpected ABI directory: $(basename "$abi_dir")" ;;
+    esac
+done < <(find "$jni_root" -mindepth 1 -maxdepth 1 -type d -print | sort)
 
 for abi in arm64-v8a x86_64; do
     abi_dir="$jni_root/$abi"
@@ -53,6 +62,14 @@ for abi in arm64-v8a x86_64; do
         header=$($readelf_tool -h "$library") || die "unable to read ELF header: $library"
         printf '%s\n' "$header" | grep -Fq "Machine:                           $expected_machine" ||
             die "$abi library has wrong machine architecture: $(basename "$library")"
+
+        sections=$($readelf_tool -S "$library") || die "unable to read ELF sections: $library"
+        if printf '%s\n' "$sections" | grep -Eq '[[:space:]][.]debug_'; then
+            die "$abi/$(basename "$library") contains debug sections; strip release libraries before packaging"
+        fi
+        if grep -Eq '/(Users|home|private/tmp|tmp)/' < <("$strings_tool" "$library"); then
+            die "$abi/$(basename "$library") contains a build-host path"
+        fi
 
         dynamic=$($readelf_tool -d "$library") || die "unable to read dynamic table: $library"
         soname=$(printf '%s\n' "$dynamic" | sed -n 's/.*Library soname: \[\([^]]*\)\].*/\1/p' | head -1)
@@ -78,6 +95,10 @@ for consumer in "$@"; do
     [[ -f "$consumer" ]] || die "consumer library does not exist: $consumer"
     needed_libraries "$consumer" | grep -Fxq 'libSwiftGodot.so' ||
         die "consumer does not declare libSwiftGodot.so in DT_NEEDED: $consumer"
+    consumer_symbols=$($readelf_tool -Ws "$consumer") || die "unable to read consumer symbols: $consumer"
+    if printf '%s\n' "$consumer_symbols" | awk '$7 != "UND" && $8 ~ /^[$]s10SwiftGodot/ { found = 1 } END { exit(found ? 0 : 1) }'; then
+        die "consumer defines SwiftGodot runtime symbols instead of using the shared runtime: $consumer"
+    fi
 done
 
 echo "Android ELF validation passed: $jni_root"

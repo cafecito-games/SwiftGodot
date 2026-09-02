@@ -18,6 +18,8 @@ rg -q 'scripts/test-android-runtime x86_64' .github/workflows/swift.yml || fail 
 rg -q 'swift-6\.3\.3-RELEASE_android' .github/workflows/swift.yml .github/workflows/release.yml || fail "Android workflows must install the pinned Swift SDK"
 rg -q '^  build-android:' .github/workflows/release.yml || fail "release workflow must build the Android AAR"
 rg -q 'name: swiftgodot-android' .github/workflows/release.yml || fail "release workflow must upload the Android artifact"
+rg -q 'scripts/build-android-test-extension' .github/workflows/release.yml || fail "release workflow must build the independent Android consumer"
+rg -q 'SWIFT_GODOT_ANDROID_EXPORT_ONLY' .github/workflows/release.yml || fail "release workflow must inspect a Gradle-exported Android APK"
 rg -q -- '- build-android' .github/workflows/release.yml || fail "release job must depend on Android"
 
 echo "distribution package staging tests passed"

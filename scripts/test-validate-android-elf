@@ -11,6 +11,7 @@ work_dir=$(mktemp -d)
 trap 'rm -rf "$work_dir"' EXIT
 
 ndk_root=${ANDROID_NDK_ROOT:-"$HOME/Library/Android/sdk/ndk/27.3.13750724"}
+export ANDROID_NDK_ROOT="$ndk_root"
 readelf_tool=$(find "$ndk_root/toolchains/llvm/prebuilt" -path '*/bin/llvm-readelf' -print -quit)
 toolchain=$(dirname "$readelf_tool")
 [[ -n "$toolchain" ]] || fail "Android NDK toolchain not found"
@@ -27,6 +28,15 @@ int consumer_fixture(void) { return swiftgodot_fixture(); }
 EOF
 cat > "$work_dir/plain.c" <<'EOF'
 int plain_fixture(void) { return 0; }
+EOF
+cat > "$work_dir/host-path.c" <<'EOF'
+const char *swiftgodot_source_path(void) { return "/Users/build-user/SwiftGodot/Source.swift"; }
+EOF
+cat > "$work_dir/consumer-with-runtime-copy.c" <<'EOF'
+extern int swiftgodot_fixture(void);
+void duplicate_runtime(void) __asm__("$s10SwiftGodot17duplicate_fixtureyyF");
+void duplicate_runtime(void) {}
+int consumer_fixture(void) { return swiftgodot_fixture(); }
 EOF
 
 good="$work_dir/good"
@@ -94,5 +104,30 @@ consumer_without_runtime="$work_dir/consumer-without-runtime.so"
     -Wl,-soname,libConsumerWithoutRuntime.so -o "$consumer_without_runtime"
 expect_failure 'libSwiftGodot[.]so' \
     "$repo_root/scripts/validate-android-elf" "$good" "$consumer_without_runtime"
+
+consumer_with_runtime_copy="$work_dir/consumer-with-runtime-copy.so"
+"$toolchain/aarch64-linux-android28-clang" -shared -fPIC \
+    "$work_dir/consumer-with-runtime-copy.c" -L"$good/arm64-v8a" -lSwiftGodot \
+    -Wl,-soname,libConsumerWithRuntimeCopy.so -o "$consumer_with_runtime_copy"
+expect_failure 'defines SwiftGodot runtime symbols' \
+    "$repo_root/scripts/validate-android-elf" "$good" "$consumer_with_runtime_copy"
+
+unexpected_abi="$work_dir/unexpected-abi"
+cp -R "$good" "$unexpected_abi"
+mkdir -p "$unexpected_abi/armeabi-v7a"
+cp "$good/arm64-v8a/libSwiftGodot.so" "$unexpected_abi/armeabi-v7a/"
+expect_failure 'unexpected ABI' "$repo_root/scripts/validate-android-elf" "$unexpected_abi"
+
+debug_binary="$work_dir/debug-binary"
+cp -R "$good" "$debug_binary"
+"$toolchain/aarch64-linux-android28-clang" -shared -fPIC -g "$work_dir/swiftgodot.c" \
+    -Wl,-soname,libSwiftGodot.so -o "$debug_binary/arm64-v8a/libSwiftGodot.so"
+expect_failure 'debug sections' "$repo_root/scripts/validate-android-elf" "$debug_binary"
+
+host_path_binary="$work_dir/host-path-binary"
+cp -R "$good" "$host_path_binary"
+"$toolchain/aarch64-linux-android28-clang" -shared -fPIC "$work_dir/host-path.c" \
+    -Wl,-soname,libSwiftGodot.so -o "$host_path_binary/arm64-v8a/libSwiftGodot.so"
+expect_failure 'build-host path' "$repo_root/scripts/validate-android-elf" "$host_path_binary"
 
 echo "Android ELF validation tests passed"

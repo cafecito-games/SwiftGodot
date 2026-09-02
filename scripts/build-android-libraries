@@ -112,6 +112,7 @@ done
 
 if [[ -z "${SWIFT_GODOT_SKIP_ELF_VALIDATION:-}" ]]; then
     "$script_dir/stage-android-runtime-libraries" "$output_dir/jni"
+    "$script_dir/strip-android-elf" "$output_dir/jni"
     "$script_dir/validate-android-elf" "$output_dir/jni"
 fi
 

@@ -23,6 +23,7 @@ apk="$project_dir/build/SwiftGodotAndroidTest.apk"
 godot_command=${SWIFT_GODOT_GODOT_COMMAND:-}
 adb_command=${SWIFT_GODOT_ADB_COMMAND:-adb}
 timeout_seconds=${SWIFT_GODOT_ANDROID_TIMEOUT:-120}
+exit_timeout_seconds=${SWIFT_GODOT_ANDROID_EXIT_TIMEOUT:-15}
 serial=${ANDROID_SERIAL:-}
 
 die() { echo "Error: $*" >&2; exit 1; }
@@ -137,14 +138,22 @@ mkdir -p "$(dirname "$apk")"
 "$godot_command" --headless --path "$project_dir" \
     --install-android-build-template \
     --export-debug Android "$apk"
+[[ -d "$project_dir/android/build" ]] || die "Godot did not install the project Android Gradle build template"
 [[ -f "$apk" ]] || die "Godot export did not produce $apk"
 
 apk_entries=$(unzip -Z1 "$apk")
 for packaged_abi in arm64-v8a x86_64; do
     for library in libSwiftGodot.so libSwiftGodotEmbed.so libAndroidTestExtension.so; do
-        grep -Fxq "lib/$packaged_abi/$library" <<< "$apk_entries" || die "APK missing lib/$packaged_abi/$library"
+        packaged_path="lib/$packaged_abi/$library"
+        count=$(awk -v required="$packaged_path" '$0 == required { count++ } END { print count + 0 }' <<< "$apk_entries")
+        [[ "$count" == 1 ]] || die "APK must contain exactly one $packaged_path; found $count"
     done
 done
+
+if [[ -n "${SWIFT_GODOT_ANDROID_EXPORT_ONLY:-}" ]]; then
+    echo "Android APK export validation passed: $apk"
+    exit 0
+fi
 
 if [[ -n "$serial" ]]; then adb=("$adb_command" -s "$serial"); else adb=("$adb_command"); fi
 "${adb[@]}" wait-for-device
@@ -157,8 +166,15 @@ success="SWIFTGODOT_ANDROID_OK:$abi:42"
 while (( SECONDS < deadline )); do
     logs=$("${adb[@]}" logcat -d 2>&1 || true)
     if grep -Fq "$success" <<< "$logs"; then
-        echo "$success"
-        exit 0
+        exit_deadline=$((SECONDS + exit_timeout_seconds))
+        while (( SECONDS < exit_deadline )); do
+            if ! "${adb[@]}" shell pidof games.cafecito.swiftgodot.runtime_test >/dev/null 2>&1; then
+                echo "$success"
+                exit 0
+            fi
+            sleep 1
+        done
+        die "Android test emitted success but did not terminate cleanly"
     fi
     if grep -Eq 'SWIFTGODOT_ANDROID_FAIL|dlopen failed|GDExtension.*(failed|error)|Cannot open dynamic library' <<< "$logs"; then
         printf '%s\n' "$logs" >&2

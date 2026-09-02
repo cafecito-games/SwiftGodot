@@ -34,6 +34,8 @@ trap cleanup EXIT
 mkdir -p "$generated_jni"
 rsync -aL "$jni_root/arm64-v8a" "$generated_jni/"
 rsync -aL "$jni_root/x86_64" "$generated_jni/"
+"$script_dir/strip-android-elf" "$generated_jni"
+"$script_dir/validate-android-elf" "$generated_jni"
 
 (
     cd "$project_dir"
@@ -44,5 +46,6 @@ aar="$project_dir/plugin/build/outputs/aar/SwiftGodot-release.aar"
 [[ -f "$aar" ]] || die "Gradle did not produce SwiftGodot-release.aar"
 mkdir -p "$output_dir"
 cp "$aar" "$output_dir/SwiftGodot-release.aar"
+"$script_dir/validate-android-aar" "$output_dir/SwiftGodot-release.aar"
 
 echo "Android AAR packaged at $output_dir/SwiftGodot-release.aar"

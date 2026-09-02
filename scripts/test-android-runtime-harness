@@ -15,8 +15,21 @@ cat > "$fake_bin/godot" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
 [[ -z "${GODOT_FAIL:-}" ]] || exit 9
+project=
+install_template=0
+for ((index = 1; index <= $#; index++)); do
+    if [[ "${!index}" == "--path" ]]; then
+        next=$((index + 1))
+        project=${!next}
+    elif [[ "${!index}" == "--install-android-build-template" ]]; then
+        install_template=1
+    fi
+done
 while [[ $# -gt 0 ]]; do
     if [[ "$1" == "--export-debug" ]]; then
+        [[ "$install_template" == 1 ]] || exit 8
+        [[ -n "$project" ]] || exit 7
+        mkdir -p "$project/android/build"
         apk=$3
         root=$(mktemp -d)
         trap 'rm -rf "$root"' EXIT
@@ -38,6 +51,10 @@ chmod +x "$fake_bin/godot"
 cat > "$fake_bin/adb" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
+if [[ "$*" == *"shell pidof games.cafecito.swiftgodot.runtime_test"* ]]; then
+    [[ -n "${ADB_STAYS_RUNNING:-}" ]] && echo 1234 && exit 0
+    exit 1
+fi
 if [[ "$*" == *"logcat -d"* ]]; then
     case "${ADB_SCENARIO:-success}" in
         success) echo "SWIFTGODOT_ANDROID_OK:x86_64:42" ;;
@@ -58,6 +75,7 @@ run_case() {
         SWIFT_GODOT_ADB_COMMAND="$fake_bin/adb" \
         SWIFT_GODOT_ANDROID_RUNTIME_WORK_DIR="$work_dir/run-$scenario" \
         SWIFT_GODOT_ANDROID_TIMEOUT=1 \
+        SWIFT_GODOT_ANDROID_EXIT_TIMEOUT=1 \
         ADB_SCENARIO="$scenario" "$@" "$runtime" x86_64
 }
 
@@ -69,6 +87,9 @@ for scenario in fail dlopen gdextension timeout; do
 done
 if run_case success GODOT_FAIL=1 >/dev/null 2>&1; then
     fail "nonzero Godot export should fail"
+fi
+if run_case success ADB_STAYS_RUNNING=1 >/dev/null 2>&1; then
+    fail "a test application that remains running should fail"
 fi
 
 rg -q 'v4\.7\.2-20260826\.1' "$runtime" || fail "custom Godot release pin missing"

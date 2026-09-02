@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ $# -ne 1 ]]; then
+    echo "Usage: scripts/strip-android-elf JNI_ROOT" >&2
+    exit 2
+fi
+
+jni_root=$1
+ndk_root=${ANDROID_NDK_ROOT:-}
+
+die() { echo "Error: $*" >&2; exit 1; }
+
+[[ -d "$jni_root" ]] || die "JNI root does not exist: $jni_root"
+[[ -n "$ndk_root" && -d "$ndk_root" ]] || die "ANDROID_NDK_ROOT must name an Android NDK"
+strip_tool=$(find "$ndk_root/toolchains/llvm/prebuilt" -path '*/bin/llvm-strip' -print -quit)
+[[ -x "$strip_tool" ]] || die "llvm-strip not found below ANDROID_NDK_ROOT"
+
+while IFS= read -r library; do
+    "$strip_tool" --strip-debug "$library"
+done < <(find "$jni_root" -type f -name '*.so' -print | sort)

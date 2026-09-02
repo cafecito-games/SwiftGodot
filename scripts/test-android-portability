@@ -25,5 +25,9 @@ rg -q 'arm64-v8a.*x86_64|x86_64.*arm64-v8a' "$android_guide" || fail "Android gu
 rg -q 'Gradle Build' "$android_guide" || fail "Android guide must explain Gradle export"
 rg -q 'lockstep' "$android_guide" || fail "Android guide must explain source/addon version lockstep"
 rg -q 'adb logcat' "$android_guide" || fail "Android guide must document loader diagnosis"
+rg -q 'Package[.]swift' "$android_guide" || fail "Android guide must include a downstream SwiftPM manifest"
+rg -q 'AndroidManifest[.]xml' "$android_guide" || fail "Android guide must include consumer plugin metadata"
+rg -q 'MyExtension[.]gdextension' "$android_guide" || fail "Android guide must include desktop and Android GDExtension entries"
+rg -q 'assembleRelease' "$android_guide" || fail "Android guide must explain how to build the consumer AAR"
 
 echo "Android portability tests passed"
