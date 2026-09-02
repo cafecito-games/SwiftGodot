@@ -452,6 +452,7 @@ jobs:
           scripts/build-android-libraries .build/android
           scripts/package-android-aar .build/android/jni .build/android-aar
           scripts/build-android-test-extension .build/android-test
+          scripts/reclaim-android-build-space
           SWIFT_GODOT_ANDROID_EXPORT_ONLY=1 scripts/test-android-runtime x86_64
 
       - name: Upload Android release artifact

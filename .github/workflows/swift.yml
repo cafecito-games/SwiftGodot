@@ -149,15 +149,13 @@ jobs:
         scripts/test-package-android-aar
         scripts/test-build-android-test-extension
         scripts/test-android-runtime-harness
+        scripts/test-reclaim-android-build-space
         scripts/build-android-libraries .build/android
         scripts/package-android-aar .build/android/jni .build/android-aar
         scripts/build-android-test-extension .build/android-test
 
-    - name: Reclaim Android build disk
-      run: |
-        df -h .
-        rm -rf .build/android-distribution .build/android-test-extension
-        df -h .
+    - name: Reclaim build space for Android emulator
+      run: scripts/reclaim-android-build-space
 
     - name: Create custom Godot access token
       id: custom-godot-token
@@ -179,6 +177,8 @@ jobs:
         arch: x86_64
         target: google_apis
         profile: pixel_6
+        # Keep the AVD below the space left after cross-building both Android ABIs.
+        disk-size: 4G
         disable-animations: true
         script: scripts/test-android-runtime x86_64
 

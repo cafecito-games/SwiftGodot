@@ -24,6 +24,8 @@ void swift_godot_embed_entry_point(void) {}
 EOF
 cat > "$work_dir/consumer.c" <<'EOF'
 extern int swiftgodot_fixture(void);
+static void local_swiftgodot_specialization(void) __asm__("$s10SwiftGodot28local_specialization_fixtureyyF");
+static __attribute__((used)) void local_swiftgodot_specialization(void) {}
 int consumer_fixture(void) { return swiftgodot_fixture(); }
 EOF
 cat > "$work_dir/plain.c" <<'EOF'
