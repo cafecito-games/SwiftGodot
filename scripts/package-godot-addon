@@ -3,27 +3,29 @@ set -euo pipefail
 
 usage() {
     cat <<'EOF'
-Usage: scripts/package-godot-addon TAG SWIFTGODOT_XCFRAMEWORK SWIFTGODOTEMBED_XCFRAMEWORK [OUTPUT_DIR]
+Usage: scripts/package-godot-addon TAG SWIFTGODOT_XCFRAMEWORK SWIFTGODOTEMBED_XCFRAMEWORK ANDROID_AAR [OUTPUT_DIR]
 
 Stages the SwiftGodot Godot addon at OUTPUT_DIR/dist/addons/SwiftGodot and
 writes OUTPUT_DIR/SwiftGodot-TAG.zip. The zip extracts to addons/SwiftGodot.
 
 The addon ships:
-  - plugin.cfg, LICENSE
+  - plugin.cfg, export_plugin.gd, LICENSE
   - SwiftGodotEmbed.gdextension      — registered, no-op GDExtension
+  - bin/android/SwiftGodot.aar
   - bin/ios/SwiftGodot.xcframework
   - bin/ios/SwiftGodotEmbed.xcframework
   - bin/macos_arm64/SwiftGodot.framework
   - bin/macos_arm64/SwiftGodotEmbed.framework
 
-The .gdextension declares SwiftGodot under `[dependencies]` so Godot's
-iOS/macOS exporters embed SwiftGodot.framework into the exported app exactly
-once. Downstream GDExtensions that link SwiftGodot do NOT need to list it in
-their own `[dependencies]` block as long as this addon is installed.
+The export plugin adds the AAR to Android exports. The .gdextension declares
+SwiftGodot under `[dependencies]` so Godot's iOS/macOS exporters embed
+SwiftGodot.framework into the exported app exactly once. Downstream
+GDExtensions that link SwiftGodot do NOT need to list it in their own
+`[dependencies]` block as long as this addon is installed.
 EOF
 }
 
-if [[ $# -lt 3 || $# -gt 4 ]]; then
+if [[ $# -lt 4 || $# -gt 5 ]]; then
     usage
     exit 1
 fi
@@ -31,7 +33,8 @@ fi
 tag=$1
 xcframework=$2
 embed_xcframework=$3
-output_dir=${4:-.}
+android_aar=$4
+output_dir=${5:-.}
 
 case "$tag" in
     ""|*/*)
@@ -53,6 +56,7 @@ absolute_path() {
 
 xcframework=$(absolute_path "$xcframework")
 embed_xcframework=$(absolute_path "$embed_xcframework")
+android_aar=$(absolute_path "$android_aar")
 output_dir=$(absolute_path "$output_dir")
 
 if [[ ! -d "$xcframework" ]]; then
@@ -62,6 +66,11 @@ fi
 
 if [[ ! -d "$embed_xcframework" ]]; then
     echo "Expected SwiftGodotEmbed xcframework directory: $embed_xcframework"
+    exit 1
+fi
+
+if [[ ! -f "$android_aar" ]]; then
+    echo "Expected Android AAR file: $android_aar"
     exit 1
 fi
 
@@ -116,23 +125,53 @@ zip_path="$output_dir/SwiftGodot-$tag.zip"
 plugin_version=${tag#v}
 
 rm -rf "$addon_dir"
-mkdir -p "$addon_dir/bin/ios" "$addon_dir/bin/macos_arm64"
+mkdir -p "$addon_dir/bin/android" "$addon_dir/bin/ios" "$addon_dir/bin/macos_arm64"
 
 cat > "$addon_dir/plugin.cfg" <<EOF
 [plugin]
 name="SwiftGodot"
-description="Shared SwiftGodot xcframework/framework for iOS/macOS GDExtensions. Registers a no-op SwiftGodotEmbed extension that owns embedding SwiftGodot.framework into exported apps; downstream GDExtensions should not list SwiftGodot in their own [dependencies]."
+description="Prebuilt SwiftGodot runtime for Android, iOS, and macOS GDExtensions. Registers SwiftGodotEmbed and exports the Android AAR automatically."
 author="cafecito-games"
 version="$plugin_version"
-script=""
+script="export_plugin.gd"
+EOF
+
+cat > "$addon_dir/export_plugin.gd" <<'EOF'
+@tool
+extends EditorPlugin
+
+var export_plugin: AndroidExportPlugin
+
+func _enter_tree():
+	export_plugin = AndroidExportPlugin.new()
+	add_export_plugin(export_plugin)
+
+func _exit_tree():
+	remove_export_plugin(export_plugin)
+	export_plugin = null
+
+class AndroidExportPlugin extends EditorExportPlugin:
+	func _supports_platform(platform):
+		return platform is EditorExportPlatformAndroid
+
+	func _get_android_libraries(platform, debug):
+		return PackedStringArray(["res://addons/SwiftGodot/bin/android/SwiftGodot.aar"])
+
+	func _get_name():
+		return "SwiftGodot"
 EOF
 
 cat > "$addon_dir/SwiftGodotEmbed.gdextension" <<'EOF'
 [configuration]
 entry_symbol = "swift_godot_embed_entry_point"
-compatibility_minimum = "4.4"
+compatibility_minimum = "4.7"
+android_aar_plugin = true
 
 [libraries]
+android.debug.arm64 = "res://addons/SwiftGodot/bin/android/arm64-v8a/libSwiftGodotEmbed.so"
+android.release.arm64 = "res://addons/SwiftGodot/bin/android/arm64-v8a/libSwiftGodotEmbed.so"
+android.debug.x86_64 = "res://addons/SwiftGodot/bin/android/x86_64/libSwiftGodotEmbed.so"
+android.release.x86_64 = "res://addons/SwiftGodot/bin/android/x86_64/libSwiftGodotEmbed.so"
 ios.debug = "res://addons/SwiftGodot/bin/ios/SwiftGodotEmbed.xcframework"
 ios.release = "res://addons/SwiftGodot/bin/ios/SwiftGodotEmbed.xcframework"
 ios.simulator.debug = "res://addons/SwiftGodot/bin/ios/SwiftGodotEmbed.xcframework"
@@ -148,6 +187,7 @@ macos.arm64 = { "res://addons/SwiftGodot/bin/macos_arm64/SwiftGodot.framework": 
 EOF
 
 cp LICENSE "$addon_dir/LICENSE"
+cp "$android_aar" "$addon_dir/bin/android/SwiftGodot.aar"
 copy_without_symlinks "$xcframework" "$addon_dir/bin/ios"
 copy_without_symlinks "$embed_xcframework" "$addon_dir/bin/ios"
 copy_without_symlinks "$mac_framework" "$addon_dir/bin/macos_arm64"
