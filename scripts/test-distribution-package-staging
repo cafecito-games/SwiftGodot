@@ -24,11 +24,12 @@ rg -q 'swiftgodot-distribution-package' .github/workflows/release.yml || fail "r
 rg -q '^  android:' .github/workflows/swift.yml || fail "CI must define an Android job"
 android_ci_job=$(job_block .github/workflows/swift.yml android)
 grep -Fq 'timeout-minutes: 120' <<< "$android_ci_job" || fail "Android CI must have a 120-minute hard timeout"
-grep -Fq 'rm -rf .build/android-distribution .build/android-test-extension' <<< "$android_ci_job" || fail "Android CI must reclaim intermediate build trees before starting the emulator"
+grep -Fq 'scripts/reclaim-android-build-space' <<< "$android_ci_job" || fail "Android CI must reclaim intermediate build trees before starting the emulator"
 rg -q 'sudo apt-get install -y ripgrep' .github/workflows/swift.yml || fail "Android CI must install ripgrep"
 rg -q 'scripts/build-android-libraries' .github/workflows/swift.yml || fail "CI must cross-build Android libraries"
 rg -q 'scripts/build-android-test-extension' .github/workflows/swift.yml || fail "CI must build the independent Android consumer"
 rg -q 'scripts/test-android-runtime x86_64' .github/workflows/swift.yml || fail "CI must execute the x86_64 Android runtime smoke test"
+rg -q 'disk-size: 4G' .github/workflows/swift.yml || fail "Android CI must use a bounded emulator data partition"
 rg -q 'swift-6\.3\.3-RELEASE_android' .github/workflows/swift.yml .github/workflows/release.yml || fail "Android workflows must install the pinned Swift SDK"
 rg -q '^  build-android:' .github/workflows/release.yml || fail "release workflow must build the Android AAR"
 android_release_job=$(job_block .github/workflows/release.yml build-android)

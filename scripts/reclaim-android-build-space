@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+script_dir=$(cd "$(dirname "$0")" && pwd)
+default_repository_root=$(cd "$script_dir/.." && pwd)
+repository_root=${SWIFT_GODOT_REPOSITORY_ROOT:-$default_repository_root}
+
+die() {
+    echo "Error: $*" >&2
+    exit 1
+}
+
+case "$repository_root" in
+    ""|/) die "refusing unsafe repository root: $repository_root" ;;
+esac
+repository_root=$(cd "$repository_root" && pwd)
+
+[[ -f "$repository_root/.build/android-aar/SwiftGodot-release.aar" ]] ||
+    die "publishable Android AAR must exist before reclaiming build space"
+[[ -f "$repository_root/.build/android-test/SwiftGodotAndroidTest-release.aar" ]] ||
+    die "Android test AAR must exist before reclaiming build space"
+
+rm -rf -- \
+    "$repository_root/.build/android-distribution" \
+    "$repository_root/.build/android-test-extension" \
+    "$repository_root/.build/android" \
+    "$repository_root/Android/SwiftGodotPlugin/.gradle" \
+    "$repository_root/Android/SwiftGodotPlugin/plugin/build" \
+    "$repository_root/Android/SwiftGodotPlugin/test-plugin/build"
+
+echo "Reclaimed disposable Android build space"
+df -h "$repository_root"

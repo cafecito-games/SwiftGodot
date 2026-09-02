@@ -96,7 +96,7 @@ for consumer in "$@"; do
     needed_libraries "$consumer" | grep -Fxq 'libSwiftGodot.so' ||
         die "consumer does not declare libSwiftGodot.so in DT_NEEDED: $consumer"
     consumer_symbols=$($readelf_tool -Ws "$consumer") || die "unable to read consumer symbols: $consumer"
-    if printf '%s\n' "$consumer_symbols" | awk '$5 != "LOCAL" && $7 != "UND" && $8 ~ /^[$]s10SwiftGodot/ { found = 1 } END { exit(found ? 0 : 1) }'; then
+    if printf '%s\n' "$consumer_symbols" | awk '$5 ~ /^(GLOBAL|WEAK)$/ && $7 != "UND" && $8 ~ /^[$]s10SwiftGodot/ { found = 1 } END { exit(found ? 0 : 1) }'; then
         die "consumer defines SwiftGodot runtime symbols instead of using the shared runtime: $consumer"
     fi
 done
