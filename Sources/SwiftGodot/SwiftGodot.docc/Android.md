@@ -6,7 +6,7 @@ Ship Swift GDExtensions on Android with SwiftGodot's Godot v2 plugin and prebuil
 
 Android releases are built and tested as one pinned set:
 
-- Cafecito Godot 4.7.2 (`4.7.2.stable.cafecito_dc0a505af.ed1daf0bf`)
+- Cafecito Godot 4.7.2 (`4.7.2.stable.cafecito_6b0b715d9.ed1daf0bf`)
 - Swift 6.3.3 and `swift-6.3.3-RELEASE_android`
 - Android API 28 minimum, NDK r27d (`27.3.13750724`), and JDK 17
 - `arm64-v8a` and `x86_64`

@@ -92,9 +92,11 @@ if run_case success ADB_STAYS_RUNNING=1 >/dev/null 2>&1; then
     fail "a test application that remains running should fail"
 fi
 
-rg -q 'v4\.7\.2-20260826\.1' "$runtime" || fail "custom Godot release pin missing"
-rg -q 'a3570264cfedba3b716d6b1bc33ff1b78351b965d0dcae6262b4c1a009b01bb8' "$runtime" || fail "Android template checksum missing"
-rg -q '6e9945ad00d7c6877f1c3a98224c17c5ff0caf8cf42b716e9152569f6b2ac71e' "$runtime" || fail "editor checksum missing"
+rg -q 'v4\.7\.2-20260902\.2' "$runtime" || fail "custom Godot release pin missing"
+rg -q '1e6bca23f4278466f9b1ab159ce869ab5a877884122a1faec6d5353c3d7744d2' "$runtime" || fail "Android template checksum missing"
+rg -q 'd5c760b89da2ef01e9e19153f5fae969c058dd9f1e78d0e1a3881923e1a77b38' "$runtime" || fail "editor checksum missing"
+rg -q '5ef9ae1efd521967e803935885e53fd8e620e02a2b8db6aeba3108b92dcd7238' "$runtime" || fail "Linux editor checksum missing"
+rg -q '4\.7\.2\.stable\.cafecito_6b0b715d9\.ed1daf0bf' "$runtime" || fail "custom Godot version identity missing"
 rg -q '120' "$runtime" || fail "bounded runtime timeout missing"
 rg -q -- '--install-android-build-template' "$runtime" || fail "Gradle build template installation missing"
 

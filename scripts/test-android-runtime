@@ -11,14 +11,14 @@ case "$abi" in arm64-v8a|x86_64) ;; *) usage; exit 2 ;; esac
 
 script_dir=$(cd "$(dirname "$0")" && pwd)
 repository_root=$(cd "$script_dir/.." && pwd)
-release_tag=v4.7.2-20260826.1
-godot_version=4.7.2.stable.cafecito_dc0a505af.ed1daf0bf
+release_tag=v4.7.2-20260902.2
+godot_version=4.7.2.stable.cafecito_6b0b715d9.ed1daf0bf
 # Godot resolves export templates by major.minor.patch.status only; the custom
 # build name and hash that --version reports are not part of the directory.
 godot_template_version=4.7.2.stable
-editor_sha=6e9945ad00d7c6877f1c3a98224c17c5ff0caf8cf42b716e9152569f6b2ac71e
-linux_editor_sha=2c94cdefddfe78ede2b5fa11b7aec6affdff5496584fe59b3f9a967ff7fefd55
-templates_sha=a3570264cfedba3b716d6b1bc33ff1b78351b965d0dcae6262b4c1a009b01bb8
+editor_sha=d5c760b89da2ef01e9e19153f5fae969c058dd9f1e78d0e1a3881923e1a77b38
+linux_editor_sha=5ef9ae1efd521967e803935885e53fd8e620e02a2b8db6aeba3108b92dcd7238
+templates_sha=1e6bca23f4278466f9b1ab159ce869ab5a877884122a1faec6d5353c3d7744d2
 cache_dir=${SWIFT_GODOT_ANDROID_RUNTIME_CACHE:-"$repository_root/.build/android-runtime-cache"}
 work_dir=${SWIFT_GODOT_ANDROID_RUNTIME_WORK_DIR:-"$repository_root/.build/android-runtime-$abi"}
 project_dir="$work_dir/project"
