@@ -394,17 +394,77 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-  build-android:
-    name: Build Android arm64-v8a and x86_64
+  stage-android-package:
+    name: Stage Android SwiftGodot package
     needs: prepare
-    runs-on: ubuntu-24.04
-    timeout-minutes: 120
+    runs-on: blacksmith-8vcpu-ubuntu-2404
+    timeout-minutes: 60
 
     steps:
       - name: Checkout SwiftGodot
         uses: actions/checkout@v6
         with:
           ref: ${{ needs.prepare.outputs.commit }}
+
+      # The Blacksmith Ubuntu image does not ship the Swift release signing keys
+      # that setup-swift needs to verify its Swiftly download.
+      - name: Import Swift signing keys
+        run: curl -fsSL --compressed https://swift.org/keys/all-keys.asc | gpg --import -
+
+      - name: Set up Swift 6.3.3
+        uses: swift-actions/setup-swift@v3
+        with:
+          swift-version: "6.3.3"
+
+      # Generation depends only on the Godot extension API and the generator, so
+      # a hit skips a full host build of SwiftGodot.
+      - name: Restore generated Swift sources
+        uses: actions/cache@v4
+        with:
+          path: .build/android-generated-sources
+          key: android-generated-sources-${{ runner.os }}-swift6.3.3-${{ hashFiles('Sources/ExtensionApi/**', 'Generator/**', 'Plugins/CodeGeneratorPlugin/**', 'Package.swift') }}
+
+      # Binding generation is host-only and ABI independent, so every ABI job
+      # reuses this one staged package instead of regenerating it.
+      - name: Stage Android package
+        env:
+          SWIFT_GODOT_GENERATED_SOURCES_CACHE: ${{ github.workspace }}/.build/android-generated-sources
+        run: scripts/generate-android-package .build/android-staged-package
+
+      - name: Upload staged Android package
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-staged-package
+          path: .build/android-staged-package
+          if-no-files-found: error
+          retention-days: 1
+
+  build-android-abi:
+    name: Build Android ${{ matrix.abi }}
+    needs:
+      - prepare
+      - stage-android-package
+    runs-on: blacksmith-8vcpu-ubuntu-2404
+    timeout-minutes: 120
+
+    strategy:
+      fail-fast: false
+      matrix:
+        abi: [arm64-v8a, x86_64]
+
+    env:
+      SWIFT_GODOT_ANDROID_ABIS: ${{ matrix.abi }}
+
+    steps:
+      - name: Checkout SwiftGodot
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.prepare.outputs.commit }}
+
+      # The Blacksmith Ubuntu image does not ship the Swift release signing keys
+      # that setup-swift needs to verify its Swiftly download.
+      - name: Import Swift signing keys
+        run: curl -fsSL --compressed https://swift.org/keys/all-keys.asc | gpg --import -
 
       - name: Set up Swift 6.3.3
         uses: swift-actions/setup-swift@v3
@@ -420,19 +480,83 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Install Android build utilities
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y ripgrep
-
       - name: Install pinned Android toolchain
         run: |
           sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0" "ndk;27.3.13750724"
+          echo "ANDROID_NDK_ROOT=$ANDROID_HOME/ndk/27.3.13750724" >> "$GITHUB_ENV"
           swift sdk install "$SWIFT_ANDROID_SDK_URL" --checksum "$SWIFT_ANDROID_SDK_SHA256"
           sdk_root=$(find "$HOME" -type d -path '*/swift-6.3.3-RELEASE_android.artifactbundle/swift-android' -print -quit)
           test -n "$sdk_root"
           echo "SWIFT_GODOT_ANDROID_SDK_ROOT=$sdk_root" >> "$GITHUB_ENV"
           ANDROID_NDK_HOME="$ANDROID_HOME/ndk/27.3.13750724" "$sdk_root/scripts/setup-android-sdk.sh"
+
+      - name: Download staged Android package
+        uses: actions/download-artifact@v4
+        with:
+          name: android-staged-package
+          path: .build/android-staged-package
+
+      - name: Build and validate ${{ matrix.abi }}
+        env:
+          SWIFT_GODOT_ANDROID_PACKAGE: ${{ github.workspace }}/.build/android-staged-package
+        run: |
+          scripts/build-android-libraries .build/android
+          scripts/build-android-test-extension .build/android-test
+
+      # Each ABI uploads only its own subtree, so the aggregation job can detect
+      # any file two ABI jobs both claim.
+      - name: Collect ${{ matrix.abi }} artifacts
+        run: |
+          mkdir -p .build/android-upload
+          cp -R .build/android/jni .build/android-upload/runtime-jni
+          cp -R .build/android-test/jni .build/android-upload/consumer-jni
+
+      - name: Upload ${{ matrix.abi }} artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-abi-${{ matrix.abi }}
+          path: .build/android-upload
+          if-no-files-found: error
+          retention-days: 1
+
+  build-android:
+    name: Package Android arm64-v8a and x86_64
+    needs:
+      - prepare
+      - build-android-abi
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout SwiftGodot
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.prepare.outputs.commit }}
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android build utilities
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ripgrep
+
+      - name: Install pinned Android NDK
+        run: |
+          sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0" "ndk;27.3.13750724"
+          echo "ANDROID_NDK_ROOT=$ANDROID_HOME/ndk/27.3.13750724" >> "$GITHUB_ENV"
+
+      - name: Download per-ABI artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: android-abi-*
+          path: .build/android-abis
 
       - name: Create custom Godot access token
         id: custom-godot-token
@@ -446,12 +570,13 @@ jobs:
 
       - name: Build and validate publishable Android AAR
         env:
-          ANDROID_NDK_ROOT: /usr/local/lib/android/sdk/ndk/27.3.13750724
           GH_TOKEN: ${{ steps.custom-godot-token.outputs.token }}
         run: |
-          scripts/build-android-libraries .build/android
+          scripts/aggregate-android-jni .build/android/jni .build/android-abis/*/runtime-jni
+          scripts/aggregate-android-jni .build/android-test/jni .build/android-abis/*/consumer-jni
+          scripts/validate-android-elf .build/android/jni
           scripts/package-android-aar .build/android/jni .build/android-aar
-          scripts/build-android-test-extension .build/android-test
+          scripts/package-android-test-aar .build/android-test/jni .build/android-test
           scripts/reclaim-android-build-space
           SWIFT_GODOT_ANDROID_EXPORT_ONLY=1 scripts/test-android-runtime x86_64
 

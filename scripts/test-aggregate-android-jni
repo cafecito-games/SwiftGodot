@@ -1,0 +1,86 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+fail() {
+    echo "FAIL: $*" >&2
+    exit 1
+}
+
+repo_root=$(cd "$(dirname "$0")/.." && pwd)
+aggregator="$repo_root/scripts/aggregate-android-jni"
+[[ -x "$aggregator" ]] || fail "aggregate-android-jni must exist and be executable"
+
+work_dir=$(mktemp -d)
+trap 'rm -rf "$work_dir"' EXIT
+
+make_abi_input() {
+    local root=$1 abi=$2
+    mkdir -p "$root/$abi"
+    printf 'fake %s SwiftGodot ELF\n' "$abi" > "$root/$abi/libSwiftGodot.so"
+    printf 'fake %s SwiftGodotEmbed ELF\n' "$abi" > "$root/$abi/libSwiftGodotEmbed.so"
+}
+
+arm_input="$work_dir/arm64-v8a-input"
+x86_input="$work_dir/x86_64-input"
+make_abi_input "$arm_input" arm64-v8a
+make_abi_input "$x86_input" x86_64
+
+output="$work_dir/aggregated"
+"$aggregator" "$output" "$arm_input" "$x86_input" >/dev/null
+
+for library in \
+    arm64-v8a/libSwiftGodot.so \
+    arm64-v8a/libSwiftGodotEmbed.so \
+    x86_64/libSwiftGodot.so \
+    x86_64/libSwiftGodotEmbed.so
+do
+    [[ -f "$output/$library" ]] || fail "aggregated tree is missing $library"
+done
+cmp -s "$arm_input/arm64-v8a/libSwiftGodot.so" "$output/arm64-v8a/libSwiftGodot.so" ||
+    fail "aggregation did not preserve the arm64-v8a contribution"
+cmp -s "$x86_input/x86_64/libSwiftGodot.so" "$output/x86_64/libSwiftGodot.so" ||
+    fail "aggregation did not preserve the x86_64 contribution"
+
+missing_log="$work_dir/missing.log"
+if "$aggregator" "$work_dir/missing-output" "$arm_input" >"$missing_log" 2>&1; then
+    fail "aggregation unexpectedly succeeded with only one ABI"
+fi
+grep -q 'missing ABI: x86_64' "$missing_log" || fail "missing-ABI diagnostic did not name x86_64"
+
+duplicate_input="$work_dir/duplicate-input"
+make_abi_input "$duplicate_input" x86_64
+printf 'divergent x86_64 SwiftGodot ELF\n' > "$duplicate_input/x86_64/libSwiftGodot.so"
+duplicate_log="$work_dir/duplicate.log"
+if "$aggregator" "$work_dir/duplicate-output" "$x86_input" "$duplicate_input" >"$duplicate_log" 2>&1; then
+    fail "aggregation unexpectedly accepted two inputs claiming the same file"
+fi
+grep -q 'duplicate JNI file x86_64/libSwiftGodot.so' "$duplicate_log" ||
+    fail "duplicate-file diagnostic did not name the colliding path"
+
+selection_log="$work_dir/inherited-selection.log"
+if SWIFT_GODOT_ANDROID_ABIS=arm64-v8a "$aggregator" "$work_dir/selection-output" "$arm_input" \
+    >"$selection_log" 2>&1; then
+    fail "an inherited ABI selection must not narrow the aggregate completeness check"
+fi
+grep -q 'missing ABI: x86_64' "$selection_log" ||
+    fail "inherited-selection diagnostic did not name the missing ABI"
+
+unknown_input="$work_dir/unknown-input"
+mkdir -p "$unknown_input/armeabi-v7a"
+printf 'fake ELF\n' > "$unknown_input/armeabi-v7a/libSwiftGodot.so"
+unknown_log="$work_dir/unknown.log"
+if "$aggregator" "$work_dir/unknown-output" "$arm_input" "$x86_input" "$unknown_input" \
+    >"$unknown_log" 2>&1; then
+    fail "aggregation unexpectedly accepted an unsupported ABI directory"
+fi
+grep -q 'armeabi-v7a' "$unknown_log" || fail "unsupported ABI diagnostic did not name the directory"
+
+empty_input="$work_dir/empty-input"
+mkdir -p "$empty_input/x86_64"
+empty_log="$work_dir/empty.log"
+if "$aggregator" "$work_dir/empty-output" "$arm_input" "$empty_input" >"$empty_log" 2>&1; then
+    fail "aggregation unexpectedly accepted an input with no shared libraries"
+fi
+grep -q 'contributes no shared libraries' "$empty_log" || fail "empty-input diagnostic missing"
+
+echo "Android JNI aggregation tests passed"

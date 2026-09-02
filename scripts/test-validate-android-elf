@@ -152,4 +152,14 @@ cp -R "$good" "$host_path_binary"
     -Wl,-soname,libSwiftGodot.so -o "$host_path_binary/arm64-v8a/libSwiftGodot.so"
 expect_failure 'build-host path' "$repo_root/scripts/validate-android-elf" "$host_path_binary"
 
+single_abi="$work_dir/single-abi"
+mkdir -p "$single_abi"
+cp -R "$good/x86_64" "$single_abi/"
+SWIFT_GODOT_ANDROID_ABIS=x86_64 "$repo_root/scripts/validate-android-elf" "$single_abi" \
+    "$single_abi/x86_64/libConsumer.so"
+expect_failure 'missing ABI directory: arm64-v8a' \
+    "$repo_root/scripts/validate-android-elf" "$single_abi"
+expect_failure 'unexpected ABI directory: x86_64' \
+    env SWIFT_GODOT_ANDROID_ABIS=arm64-v8a "$repo_root/scripts/validate-android-elf" "$single_abi"
+
 echo "Android ELF validation tests passed"

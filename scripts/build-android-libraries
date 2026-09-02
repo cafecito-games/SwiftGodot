@@ -14,13 +14,15 @@ script_dir=$(cd "$(dirname "$0")" && pwd)
 repository_root=$(cd "$script_dir/.." && pwd)
 # shellcheck source=android-config
 source "$script_dir/android-config"
+# shellcheck source=android-abis
+source "$script_dir/android-abis"
 
 output_dir=$1
 swift_command=${SWIFT_GODOT_SWIFT_COMMAND:-swift}
 java_command=${SWIFT_GODOT_JAVA_COMMAND:-java}
 work_dir=${SWIFT_GODOT_ANDROID_WORK_DIR:-"$repository_root/.build/android-distribution"}
-staged_package="$work_dir/package"
-scratch_root="$work_dir/build"
+staged_package=${SWIFT_GODOT_ANDROID_PACKAGE:-"$work_dir/package"}
+scratch_root=${SWIFT_GODOT_ANDROID_SCRATCH_ROOT:-"$work_dir/build"}
 
 die() {
     echo "Error: $*" >&2
@@ -30,6 +32,8 @@ die() {
 case "$output_dir" in
     ""|/|"$repository_root") die "refusing unsafe output directory: $output_dir" ;;
 esac
+
+selected_abis=$(android_selected_abis) || die "invalid Android ABI selection"
 
 swift_version=$($swift_command --version 2>&1) || die "unable to run $swift_command"
 printf '%s\n' "$swift_version" | grep -Eq "Swift version ${SWIFT_ANDROID_VERSION}([[:space:]]|$)" ||
@@ -55,44 +59,25 @@ java_version=$($java_command -version 2>&1) || die "unable to run Java"
 printf '%s\n' "$java_version" | grep -Eq 'version "17([.]|"|$)' ||
     die "JDK 17 is required; found: $(printf '%s' "$java_version" | head -1)"
 
-generated_sources=${SWIFT_GODOT_GENERATED_SOURCES:-}
-if [[ -z "$generated_sources" ]]; then
-    generation_scratch="$work_dir/generation"
-    rm -rf "$generation_scratch"
-    echo "Generating SwiftGodot bindings on the host..."
-    "$swift_command" build \
-        --package-path "$repository_root" \
-        --scratch-path "$generation_scratch" \
-        -Xswiftc -DSWIFTGODOT_ANDROID_HOST_GENERATION \
-        --target SwiftGodot
-    while IFS= read -r candidate; do
-        first_generated_file=$(find "$candidate" -type f -name '*.swift' -print -quit)
-        if [[ -n "$first_generated_file" ]]; then
-            generated_sources=$candidate
-            break
-        fi
-    done < <(find "$generation_scratch" -type d \
-        -path '*/CodeGeneratorPlugin/GeneratedSources/SwiftGodot' -print)
-fi
-[[ -n "$generated_sources" && -d "$generated_sources" ]] ||
-    die "could not locate CodeGeneratorPlugin generated Swift sources"
-
-rm -rf "$work_dir/package"
 if [[ -n "${SWIFT_GODOT_ANDROID_CLEAN:-}" ]]; then
     rm -rf "$scratch_root"
 fi
 mkdir -p "$work_dir" "$scratch_root"
-"$script_dir/stage-android-package" "$generated_sources" "$staged_package"
+
+# A pre-staged package lets several single-ABI jobs share one generation pass.
+if [[ -n "${SWIFT_GODOT_ANDROID_PACKAGE:-}" ]]; then
+    [[ -f "$staged_package/Package.swift" ]] ||
+        die "pre-staged Android package is missing Package.swift: $staged_package"
+else
+    rm -rf "$staged_package"
+    "$script_dir/generate-android-package" "$staged_package"
+fi
 
 rm -rf "$output_dir"
 mkdir -p "$output_dir/jni"
 
-for triple in $SWIFT_ANDROID_TRIPLES; do
-    case "$triple" in
-        aarch64-unknown-linux-android28) abi=arm64-v8a ;;
-        x86_64-unknown-linux-android28) abi=x86_64 ;;
-        *) die "unsupported configured Android target: $triple" ;;
-    esac
+for abi in $selected_abis; do
+    triple=$(android_triple_for_abi "$abi") || die "unsupported Android ABI: $abi"
 
     abi_scratch="$scratch_root/$abi"
     mkdir -p "$output_dir/jni/$abi"

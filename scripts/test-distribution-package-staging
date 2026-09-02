@@ -23,10 +23,12 @@ rg -q 'name: "GDExtensionC"' Package.distribution.swift || fail "distribution pa
 rg -q 'SWIFT_GODOT_PREPARED_PACKAGE_DIR="\$prepared_release_package"' scripts/release || fail "local release must reuse the prepared package"
 rg -q 'stage-package:' .github/workflows/release.yml || fail "release workflow must stage generated sources once"
 rg -q 'swiftgodot-distribution-package' .github/workflows/release.yml || fail "release workflow must pass the staged package as an artifact"
-rg -q '^  android:' .github/workflows/swift.yml || fail "CI must define an Android job"
-android_ci_job=$(job_block .github/workflows/swift.yml android)
-grep -Fq 'timeout-minutes: 120' <<< "$android_ci_job" || fail "Android CI must have a 120-minute hard timeout"
-grep -Fq 'scripts/reclaim-android-build-space' <<< "$android_ci_job" || fail "Android CI must reclaim intermediate build trees before starting the emulator"
+rg -q '^  android-abi:' .github/workflows/swift.yml || fail "CI must define per-ABI Android jobs"
+android_ci_abi_job=$(job_block .github/workflows/swift.yml android-abi)
+grep -Fq 'timeout-minutes: 120' <<< "$android_ci_abi_job" || fail "Android ABI builds must have a 120-minute hard timeout"
+android_ci_package_job=$(job_block .github/workflows/swift.yml android-package)
+grep -Fq 'timeout-minutes: 120' <<< "$android_ci_package_job" || fail "Android packaging must have a 120-minute hard timeout"
+grep -Fq 'scripts/reclaim-android-build-space' <<< "$android_ci_package_job" || fail "Android CI must reclaim intermediate build trees before starting the emulator"
 rg -q 'sudo apt-get install -y ripgrep' .github/workflows/swift.yml || fail "Android CI must install ripgrep"
 rg -q 'scripts/build-android-libraries' .github/workflows/swift.yml || fail "CI must cross-build Android libraries"
 rg -q 'scripts/build-android-test-extension' .github/workflows/swift.yml || fail "CI must build the independent Android consumer"
@@ -35,8 +37,10 @@ rg -q 'disk-size: 3G' .github/workflows/swift.yml || fail "Android CI must use a
 rg -q 'pre-emulator-launch-script: scripts/configure-android-emulator' .github/workflows/swift.yml || fail "Android CI must replace duplicate AVD partition settings before launch"
 rg -q 'swift-6\.3\.3-RELEASE_android' .github/workflows/swift.yml .github/workflows/release.yml || fail "Android workflows must install the pinned Swift SDK"
 rg -q '^  build-android:' .github/workflows/release.yml || fail "release workflow must build the Android AAR"
+android_release_abi_job=$(job_block .github/workflows/release.yml build-android-abi)
+grep -Fq 'timeout-minutes: 120' <<< "$android_release_abi_job" || fail "Android release ABI builds must have a 120-minute hard timeout"
 android_release_job=$(job_block .github/workflows/release.yml build-android)
-grep -Fq 'timeout-minutes: 120' <<< "$android_release_job" || fail "Android release builds must have a 120-minute hard timeout"
+grep -Fq 'timeout-minutes: 120' <<< "$android_release_job" || fail "Android release packaging must have a 120-minute hard timeout"
 rg -q 'sudo apt-get install -y ripgrep' .github/workflows/release.yml || fail "Android release builds must install ripgrep"
 rg -q 'name: swiftgodot-android' .github/workflows/release.yml || fail "release workflow must upload the Android artifact"
 rg -q 'scripts/build-android-test-extension' .github/workflows/release.yml || fail "release workflow must build the independent Android consumer"

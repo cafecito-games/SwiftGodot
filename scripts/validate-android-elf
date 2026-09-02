@@ -10,6 +10,12 @@ if [[ $# -lt 1 ]]; then
     exit 2
 fi
 
+script_dir=$(cd "$(dirname "$0")" && pwd)
+# shellcheck source=android-config
+source "$script_dir/android-config"
+# shellcheck source=android-abis
+source "$script_dir/android-abis"
+
 jni_root=$1
 shift
 ndk_root=${ANDROID_NDK_ROOT:-}
@@ -18,6 +24,8 @@ die() {
     echo "Error: $*" >&2
     exit 1
 }
+
+selected_abis=$(android_selected_abis) || die "invalid Android ABI selection"
 
 [[ -d "$jni_root" ]] || die "JNI root does not exist: $jni_root"
 [[ -n "$ndk_root" && -d "$ndk_root" ]] || die "ANDROID_NDK_ROOT must name an Android NDK"
@@ -41,13 +49,17 @@ needed_libraries() {
 }
 
 while IFS= read -r abi_dir; do
-    case "$(basename "$abi_dir")" in
-        arm64-v8a|x86_64) ;;
-        *) die "unexpected ABI directory: $(basename "$abi_dir")" ;;
-    esac
+    present_abi=$(basename "$abi_dir")
+    expected=
+    for abi in $selected_abis; do
+        if [[ "$abi" == "$present_abi" ]]; then
+            expected=1
+        fi
+    done
+    [[ -n "$expected" ]] || die "unexpected ABI directory: $present_abi"
 done < <(find "$jni_root" -mindepth 1 -maxdepth 1 -type d -print | sort)
 
-for abi in arm64-v8a x86_64; do
+for abi in $selected_abis; do
     abi_dir="$jni_root/$abi"
     [[ -d "$abi_dir" ]] || die "missing ABI directory: $abi"
     [[ -f "$abi_dir/libSwiftGodot.so" ]] || die "missing $abi/libSwiftGodot.so"
@@ -56,6 +68,7 @@ for abi in arm64-v8a x86_64; do
     case "$abi" in
         arm64-v8a) expected_machine='AArch64' ;;
         x86_64) expected_machine='Advanced Micro Devices X86-64' ;;
+        *) die "unsupported Android ABI: $abi" ;;
     esac
 
     while IFS= read -r library; do

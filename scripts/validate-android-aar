@@ -49,5 +49,7 @@ rg -q 'android_aar_plugin[[:space:]]*=[[:space:]]*true' "$gdextension" ||
 rg -q 'entry_symbol[[:space:]]*=[[:space:]]*"swift_godot_embed_entry_point"' "$gdextension" ||
     die "packaged GDExtension entry symbol is incorrect"
 
-"$script_dir/validate-android-elf" "$work_dir/unpacked/jni"
+# A published AAR always carries every configured ABI, so an ABI selection
+# left over from a single-ABI build job must not narrow this check.
+SWIFT_GODOT_ANDROID_ABIS='' "$script_dir/validate-android-elf" "$work_dir/unpacked/jni"
 echo "Android AAR validation passed: $aar"

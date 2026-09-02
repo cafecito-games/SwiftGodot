@@ -1,0 +1,112 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+    echo "Usage: scripts/generate-android-package OUTPUT_DIR" >&2
+}
+
+if [[ $# -ne 1 ]]; then
+    usage
+    exit 2
+fi
+
+script_dir=$(cd "$(dirname "$0")" && pwd)
+repository_root=$(cd "$script_dir/.." && pwd)
+# shellcheck source=android-config
+source "$script_dir/android-config"
+
+output_dir=$1
+swift_command=${SWIFT_GODOT_SWIFT_COMMAND:-swift}
+work_dir=${SWIFT_GODOT_ANDROID_WORK_DIR:-"$repository_root/.build/android-distribution"}
+
+die() {
+    echo "Error: $*" >&2
+    exit 1
+}
+
+case "$output_dir" in
+    ""|/|"$repository_root") die "refusing unsafe output directory: $output_dir" ;;
+esac
+
+swift_version=$($swift_command --version 2>&1) || die "unable to run $swift_command"
+printf '%s\n' "$swift_version" | grep -Eq "Swift version ${SWIFT_ANDROID_VERSION}([[:space:]]|$)" ||
+    die "Swift ${SWIFT_ANDROID_VERSION} is required; found: $(printf '%s' "$swift_version" | head -1)"
+
+generated_sources=${SWIFT_GODOT_GENERATED_SOURCES:-}
+
+# Generation depends only on the Godot extension API and the generator itself,
+# so CI restores this directory from a cache and skips the host build entirely.
+# The cache is only trusted when its manifest matches what it holds, so a run
+# interrupted mid-populate cannot make an incomplete API look authoritative.
+generated_cache=${SWIFT_GODOT_GENERATED_SOURCES_CACHE:-}
+generated_cache_manifest=.generated-source-count
+
+count_swift_sources() {
+    find "$1" -type f -name '*.swift' | wc -l | tr -d '[:space:]'
+}
+
+if [[ -n "$generated_cache" ]]; then
+    case "$generated_cache" in
+        ""|/|"$repository_root") die "refusing unsafe generated source cache: $generated_cache" ;;
+    esac
+fi
+
+if [[ -z "$generated_sources" && -n "$generated_cache" && -d "$generated_cache" ]]; then
+    manifest="$generated_cache/$generated_cache_manifest"
+    expected_count=
+    if [[ -f "$manifest" ]]; then
+        expected_count=$(tr -d '[:space:]' < "$manifest")
+    fi
+    actual_count=$(count_swift_sources "$generated_cache")
+    if [[ "$expected_count" =~ ^[1-9][0-9]*$ && "$actual_count" == "$expected_count" ]]; then
+        echo "Reusing $actual_count cached generated Swift sources from $generated_cache"
+        generated_sources=$generated_cache
+    else
+        echo "Discarding incomplete generated Swift source cache:" \
+            "holds $actual_count of ${expected_count:-unknown} sources" >&2
+        rm -rf "$generated_cache"
+    fi
+fi
+
+if [[ -z "$generated_sources" ]]; then
+    generation_scratch="$work_dir/generation"
+    rm -rf "$generation_scratch"
+    echo "Generating SwiftGodot bindings on the host..."
+    "$swift_command" build \
+        --package-path "$repository_root" \
+        --scratch-path "$generation_scratch" \
+        -Xswiftc -DSWIFTGODOT_ANDROID_HOST_GENERATION \
+        --target SwiftGodot
+    while IFS= read -r candidate; do
+        first_generated_file=$(find "$candidate" -type f -name '*.swift' -print -quit)
+        if [[ -n "$first_generated_file" ]]; then
+            generated_sources=$candidate
+            break
+        fi
+    done < <(find "$generation_scratch" -type d \
+        -path '*/CodeGeneratorPlugin/GeneratedSources/SwiftGodot' -print)
+fi
+[[ -n "$generated_sources" && -d "$generated_sources" ]] ||
+    die "could not locate CodeGeneratorPlugin generated Swift sources"
+
+if [[ -n "$generated_cache" && "$generated_sources" != "$generated_cache" ]]; then
+    source_count=$(count_swift_sources "$generated_sources")
+    [[ "$source_count" =~ ^[1-9][0-9]*$ ]] || die "generation produced no Swift sources"
+
+    # Populate beside the cache and move it into place only once every source
+    # has landed, so the cache is never observed half written.
+    pending_cache="$generated_cache.pending"
+    rm -rf "$generated_cache" "$pending_cache"
+    mkdir -p "$pending_cache"
+    cp -R "$generated_sources/." "$pending_cache/" ||
+        die "unable to populate generated Swift source cache: $pending_cache"
+
+    cached_count=$(count_swift_sources "$pending_cache")
+    [[ "$cached_count" == "$source_count" ]] ||
+        die "cached $cached_count of $source_count generated Swift sources"
+    printf '%s\n' "$source_count" > "$pending_cache/$generated_cache_manifest"
+    mv "$pending_cache" "$generated_cache"
+    echo "Populated generated Swift source cache with $source_count sources at $generated_cache"
+fi
+
+"$script_dir/stage-android-package" "$generated_sources" "$output_dir"

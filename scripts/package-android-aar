@@ -12,6 +12,11 @@ fi
 
 script_dir=$(cd "$(dirname "$0")" && pwd)
 repository_root=$(cd "$script_dir/.." && pwd)
+# shellcheck source=android-config
+source "$script_dir/android-config"
+# shellcheck source=android-abis
+source "$script_dir/android-abis"
+
 project_dir="$repository_root/Android/SwiftGodotPlugin"
 jni_root=$1
 output_dir=$2
@@ -22,8 +27,13 @@ die() {
     exit 1
 }
 
-[[ -d "$jni_root/arm64-v8a" ]] || die "missing JNI ABI directory: arm64-v8a"
-[[ -d "$jni_root/x86_64" ]] || die "missing JNI ABI directory: x86_64"
+# The published AAR always carries every configured ABI, whichever subset an
+# individual build job produced.
+required_abis=$(unset SWIFT_GODOT_ANDROID_ABIS; android_selected_abis) || die "invalid Android ABI configuration"
+
+for abi in $required_abis; do
+    [[ -d "$jni_root/$abi" ]] || die "missing JNI ABI directory: $abi"
+done
 [[ ! -e "$generated_jni" ]] || die "generated JNI directory already exists: $generated_jni"
 
 cleanup() {
@@ -32,10 +42,11 @@ cleanup() {
 trap cleanup EXIT
 
 mkdir -p "$generated_jni"
-rsync -aL "$jni_root/arm64-v8a" "$generated_jni/"
-rsync -aL "$jni_root/x86_64" "$generated_jni/"
+for abi in $required_abis; do
+    rsync -aL "$jni_root/$abi" "$generated_jni/"
+done
 "$script_dir/strip-android-elf" "$generated_jni"
-"$script_dir/validate-android-elf" "$generated_jni"
+SWIFT_GODOT_ANDROID_ABIS='' "$script_dir/validate-android-elf" "$generated_jni"
 
 (
     cd "$project_dir"

@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+    echo "Usage: scripts/package-android-test-aar CONSUMER_JNI_ROOT OUTPUT_DIR" >&2
+}
+
+if [[ $# -ne 2 ]]; then
+    usage
+    exit 2
+fi
+
+script_dir=$(cd "$(dirname "$0")" && pwd)
+repository_root=$(cd "$script_dir/.." && pwd)
+# shellcheck source=android-config
+source "$script_dir/android-config"
+# shellcheck source=android-abis
+source "$script_dir/android-abis"
+
+consumer_jni_root=$1
+output_dir=$2
+runtime_root=${SWIFT_GODOT_ANDROID_LIBRARIES:-"$repository_root/.build/android"}
+work_dir=${SWIFT_GODOT_ANDROID_TEST_WORK_DIR:-"$repository_root/.build/android-test-extension"}
+validation_root="$work_dir/packaged-validation-jni"
+project_dir="$repository_root/Android/SwiftGodotPlugin"
+generated_jni="$project_dir/test-plugin/src/main/jniLibs"
+gradle_command=${SWIFT_GODOT_GRADLE_COMMAND:-"$project_dir/gradlew"}
+
+die() {
+    echo "Error: $*" >&2
+    exit 1
+}
+
+case "$output_dir" in
+    ""|/|"$repository_root") die "refusing unsafe output directory: $output_dir" ;;
+esac
+
+# The published test AAR always carries every configured ABI, whichever subset
+# an individual build job produced.
+required_abis=$(unset SWIFT_GODOT_ANDROID_ABIS; android_selected_abis) || die "invalid Android ABI configuration"
+
+for abi in $required_abis; do
+    [[ -f "$consumer_jni_root/$abi/libAndroidTestExtension.so" ]] ||
+        die "missing test extension for $abi in $consumer_jni_root"
+done
+[[ ! -e "$generated_jni" ]] || die "generated JNI directory already exists: $generated_jni"
+
+cleanup() {
+    rm -rf "$generated_jni"
+}
+trap cleanup EXIT
+
+if [[ -z "${SWIFT_GODOT_SKIP_ELF_VALIDATION:-}" ]]; then
+    rm -rf "$validation_root"
+    consumers=()
+    for abi in $required_abis; do
+        mkdir -p "$validation_root/$abi"
+        rsync -aL "$runtime_root/jni/$abi/" "$validation_root/$abi/"
+        cp "$consumer_jni_root/$abi/libAndroidTestExtension.so" "$validation_root/$abi/"
+        consumers+=("$validation_root/$abi/libAndroidTestExtension.so")
+    done
+    SWIFT_GODOT_ANDROID_ABIS='' "$script_dir/validate-android-elf" "$validation_root" "${consumers[@]}"
+fi
+
+mkdir -p "$generated_jni"
+for abi in $required_abis; do
+    rsync -aL "$consumer_jni_root/$abi" "$generated_jni/"
+done
+
+(
+    cd "$project_dir"
+    "$gradle_command" --no-daemon :test-plugin:assembleRelease
+)
+
+aar="$project_dir/test-plugin/build/outputs/aar/SwiftGodotAndroidTest-release.aar"
+[[ -f "$aar" ]] || die "Gradle did not produce SwiftGodotAndroidTest-release.aar"
+mkdir -p "$output_dir"
+cp "$aar" "$output_dir/SwiftGodotAndroidTest-release.aar"
+
+echo "Android test extension AAR packaged at $output_dir/SwiftGodotAndroidTest-release.aar"

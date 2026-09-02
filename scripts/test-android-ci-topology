@@ -1,0 +1,106 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+fail() {
+    echo "FAIL: $*" >&2
+    exit 1
+}
+
+job_block() {
+    local workflow=$1
+    local job=$2
+    awk -v header="  $job:" '
+        $0 == header { printing = 1 }
+        printing && $0 ~ /^  [[:alnum:]_-]+:$/ && $0 != header { exit }
+        printing { print }
+    ' "$workflow"
+}
+
+ci_workflow=.github/workflows/swift.yml
+release_workflow=.github/workflows/release.yml
+
+# Every ABI must be cross-compiled by its own job so the two builds actually run
+# concurrently instead of sharing one runner.
+for workflow in "$ci_workflow" "$release_workflow"; do
+    rg -q 'abi: \[arm64-v8a, x86_64\]' "$workflow" ||
+        fail "$workflow must fan out over both Android ABIs"
+    rg -q 'SWIFT_GODOT_ANDROID_ABIS: \$\{\{ matrix\.abi \}\}' "$workflow" ||
+        fail "$workflow must restrict each matrix job to its own ABI"
+    rg -q 'name: android-abi-\$\{\{ matrix\.abi \}\}' "$workflow" ||
+        fail "$workflow must give each ABI its own artifact name"
+    rg -q 'scripts/generate-android-package \.build/android-staged-package' "$workflow" ||
+        fail "$workflow must stage the generated sources once"
+    rg -q 'name: android-staged-package' "$workflow" ||
+        fail "$workflow must publish the staged package as an artifact"
+    rg -q 'SWIFT_GODOT_ANDROID_PACKAGE: \$\{\{ github\.workspace \}\}/\.build/android-staged-package' "$workflow" ||
+        fail "$workflow ABI jobs must reuse the staged package instead of regenerating it"
+    rg -q 'pattern: android-abi-\*' "$workflow" ||
+        fail "$workflow must collect every per-ABI artifact for aggregation"
+    rg -q 'scripts/aggregate-android-jni \.build/android/jni \.build/android-abis/\*/runtime-jni' "$workflow" ||
+        fail "$workflow must aggregate the per-ABI runtime trees"
+    rg -q 'scripts/aggregate-android-jni \.build/android-test/jni \.build/android-abis/\*/consumer-jni' "$workflow" ||
+        fail "$workflow must aggregate the per-ABI consumer trees"
+    rg -q 'scripts/validate-android-elf \.build/android/jni' "$workflow" ||
+        fail "$workflow must validate the aggregated dependency closure"
+    rg -q 'scripts/package-android-aar \.build/android/jni \.build/android-aar' "$workflow" ||
+        fail "$workflow must assemble the publishable AAR from the aggregated tree"
+    rg -q 'scripts/package-android-test-aar \.build/android-test/jni \.build/android-test' "$workflow" ||
+        fail "$workflow must assemble the consumer AAR from the aggregated tree"
+
+    if rg -q 'scripts/build-android-libraries .*&&' "$workflow"; then
+        fail "$workflow must not chain the ABI build onto another ABI"
+    fi
+
+    # The Swift cross-builds dominate wall clock, so they must not sit on the
+    # smallest hosted runner while every other job in the repository does not.
+    rg -q 'runs-on: blacksmith-8vcpu-ubuntu-2404' "$workflow" ||
+        fail "$workflow must build Android ABIs on a large Linux runner"
+    rg -q 'SWIFT_GODOT_GENERATED_SOURCES_CACHE' "$workflow" ||
+        fail "$workflow must reuse cached generated sources when staging"
+    rg -q 'path: \.build/android-generated-sources' "$workflow" ||
+        fail "$workflow must cache the generated Swift sources"
+    rg -q 'hashFiles\(.Sources/ExtensionApi/\*\*., .Generator/\*\*., .Plugins/CodeGeneratorPlugin/\*\*., .Package\.swift.\)' "$workflow" ||
+        fail "$workflow must key the generated-source cache on every generation input"
+    if rg -q 'ANDROID_NDK_ROOT: /usr/local' "$workflow"; then
+        fail "$workflow must derive ANDROID_NDK_ROOT from ANDROID_HOME, not the runner image layout"
+    fi
+    rg -q 'echo "ANDROID_NDK_ROOT=\$ANDROID_HOME/ndk/' "$workflow" ||
+        fail "$workflow must export a derived ANDROID_NDK_ROOT"
+
+    # The Blacksmith image ships no Swift release signing keys, so setup-swift
+    # cannot verify its Swiftly download without importing them first.
+    setup_swift_jobs=$(rg -c 'uses: swift-actions/setup-swift@' "$workflow" || true)
+    key_imports=$(rg -c 'name: Import Swift signing keys' "$workflow" || true)
+    [[ -n "$setup_swift_jobs" && "$key_imports" == "$setup_swift_jobs" ]] ||
+        fail "$workflow must import Swift signing keys once per setup-swift job"
+    rg -q 'swift[.]org/keys/all-keys[.]asc' "$workflow" ||
+        fail "$workflow must import the Swift release signing keys from swift.org"
+    if rg -q 'skip-verify-signature: true' "$workflow"; then
+        fail "$workflow must not disable Swift toolchain signature verification"
+    fi
+done
+
+# The emulator needs /dev/kvm, which the larger runners do not provide.
+emulator_job=$(job_block "$ci_workflow" android-package)
+grep -Fq 'runs-on: ubuntu-24.04' <<< "$emulator_job" ||
+    fail "the Android emulator job must stay on a KVM-capable GitHub runner"
+grep -Fq 'scripts/test-android-runtime x86_64' <<< "$emulator_job" ||
+    fail "the emulator smoke test must run in the packaging job"
+
+abi_job=$(job_block "$ci_workflow" android-abi)
+grep -Fq 'runs-on: blacksmith-8vcpu-ubuntu-2404' <<< "$abi_job" ||
+    fail "the per-ABI Android build must run on a large Linux runner"
+
+rg -q 'needs: android-stage' "$ci_workflow" || fail "CI ABI jobs must wait for the staged package"
+rg -q 'needs: android-abi' "$ci_workflow" || fail "CI packaging must wait for every ABI job"
+rg -q 'scripts/test-aggregate-android-jni' "$ci_workflow" ||
+    fail "CI must run the JNI aggregation regression tests"
+
+rg -q -- '- stage-android-package' "$release_workflow" ||
+    fail "release ABI jobs must wait for the staged package"
+rg -q -- '- build-android-abi' "$release_workflow" ||
+    fail "release packaging must wait for every ABI job"
+rg -q -- '- build-android$' "$release_workflow" ||
+    fail "the release job must still gate on Android packaging"
+
+echo "Android CI topology tests passed"

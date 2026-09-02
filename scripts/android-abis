@@ -1,0 +1,69 @@
+#!/usr/bin/env bash
+
+# Shared Android ABI selection. Sourced alongside android-config so a
+# single-ABI CI job and a full local build agree on ABI names, their canonical
+# order, and the target triple each one cross-compiles to.
+#
+# Callers select a subset with SWIFT_GODOT_ANDROID_ABIS, a space separated list
+# of ABI names. An empty or unset value selects every configured ABI.
+
+android_abi_for_triple() {
+    case "$1" in
+        aarch64-unknown-linux-android*) printf '%s\n' arm64-v8a ;;
+        x86_64-unknown-linux-android*) printf '%s\n' x86_64 ;;
+        *) return 1 ;;
+    esac
+}
+
+android_all_abis() {
+    local triple
+    for triple in $SWIFT_ANDROID_TRIPLES; do
+        android_abi_for_triple "$triple" || {
+            echo "Error: unsupported configured Android target: $triple" >&2
+            return 1
+        }
+    done
+}
+
+android_triple_for_abi() {
+    local abi=$1 triple
+    for triple in $SWIFT_ANDROID_TRIPLES; do
+        if [[ "$(android_abi_for_triple "$triple" 2>/dev/null)" == "$abi" ]]; then
+            printf '%s\n' "$triple"
+            return 0
+        fi
+    done
+    return 1
+}
+
+# Emits the requested ABIs in the order android-config declares them.
+android_selected_abis() {
+    local requested=${SWIFT_GODOT_ANDROID_ABIS:-} abi selected=" "
+
+    if [[ -z "${requested//[[:space:]]/}" ]]; then
+        android_all_abis
+        return
+    fi
+
+    for abi in $requested; do
+        android_triple_for_abi "$abi" >/dev/null || {
+            echo "Error: unsupported Android ABI requested: $abi" >&2
+            return 1
+        }
+        case "$selected" in
+            *" $abi "*)
+                echo "Error: Android ABI requested more than once: $abi" >&2
+                return 1
+                ;;
+        esac
+        selected="$selected$abi "
+    done
+
+    local configured
+    configured=$(android_all_abis) || return 1
+    for abi in $configured; do
+        case "$selected" in
+            *" $abi "*) printf '%s\n' "$abi" ;;
+        esac
+    done
+}
