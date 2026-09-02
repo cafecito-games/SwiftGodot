@@ -93,6 +93,7 @@ jobs:
         scripts/test-binary-manifest
         scripts/test-package-resolution
         scripts/test-distribution-package-staging
+        scripts/test-android-ci-topology
         scripts/test-package-godot-addon
         scripts/test-release-toolchain
 
@@ -101,10 +102,87 @@ jobs:
         SWIFT_GODOT_INCLUDE_MACOS_X86: 1
       run: scripts/build-macro-artifactbundle "$RUNNER_TEMP/sg-macro-artifact" "0.0.0-ci"
 
-  android:
-    name: Android x86_64 runtime and both ABI artifacts
+  android-scripts:
+    name: Android script regression tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v6
+
+    - name: Set up JDK 17
+      uses: actions/setup-java@v5
+      with:
+        distribution: temurin
+        java-version: "17"
+
+    - name: Set up Android SDK
+      uses: android-actions/setup-android@v3
+
+    - name: Install Android build utilities
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y ripgrep
+
+    - name: Install pinned Android NDK
+      run: sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0" "ndk;27.3.13750724"
+
+    - name: Run Android script regression tests
+      env:
+        ANDROID_NDK_ROOT: /usr/local/lib/android/sdk/ndk/27.3.13750724
+      run: |
+        scripts/test-android-portability
+        scripts/test-stage-android-package
+        scripts/test-build-android-libraries
+        scripts/test-aggregate-android-jni
+        scripts/test-validate-android-elf
+        scripts/test-package-android-aar
+        scripts/test-build-android-test-extension
+        scripts/test-android-runtime-harness
+        scripts/test-reclaim-android-build-space
+        scripts/test-configure-android-emulator
+
+  android-stage:
+    name: Stage Android SwiftGodot package
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v6
+
+    - name: Set up Swift 6.3.3
+      uses: swift-actions/setup-swift@v3
+      with:
+        swift-version: "6.3.3"
+
+    # Binding generation is host-only and ABI independent, so every ABI job
+    # reuses this one staged package instead of regenerating it.
+    - name: Stage Android package
+      run: scripts/generate-android-package .build/android-staged-package
+
+    - name: Upload staged Android package
+      uses: actions/upload-artifact@v4
+      with:
+        name: android-staged-package
+        path: .build/android-staged-package
+        if-no-files-found: error
+        retention-days: 1
+
+  android-abi:
+    name: Android ${{ matrix.abi }} libraries
+    needs: android-stage
     runs-on: ubuntu-24.04
     timeout-minutes: 120
+
+    strategy:
+      fail-fast: false
+      matrix:
+        abi: [arm64-v8a, x86_64]
+
+    env:
+      SWIFT_GODOT_ANDROID_ABIS: ${{ matrix.abi }}
 
     steps:
     - name: Checkout
@@ -124,11 +202,6 @@ jobs:
     - name: Set up Android SDK
       uses: android-actions/setup-android@v3
 
-    - name: Install Android build utilities
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y ripgrep
-
     - name: Install pinned Android toolchain
       run: |
         sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0" "ndk;27.3.13750724"
@@ -138,22 +211,83 @@ jobs:
         echo "SWIFT_GODOT_ANDROID_SDK_ROOT=$sdk_root" >> "$GITHUB_ENV"
         ANDROID_NDK_HOME="$ANDROID_HOME/ndk/27.3.13750724" "$sdk_root/scripts/setup-android-sdk.sh"
 
-    - name: Build and validate both Android ABIs
+    - name: Download staged Android package
+      uses: actions/download-artifact@v4
+      with:
+        name: android-staged-package
+        path: .build/android-staged-package
+
+    - name: Build and validate ${{ matrix.abi }}
+      env:
+        ANDROID_NDK_ROOT: /usr/local/lib/android/sdk/ndk/27.3.13750724
+        SWIFT_GODOT_ANDROID_PACKAGE: ${{ github.workspace }}/.build/android-staged-package
+      run: |
+        scripts/build-android-libraries .build/android
+        scripts/build-android-test-extension .build/android-test
+
+    # Each ABI uploads only its own subtree, so the aggregation job can detect
+    # any file two ABI jobs both claim.
+    - name: Collect ${{ matrix.abi }} artifacts
+      run: |
+        mkdir -p .build/android-upload
+        cp -R .build/android/jni .build/android-upload/runtime-jni
+        cp -R .build/android-test/jni .build/android-upload/consumer-jni
+
+    - name: Upload ${{ matrix.abi }} artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: android-abi-${{ matrix.abi }}
+        path: .build/android-upload
+        if-no-files-found: error
+        retention-days: 1
+
+  android-package:
+    name: Android AAR packaging and x86_64 runtime
+    needs: android-abi
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v6
+
+    - name: Set up JDK 17
+      uses: actions/setup-java@v5
+      with:
+        distribution: temurin
+        java-version: "17"
+
+    - name: Set up Android SDK
+      uses: android-actions/setup-android@v3
+
+    - name: Install Android build utilities
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y ripgrep
+
+    - name: Install pinned Android NDK
+      run: sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0" "ndk;27.3.13750724"
+
+    - name: Download per-ABI artifacts
+      uses: actions/download-artifact@v4
+      with:
+        pattern: android-abi-*
+        path: .build/android-abis
+
+    - name: Aggregate and validate both ABIs
       env:
         ANDROID_NDK_ROOT: /usr/local/lib/android/sdk/ndk/27.3.13750724
       run: |
-        scripts/test-android-portability
-        scripts/test-stage-android-package
-        scripts/test-build-android-libraries
-        scripts/test-validate-android-elf
-        scripts/test-package-android-aar
-        scripts/test-build-android-test-extension
-        scripts/test-android-runtime-harness
-        scripts/test-reclaim-android-build-space
-        scripts/test-configure-android-emulator
-        scripts/build-android-libraries .build/android
+        scripts/aggregate-android-jni .build/android/jni .build/android-abis/*/runtime-jni
+        scripts/aggregate-android-jni .build/android-test/jni .build/android-abis/*/consumer-jni
+        scripts/validate-android-elf .build/android/jni
+
+    - name: Package and validate Android AARs
+      env:
+        ANDROID_NDK_ROOT: /usr/local/lib/android/sdk/ndk/27.3.13750724
+      run: |
         scripts/package-android-aar .build/android/jni .build/android-aar
-        scripts/build-android-test-extension .build/android-test
+        scripts/package-android-test-aar .build/android-test/jni .build/android-test
 
     - name: Reclaim build space for Android emulator
       run: scripts/reclaim-android-build-space

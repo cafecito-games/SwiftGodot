@@ -14,6 +14,8 @@ script_dir=$(cd "$(dirname "$0")" && pwd)
 repository_root=$(cd "$script_dir/.." && pwd)
 # shellcheck source=android-config
 source "$script_dir/android-config"
+# shellcheck source=android-abis
+source "$script_dir/android-abis"
 
 output_dir=$1
 swift_command=${SWIFT_GODOT_SWIFT_COMMAND:-swift}
@@ -24,9 +26,6 @@ runtime_root=${SWIFT_GODOT_ANDROID_LIBRARIES:-"$repository_root/.build/android"}
 consumer_package="$work_dir/consumer-package"
 scratch_root="$work_dir/build"
 validation_root="$work_dir/validation-jni"
-project_dir="$repository_root/Android/SwiftGodotPlugin"
-generated_jni="$project_dir/test-plugin/src/main/jniLibs"
-gradle_command=${SWIFT_GODOT_GRADLE_COMMAND:-"$project_dir/gradlew"}
 
 die() {
     echo "Error: $*" >&2
@@ -36,6 +35,8 @@ die() {
 case "$output_dir" in
     ""|/|"$repository_root") die "refusing unsafe output directory: $output_dir" ;;
 esac
+
+selected_abis=$(android_selected_abis) || die "invalid Android ABI selection"
 
 swift_version=$($swift_command --version 2>&1) || die "unable to run $swift_command"
 printf '%s\n' "$swift_version" | grep -Eq "Swift version ${SWIFT_ANDROID_VERSION}([[:space:]]|$)" ||
@@ -57,16 +58,10 @@ printf '%s\n' "$java_version" | grep -Eq 'version "17([.]|"|$)' ||
 
 [[ -f "$staged_package/Package.swift" ]] ||
     die "staged Android SwiftGodot package missing; run scripts/build-android-libraries first"
-for abi in arm64-v8a x86_64; do
+for abi in $selected_abis; do
     [[ -f "$runtime_root/jni/$abi/libSwiftGodot.so" ]] ||
         die "SwiftGodot Android runtime missing for $abi; run scripts/build-android-libraries first"
 done
-[[ ! -e "$generated_jni" ]] || die "generated JNI directory already exists: $generated_jni"
-
-cleanup() {
-    rm -rf "$generated_jni"
-}
-trap cleanup EXIT
 
 rm -rf "$consumer_package" "$validation_root" "$output_dir"
 mkdir -p "$consumer_package/Sources/AndroidTestExtension" "$scratch_root" "$validation_root" "$output_dir/jni"
@@ -99,12 +94,8 @@ let package = Package(
 )
 EOF
 
-for triple in $SWIFT_ANDROID_TRIPLES; do
-    case "$triple" in
-        aarch64-unknown-linux-android28) abi=arm64-v8a ;;
-        x86_64-unknown-linux-android28) abi=x86_64 ;;
-        *) die "unsupported configured Android target: $triple" ;;
-    esac
+for abi in $selected_abis; do
+    triple=$(android_triple_for_abi "$abi") || die "unsupported Android ABI: $abi"
 
     abi_scratch="$scratch_root/$abi"
     echo "Building AndroidTestExtension for $abi ($triple)..."
@@ -123,25 +114,14 @@ done
 
 if [[ -z "${SWIFT_GODOT_SKIP_ELF_VALIDATION:-}" ]]; then
     "$script_dir/strip-android-elf" "$output_dir/jni"
-    for abi in arm64-v8a x86_64; do
+    consumers=()
+    for abi in $selected_abis; do
         mkdir -p "$validation_root/$abi"
         rsync -aL "$runtime_root/jni/$abi/" "$validation_root/$abi/"
         cp "$output_dir/jni/$abi/libAndroidTestExtension.so" "$validation_root/$abi/"
+        consumers+=("$validation_root/$abi/libAndroidTestExtension.so")
     done
-    "$script_dir/validate-android-elf" "$validation_root" "$validation_root/arm64-v8a/libAndroidTestExtension.so" "$validation_root/x86_64/libAndroidTestExtension.so"
+    "$script_dir/validate-android-elf" "$validation_root" "${consumers[@]}"
 fi
 
-mkdir -p "$generated_jni"
-rsync -aL "$output_dir/jni/arm64-v8a" "$generated_jni/"
-rsync -aL "$output_dir/jni/x86_64" "$generated_jni/"
-
-(
-    cd "$project_dir"
-    "$gradle_command" --no-daemon :test-plugin:assembleRelease
-)
-
-aar="$project_dir/test-plugin/build/outputs/aar/SwiftGodotAndroidTest-release.aar"
-[[ -f "$aar" ]] || die "Gradle did not produce SwiftGodotAndroidTest-release.aar"
-cp "$aar" "$output_dir/SwiftGodotAndroidTest-release.aar"
-
-echo "Android test extension staged at $output_dir"
+echo "Android test extension libraries staged at $output_dir/jni"

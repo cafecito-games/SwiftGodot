@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+    echo "Usage: scripts/generate-android-package OUTPUT_DIR" >&2
+}
+
+if [[ $# -ne 1 ]]; then
+    usage
+    exit 2
+fi
+
+script_dir=$(cd "$(dirname "$0")" && pwd)
+repository_root=$(cd "$script_dir/.." && pwd)
+# shellcheck source=android-config
+source "$script_dir/android-config"
+
+output_dir=$1
+swift_command=${SWIFT_GODOT_SWIFT_COMMAND:-swift}
+work_dir=${SWIFT_GODOT_ANDROID_WORK_DIR:-"$repository_root/.build/android-distribution"}
+
+die() {
+    echo "Error: $*" >&2
+    exit 1
+}
+
+case "$output_dir" in
+    ""|/|"$repository_root") die "refusing unsafe output directory: $output_dir" ;;
+esac
+
+swift_version=$($swift_command --version 2>&1) || die "unable to run $swift_command"
+printf '%s\n' "$swift_version" | grep -Eq "Swift version ${SWIFT_ANDROID_VERSION}([[:space:]]|$)" ||
+    die "Swift ${SWIFT_ANDROID_VERSION} is required; found: $(printf '%s' "$swift_version" | head -1)"
+
+generated_sources=${SWIFT_GODOT_GENERATED_SOURCES:-}
+if [[ -z "$generated_sources" ]]; then
+    generation_scratch="$work_dir/generation"
+    rm -rf "$generation_scratch"
+    echo "Generating SwiftGodot bindings on the host..."
+    "$swift_command" build \
+        --package-path "$repository_root" \
+        --scratch-path "$generation_scratch" \
+        -Xswiftc -DSWIFTGODOT_ANDROID_HOST_GENERATION \
+        --target SwiftGodot
+    while IFS= read -r candidate; do
+        first_generated_file=$(find "$candidate" -type f -name '*.swift' -print -quit)
+        if [[ -n "$first_generated_file" ]]; then
+            generated_sources=$candidate
+            break
+        fi
+    done < <(find "$generation_scratch" -type d \
+        -path '*/CodeGeneratorPlugin/GeneratedSources/SwiftGodot' -print)
+fi
+[[ -n "$generated_sources" && -d "$generated_sources" ]] ||
+    die "could not locate CodeGeneratorPlugin generated Swift sources"
+
+"$script_dir/stage-android-package" "$generated_sources" "$output_dir"

@@ -1,0 +1,77 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+    echo "Usage: scripts/aggregate-android-jni OUTPUT_DIR INPUT_DIR [INPUT_DIR ...]" >&2
+}
+
+if [[ $# -lt 2 ]]; then
+    usage
+    exit 2
+fi
+
+script_dir=$(cd "$(dirname "$0")" && pwd)
+repository_root=$(cd "$script_dir/.." && pwd)
+# shellcheck source=android-config
+source "$script_dir/android-config"
+# shellcheck source=android-abis
+source "$script_dir/android-abis"
+
+output_dir=$1
+shift
+
+die() {
+    echo "Error: $*" >&2
+    exit 1
+}
+
+case "$output_dir" in
+    ""|/|"$repository_root") die "refusing unsafe output directory: $output_dir" ;;
+esac
+
+# The aggregate is the complete JNI tree, so it always requires every
+# configured ABI. A single-ABI selection inherited from a build job must not
+# narrow it into a silently partial success.
+required_abis=$(unset SWIFT_GODOT_ANDROID_ABIS; android_selected_abis) ||
+    die "invalid Android ABI configuration"
+
+rm -rf "$output_dir"
+mkdir -p "$output_dir"
+
+# Records "<relative path>|<input directory>" for every file already merged, so
+# two ABI jobs that upload the same artifact path fail loudly instead of one
+# silently overwriting the other.
+claims=$(mktemp)
+trap 'rm -f "$claims"' EXIT
+
+for input_dir in "$@"; do
+    [[ -d "$input_dir" ]] || die "input JNI directory does not exist: $input_dir"
+
+    while IFS= read -r abi_dir; do
+        abi=$(basename "$abi_dir")
+        android_triple_for_abi "$abi" >/dev/null ||
+            die "unexpected ABI directory in $input_dir: $abi"
+    done < <(find "$input_dir" -mindepth 1 -maxdepth 1 -type d -print | sort)
+
+    if ! find "$input_dir" -mindepth 2 -maxdepth 2 -type f -name '*.so' -print -quit | grep -q .; then
+        die "input JNI directory contributes no shared libraries: $input_dir"
+    fi
+
+    while IFS= read -r relative_path; do
+        previous=$(awk -F'|' -v path="$relative_path" '$1 == path { print $2 }' "$claims")
+        [[ -z "$previous" ]] ||
+            die "duplicate JNI file $relative_path supplied by $previous and $input_dir"
+        printf '%s|%s\n' "$relative_path" "$input_dir" >> "$claims"
+        mkdir -p "$output_dir/$(dirname "$relative_path")"
+        cp -L "$input_dir/$relative_path" "$output_dir/$relative_path"
+    done < <(cd "$input_dir" && find . -mindepth 2 -type f -print | sed 's|^[.]/||' | sort)
+done
+
+for abi in $required_abis; do
+    [[ -d "$output_dir/$abi" ]] || die "aggregated JNI tree is missing ABI: $abi"
+    if ! find "$output_dir/$abi" -maxdepth 1 -type f -name '*.so' -print -quit | grep -q .; then
+        die "aggregated JNI tree has no shared libraries for ABI: $abi"
+    fi
+done
+
+echo "Aggregated Android JNI tree at $output_dir"

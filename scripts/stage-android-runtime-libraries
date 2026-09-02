@@ -14,11 +14,15 @@ jni_root=$1
 script_dir=$(cd "$(dirname "$0")" && pwd)
 # shellcheck source=android-config
 source "$script_dir/android-config"
+# shellcheck source=android-abis
+source "$script_dir/android-abis"
 
 die() {
     echo "Error: $*" >&2
     exit 1
 }
+
+selected_abis=$(android_selected_abis) || die "invalid Android ABI selection"
 
 [[ -d "$jni_root" ]] || die "JNI root does not exist: $jni_root"
 [[ -n "${ANDROID_NDK_ROOT:-}" && -d "$ANDROID_NDK_ROOT" ]] ||
@@ -55,7 +59,7 @@ needed_libraries() {
     "$readelf_tool" -d "$1" | sed -n 's/.*Shared library: \[\([^]]*\)\].*/\1/p'
 }
 
-for abi in arm64-v8a x86_64; do
+for abi in $selected_abis; do
     abi_dir="$jni_root/$abi"
     [[ -d "$abi_dir" ]] || die "missing ABI directory: $abi"
     case "$abi" in
@@ -67,6 +71,7 @@ for abi in arm64-v8a x86_64; do
             swift_arch=swift-x86_64
             ndk_triple=x86_64-linux-android
             ;;
+        *) die "unsupported Android ABI: $abi" ;;
     esac
 
     swift_library_dir="$swift_sdk_root/swift-resources/usr/lib/$swift_arch/android"

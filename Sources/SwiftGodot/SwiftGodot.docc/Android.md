@@ -244,7 +244,14 @@ export ANDROID_NDK_ROOT="$ANDROID_HOME/ndk/27.3.13750724"
 scripts/build-android-libraries .build/android
 scripts/package-android-aar .build/android/jni .build/android-aar
 scripts/build-android-test-extension .build/android-test
+scripts/package-android-test-aar .build/android-test/jni .build/android-test
 ```
+
+Set `SWIFT_GODOT_ANDROID_ABIS` to cross-compile a subset, for example
+`SWIFT_GODOT_ANDROID_ABIS=x86_64` while iterating against an emulator. CI uses
+that selection to build each ABI on its own runner, then merges the per-ABI JNI
+trees with `scripts/aggregate-android-jni` before packaging. A published AAR
+always carries both ABIs regardless of the selection.
 
 ## Export and verify
 

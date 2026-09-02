@@ -89,6 +89,43 @@ do
     [[ -f "$output/$library" ]] || fail "missing staged library: $library"
 done
 
+single_abi_log="$work_dir/single-abi.log"
+single_abi_output="$work_dir/single-abi-output"
+staged_package="$work_dir/prestaged-package"
+mkdir -p "$staged_package"
+printf '%s\n' '// swift-tools-version: 6.3' > "$staged_package/Package.swift"
+: > "$SWIFT_TEST_LOG"
+SWIFT_GODOT_ANDROID_ABIS=x86_64 SWIFT_GODOT_ANDROID_PACKAGE="$staged_package" \
+    "$repo_root/scripts/build-android-libraries" "$single_abi_output" >"$single_abi_log" 2>&1 ||
+    fail "single-ABI build failed: $(cat "$single_abi_log")"
+
+grep -Eq 'build .* -c release --swift-sdk x86_64-unknown-linux-android28 --product SwiftGodot' "$SWIFT_TEST_LOG" ||
+    fail "single-ABI build must cross-compile the selected ABI"
+if grep -Eq -- '--swift-sdk aarch64-unknown-linux-android28' "$SWIFT_TEST_LOG"; then
+    fail "single-ABI build must not cross-compile unselected ABIs"
+fi
+if grep -Eq -- '-DSWIFTGODOT_ANDROID_HOST_GENERATION' "$SWIFT_TEST_LOG"; then
+    fail "a pre-staged package must not be regenerated"
+fi
+[[ -f "$single_abi_output/jni/x86_64/libSwiftGodot.so" ]] || fail "single-ABI build did not stage x86_64"
+[[ ! -e "$single_abi_output/jni/arm64-v8a" ]] || fail "single-ABI build leaked an unselected ABI directory"
+[[ -f "$staged_package/Package.swift" ]] || fail "pre-staged package must be left intact"
+
+unknown_abi_log="$work_dir/unknown-abi.log"
+if SWIFT_GODOT_ANDROID_ABIS=armeabi-v7a "$repo_root/scripts/build-android-libraries" \
+    "$work_dir/unknown-abi-output" >"$unknown_abi_log" 2>&1; then
+    fail "build unexpectedly accepted an unsupported ABI"
+fi
+grep -q 'armeabi-v7a' "$unknown_abi_log" || fail "unsupported ABI diagnostic did not name the ABI"
+
+missing_package_log="$work_dir/missing-package.log"
+if SWIFT_GODOT_ANDROID_PACKAGE="$work_dir/absent-package" \
+    "$repo_root/scripts/build-android-libraries" "$work_dir/missing-package-output" \
+    >"$missing_package_log" 2>&1; then
+    fail "build unexpectedly accepted a missing pre-staged package"
+fi
+grep -q 'pre-staged Android package' "$missing_package_log" || fail "missing pre-staged package diagnostic missing"
+
 missing_log="$work_dir/missing-sdk.log"
 if SWIFT_TEST_SDK_LIST=none "$repo_root/scripts/build-android-libraries" "$work_dir/missing" >"$missing_log" 2>&1; then
     fail "build unexpectedly succeeded without the Android Swift SDK"

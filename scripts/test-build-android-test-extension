@@ -8,8 +8,10 @@ fail() {
 
 repo_root=$(cd "$(dirname "$0")/.." && pwd)
 builder="$repo_root/scripts/build-android-test-extension"
+packager="$repo_root/scripts/package-android-test-aar"
 
 [[ -x "$builder" ]] || fail "build-android-test-extension must exist and be executable"
+[[ -x "$packager" ]] || fail "package-android-test-aar must exist and be executable"
 rg -q 'name: "AndroidTestExtension"' "$repo_root/Package.swift" || fail "AndroidTestExtension dynamic product missing"
 rg -q 'type: \.dynamic' "$repo_root/Package.swift" || fail "AndroidTestExtension must be a dynamic product"
 rg -q '#initSwiftExtension\(cdecl: "swiftgodot_android_test_entry"' "$repo_root/Sources/AndroidTestExtension/AndroidTestExtension.swift" || fail "test extension entry point missing"
@@ -113,8 +115,26 @@ for abi in arm64-v8a x86_64; do
     [[ -f "$consumer" ]] || fail "missing test extension for $abi"
     [[ ! -e "$output/jni/$abi/libSwiftGodot.so" ]] || fail "test extension output must not own libSwiftGodot.so"
 done
+[[ ! -s "$GRADLE_TEST_LOG" ]] || fail "the per-ABI builder must not assemble the test AAR"
+[[ ! -e "$output/SwiftGodotAndroidTest-release.aar" ]] || fail "the per-ABI builder must not emit an AAR"
 
-aar="$output/SwiftGodotAndroidTest-release.aar"
+single_abi_output="$work_dir/single-abi-output"
+: > "$SWIFT_TEST_LOG"
+SWIFT_GODOT_ANDROID_ABIS=x86_64 "$builder" "$single_abi_output" >"$work_dir/single-abi.log" 2>&1 ||
+    fail "single-ABI test extension build failed: $(cat "$work_dir/single-abi.log")"
+grep -Eq 'build .* --swift-sdk x86_64-unknown-linux-android28 --product AndroidTestExtension' "$SWIFT_TEST_LOG" ||
+    fail "single-ABI build must cross-compile the selected ABI"
+if grep -Eq -- '--swift-sdk aarch64-unknown-linux-android28' "$SWIFT_TEST_LOG"; then
+    fail "single-ABI build must not cross-compile unselected ABIs"
+fi
+[[ ! -e "$single_abi_output/jni/arm64-v8a" ]] || fail "single-ABI build leaked an unselected ABI directory"
+
+packaged="$work_dir/packaged"
+"$packager" "$output/jni" "$packaged"
+
+grep -Eq 'test-plugin:assembleRelease' "$GRADLE_TEST_LOG" || fail "packager must assemble the test plugin"
+
+aar="$packaged/SwiftGodotAndroidTest-release.aar"
 [[ -f "$aar" ]] || fail "test extension AAR missing"
 aar_entries=$(unzip -Z1 "$aar")
 for abi in arm64-v8a x86_64; do
@@ -124,8 +144,21 @@ for abi in arm64-v8a x86_64; do
     fi
 done
 
-rg -q 'validate-android-elf.*--consumer|validate-android-elf.*libAndroidTestExtension\.so' "$builder" || fail "builder must validate the test extension as a dynamic consumer"
+partial_log="$work_dir/partial.log"
+if SWIFT_GODOT_ANDROID_ABIS=x86_64 "$packager" "$single_abi_output/jni" "$work_dir/partial-packaged" \
+    >"$partial_log" 2>&1; then
+    fail "packager unexpectedly accepted a single-ABI consumer tree"
+fi
+grep -q 'missing test extension for arm64-v8a' "$partial_log" ||
+    fail "packager must reject a consumer tree that is missing an ABI"
+
+if [[ -d "$repo_root/Android/SwiftGodotPlugin/test-plugin/src/main/jniLibs" ]]; then
+    fail "packager left generated JNI inputs in the source tree"
+fi
+
+rg -qF 'validate-android-elf" "$validation_root" "${consumers[@]}"' "$builder" || fail "builder must validate the test extension as a dynamic consumer"
 rg -q 'strip-android-elf.*output_dir/jni' "$builder" || fail "builder must strip the Android consumer before validation"
+rg -qF 'validate-android-elf" "$validation_root" "${consumers[@]}"' "$packager" || fail "packager must validate the combined ABI closure"
 rg -q 'SWIFTGODOT_ANDROID_FAIL' "$repo_root/Tests/AndroidTestProject/main.gd" || fail "Godot fixture failure marker missing"
 rg -q 'SWIFTGODOT_ANDROID_OK:' "$repo_root/Tests/AndroidTestProject/main.gd" || fail "Godot fixture success marker missing"
 
