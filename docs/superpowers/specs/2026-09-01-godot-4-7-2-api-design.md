@@ -20,6 +20,10 @@ edited manually.
   `--dump-extension-api-with-docs`.
 - Replace `Sources/GDExtension/include/gdextension_interface.h` using
   `--dump-gdextension-interface`.
+- Synchronize the code generator's class inventory with the classes available
+  in the custom API snapshot.
+- Map Godot properties named `id` to `godotId` so they do not collide with
+  `Wrapped`'s `Identifiable.id` property.
 - Change `compatibility_minimum` from `4.6` to `4.7` in the sample and test
   `.gdextension` manifests.
 
@@ -28,6 +32,7 @@ edited manually.
 - Assert that the generated JSON header identifies Godot 4.7.2 and a Cafecito
   build.
 - Assert that both `.gdextension` manifests require Godot 4.7.
+- Assert that the generator inventory and JSON class list match exactly.
 - Build `SwiftGodot` from a clean scratch directory so code generation consumes
   the new API snapshot.
 - Run the Swift package test suite.

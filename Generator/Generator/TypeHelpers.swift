@@ -92,6 +92,9 @@ func godotPropertyToSwift (_ name: String) -> String {
     if v == "description" {
         return "additionalDescription"
     }
+    if v == "id" {
+        return "godotId"
+    }
     return v
 }
 
