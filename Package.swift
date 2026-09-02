@@ -54,6 +54,12 @@ var products: [Product] = [
         targets: ["SwiftGodotEmbed"]
     ),
 
+    .library(
+        name: "AndroidTestExtension",
+        type: .dynamic,
+        targets: ["AndroidTestExtension"]
+    ),
+
     .executable(
         name: "SwiftGodotTestRunner",
         targets: ["SwiftGodotTestRunner"]
@@ -253,6 +259,15 @@ var targets: [Target] = [
         dependencies: ["SwiftGodot", "SwiftGodotTestMacros"],
         path: "Tests/SwiftGodotTestExtension",
         swiftSettings: [.swiftLanguageMode(.v6)]
+    ),
+
+    // The Android build compiles this source from a separate package so the
+    // resulting ELF dynamically links the SwiftGodot library product.
+    .target(
+        name: "AndroidTestExtension",
+        dependencies: ["SwiftGodot"],
+        swiftSettings: [.swiftLanguageMode(.v6)],
+        plugins: ["SwiftGodotMacroLibrary"]
     ),
 ]
 

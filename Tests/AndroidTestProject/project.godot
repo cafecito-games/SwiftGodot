@@ -1,0 +1,22 @@
+; Engine configuration file.
+config_version=5
+
+[application]
+
+config/name="SwiftGodot Android Runtime Test"
+run/main_scene="res://main.tscn"
+config/features=PackedStringArray("4.7", "GL Compatibility")
+
+[display]
+
+window/size/viewport_width=320
+window/size/viewport_height=240
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/SwiftGodot/plugin.cfg", "res://addons/SwiftGodotAndroidTest/plugin.cfg")
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"

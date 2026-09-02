@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+    echo "Usage: scripts/package-android-aar JNI_ROOT OUTPUT_DIR" >&2
+}
+
+if [[ $# -ne 2 ]]; then
+    usage
+    exit 2
+fi
+
+script_dir=$(cd "$(dirname "$0")" && pwd)
+repository_root=$(cd "$script_dir/.." && pwd)
+project_dir="$repository_root/Android/SwiftGodotPlugin"
+jni_root=$1
+output_dir=$2
+generated_jni="$project_dir/plugin/src/main/jniLibs"
+
+die() {
+    echo "Error: $*" >&2
+    exit 1
+}
+
+[[ -d "$jni_root/arm64-v8a" ]] || die "missing JNI ABI directory: arm64-v8a"
+[[ -d "$jni_root/x86_64" ]] || die "missing JNI ABI directory: x86_64"
+[[ ! -e "$generated_jni" ]] || die "generated JNI directory already exists: $generated_jni"
+
+cleanup() {
+    rm -rf "$generated_jni"
+}
+trap cleanup EXIT
+
+mkdir -p "$generated_jni"
+rsync -aL "$jni_root/arm64-v8a" "$generated_jni/"
+rsync -aL "$jni_root/x86_64" "$generated_jni/"
+"$script_dir/strip-android-elf" "$generated_jni"
+"$script_dir/validate-android-elf" "$generated_jni"
+
+(
+    cd "$project_dir"
+    ./gradlew --no-daemon :plugin:assembleRelease
+)
+
+aar="$project_dir/plugin/build/outputs/aar/SwiftGodot-release.aar"
+[[ -f "$aar" ]] || die "Gradle did not produce SwiftGodot-release.aar"
+mkdir -p "$output_dir"
+cp "$aar" "$output_dir/SwiftGodot-release.aar"
+"$script_dir/validate-android-aar" "$output_dir/SwiftGodot-release.aar"
+
+echo "Android AAR packaged at $output_dir/SwiftGodot-release.aar"

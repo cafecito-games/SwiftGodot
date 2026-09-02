@@ -1,0 +1,15 @@
+#!/bin/sh
+set -eu
+
+app_home=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
+java_command=${JAVA_HOME:+$JAVA_HOME/bin/}java
+
+if ! command -v "$java_command" >/dev/null 2>&1; then
+    echo "ERROR: Java was not found. Set JAVA_HOME to JDK 17." >&2
+    exit 1
+fi
+
+exec "$java_command" \
+    -Dorg.gradle.appname=gradlew \
+    -classpath "$app_home/gradle/wrapper/gradle-wrapper.jar" \
+    org.gradle.wrapper.GradleWrapperMain "$@"

@@ -1,0 +1,101 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+fail() { echo "FAIL: $*" >&2; exit 1; }
+repo_root=$(cd "$(dirname "$0")/.." && pwd)
+runtime="$repo_root/scripts/test-android-runtime"
+[[ -x "$runtime" ]] || fail "runtime harness missing"
+
+work_dir=$(mktemp -d)
+trap 'rm -rf "$work_dir"' EXIT
+fake_bin="$work_dir/bin"
+mkdir -p "$fake_bin"
+
+cat > "$fake_bin/godot" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+[[ -z "${GODOT_FAIL:-}" ]] || exit 9
+project=
+install_template=0
+for ((index = 1; index <= $#; index++)); do
+    if [[ "${!index}" == "--path" ]]; then
+        next=$((index + 1))
+        project=${!next}
+    elif [[ "${!index}" == "--install-android-build-template" ]]; then
+        install_template=1
+    fi
+done
+while [[ $# -gt 0 ]]; do
+    if [[ "$1" == "--export-debug" ]]; then
+        [[ "$install_template" == 1 ]] || exit 8
+        [[ -n "$project" ]] || exit 7
+        mkdir -p "$project/android/build"
+        apk=$3
+        root=$(mktemp -d)
+        trap 'rm -rf "$root"' EXIT
+        for abi in arm64-v8a x86_64; do
+            mkdir -p "$root/lib/$abi"
+            for library in libSwiftGodot.so libSwiftGodotEmbed.so libAndroidTestExtension.so; do
+                printf fake > "$root/lib/$abi/$library"
+            done
+        done
+        mkdir -p "$(dirname "$apk")"
+        (cd "$root" && zip -qr "$apk" .)
+        exit 0
+    fi
+    shift
+done
+EOF
+chmod +x "$fake_bin/godot"
+
+cat > "$fake_bin/adb" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ "$*" == *"shell pidof games.cafecito.swiftgodot.runtime_test"* ]]; then
+    [[ -n "${ADB_STAYS_RUNNING:-}" ]] && echo 1234 && exit 0
+    exit 1
+fi
+if [[ "$*" == *"logcat -d"* ]]; then
+    case "${ADB_SCENARIO:-success}" in
+        success) echo "SWIFTGODOT_ANDROID_OK:x86_64:42" ;;
+        fail) echo "SWIFTGODOT_ANDROID_FAIL: probe failed" ;;
+        dlopen) echo "dlopen failed: library not found" ;;
+        gdextension) echo "GDExtension initialization error" ;;
+        timeout) : ;;
+    esac
+fi
+EOF
+chmod +x "$fake_bin/adb"
+
+run_case() {
+    local scenario=$1
+    shift
+    env SWIFT_GODOT_RUNTIME_SKIP_SETUP=1 \
+        SWIFT_GODOT_GODOT_COMMAND="$fake_bin/godot" \
+        SWIFT_GODOT_ADB_COMMAND="$fake_bin/adb" \
+        SWIFT_GODOT_ANDROID_RUNTIME_WORK_DIR="$work_dir/run-$scenario" \
+        SWIFT_GODOT_ANDROID_TIMEOUT=1 \
+        SWIFT_GODOT_ANDROID_EXIT_TIMEOUT=1 \
+        ADB_SCENARIO="$scenario" "$@" "$runtime" x86_64
+}
+
+run_case success >/dev/null || fail "success marker should pass"
+for scenario in fail dlopen gdextension timeout; do
+    if run_case "$scenario" >/dev/null 2>&1; then
+        fail "$scenario scenario should fail"
+    fi
+done
+if run_case success GODOT_FAIL=1 >/dev/null 2>&1; then
+    fail "nonzero Godot export should fail"
+fi
+if run_case success ADB_STAYS_RUNNING=1 >/dev/null 2>&1; then
+    fail "a test application that remains running should fail"
+fi
+
+rg -q 'v4\.7\.2-20260826\.1' "$runtime" || fail "custom Godot release pin missing"
+rg -q 'a3570264cfedba3b716d6b1bc33ff1b78351b965d0dcae6262b4c1a009b01bb8' "$runtime" || fail "Android template checksum missing"
+rg -q '6e9945ad00d7c6877f1c3a98224c17c5ff0caf8cf42b716e9152569f6b2ac71e' "$runtime" || fail "editor checksum missing"
+rg -q '120' "$runtime" || fail "bounded runtime timeout missing"
+rg -q -- '--install-android-build-template' "$runtime" || fail "Gradle build template installation missing"
+
+echo "Android runtime harness tests passed"

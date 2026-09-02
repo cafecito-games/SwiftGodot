@@ -1,0 +1,131 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+fail() {
+    echo "FAIL: $*" >&2
+    exit 1
+}
+
+repo_root=$(cd "$(dirname "$0")/.." && pwd)
+builder="$repo_root/scripts/build-android-test-extension"
+
+[[ -x "$builder" ]] || fail "build-android-test-extension must exist and be executable"
+rg -q 'name: "AndroidTestExtension"' "$repo_root/Package.swift" || fail "AndroidTestExtension dynamic product missing"
+rg -q 'type: \.dynamic' "$repo_root/Package.swift" || fail "AndroidTestExtension must be a dynamic product"
+rg -q '#initSwiftExtension\(cdecl: "swiftgodot_android_test_entry"' "$repo_root/Sources/AndroidTestExtension/AndroidTestExtension.swift" || fail "test extension entry point missing"
+rg -q 'SWIFTGODOT_ANDROID_OK:' "$repo_root/Sources/AndroidTestExtension/AndroidTestExtension.swift" || fail "runtime success marker missing"
+rg -q 'include\(":test-plugin"\)' "$repo_root/Android/SwiftGodotPlugin/settings.gradle.kts" || fail "test plugin Gradle module missing"
+
+work_dir=$(mktemp -d)
+trap 'rm -rf "$work_dir"' EXIT
+
+fake_bin="$work_dir/bin"
+android_home="$work_dir/android-sdk"
+ndk_root="$android_home/ndk/27.3.13750724"
+runtime_root="$work_dir/runtime"
+staged_package="$work_dir/staged-package"
+mkdir -p "$fake_bin" "$ndk_root" "$staged_package"
+printf '%s\n' 'Pkg.Revision = 27.3.13750724' > "$ndk_root/source.properties"
+printf '%s\n' '// swift-tools-version: 6.3' > "$staged_package/Package.swift"
+
+for abi in arm64-v8a x86_64; do
+    mkdir -p "$runtime_root/jni/$abi"
+    printf 'fake SwiftGodot ELF\n' > "$runtime_root/jni/$abi/libSwiftGodot.so"
+done
+
+cat > "$fake_bin/swift" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%q ' "$@" >> "$SWIFT_TEST_LOG"
+printf '\n' >> "$SWIFT_TEST_LOG"
+if [[ "${1:-}" == "--version" ]]; then
+    echo "Swift version 6.3.3 (swift-6.3.3-RELEASE)"
+    exit 0
+fi
+if [[ "${1:-} ${2:-}" == "sdk list" ]]; then
+    echo "swift-6.3.3-RELEASE_android"
+    exit 0
+fi
+scratch=
+product=
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --scratch-path) scratch=$2; shift 2 ;;
+        --product) product=$2; shift 2 ;;
+        *) shift ;;
+    esac
+done
+if [[ -n "$scratch" && "$product" == "AndroidTestExtension" ]]; then
+    mkdir -p "$scratch/release"
+    printf 'fake consumer ELF\n' > "$scratch/release/libAndroidTestExtension.so"
+fi
+EOF
+chmod +x "$fake_bin/swift"
+
+cat > "$fake_bin/java" <<'EOF'
+#!/usr/bin/env bash
+echo 'openjdk version "17.0.12"' >&2
+EOF
+chmod +x "$fake_bin/java"
+
+cat > "$fake_bin/gradle" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%q ' "$@" >> "$GRADLE_TEST_LOG"
+printf '\n' >> "$GRADLE_TEST_LOG"
+module=test-plugin
+mkdir -p "$module/build/outputs/aar"
+archive_root=$(mktemp -d)
+trap 'rm -rf "$archive_root"' EXIT
+mkdir -p "$archive_root/jni" "$archive_root/assets/addons/SwiftGodotAndroidTest"
+cp -R "$module/src/main/jniLibs/." "$archive_root/jni/"
+cp "$module/src/main/assets/addons/SwiftGodotAndroidTest/SwiftGodotAndroidTest.gdextension" \
+    "$archive_root/assets/addons/SwiftGodotAndroidTest/"
+printf '<manifest/>\n' > "$archive_root/AndroidManifest.xml"
+(cd "$archive_root" && zip -qr "$OLDPWD/$module/build/outputs/aar/SwiftGodotAndroidTest-release.aar" .)
+EOF
+chmod +x "$fake_bin/gradle"
+
+export PATH="$fake_bin:$PATH"
+export SWIFT_TEST_LOG="$work_dir/swift.log"
+export GRADLE_TEST_LOG="$work_dir/gradle.log"
+export ANDROID_HOME="$android_home"
+export ANDROID_NDK_ROOT="$ndk_root"
+export SWIFT_GODOT_ANDROID_PACKAGE="$staged_package"
+export SWIFT_GODOT_ANDROID_LIBRARIES="$runtime_root"
+export SWIFT_GODOT_ANDROID_TEST_WORK_DIR="$work_dir/build"
+export SWIFT_GODOT_GRADLE_COMMAND="$fake_bin/gradle"
+export SWIFT_GODOT_SKIP_ELF_VALIDATION=1
+
+output="$work_dir/output"
+"$builder" "$output"
+
+for expected in \
+    'build .* -c release --swift-sdk aarch64-unknown-linux-android28 --product AndroidTestExtension' \
+    'build .* -c release --swift-sdk x86_64-unknown-linux-android28 --product AndroidTestExtension'
+do
+    grep -Eq "$expected" "$SWIFT_TEST_LOG" || fail "missing Swift invocation matching: $expected"
+done
+
+for abi in arm64-v8a x86_64; do
+    consumer="$output/jni/$abi/libAndroidTestExtension.so"
+    [[ -f "$consumer" ]] || fail "missing test extension for $abi"
+    [[ ! -e "$output/jni/$abi/libSwiftGodot.so" ]] || fail "test extension output must not own libSwiftGodot.so"
+done
+
+aar="$output/SwiftGodotAndroidTest-release.aar"
+[[ -f "$aar" ]] || fail "test extension AAR missing"
+aar_entries=$(unzip -Z1 "$aar")
+for abi in arm64-v8a x86_64; do
+    grep -Fxq "jni/$abi/libAndroidTestExtension.so" <<< "$aar_entries" || fail "AAR missing $abi test extension"
+    if grep -Fxq "jni/$abi/libSwiftGodot.so" <<< "$aar_entries"; then
+        fail "test extension AAR must not package SwiftGodot for $abi"
+    fi
+done
+
+rg -q 'validate-android-elf.*--consumer|validate-android-elf.*libAndroidTestExtension\.so' "$builder" || fail "builder must validate the test extension as a dynamic consumer"
+rg -q 'strip-android-elf.*output_dir/jni' "$builder" || fail "builder must strip the Android consumer before validation"
+rg -q 'SWIFTGODOT_ANDROID_FAIL' "$repo_root/Tests/AndroidTestProject/main.gd" || fail "Godot fixture failure marker missing"
+rg -q 'SWIFTGODOT_ANDROID_OK:' "$repo_root/Tests/AndroidTestProject/main.gd" || fail "Godot fixture success marker missing"
+
+echo "Android test extension build tests passed"

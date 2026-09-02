@@ -1,0 +1,147 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+    echo "Usage: scripts/build-android-test-extension OUTPUT_DIR" >&2
+}
+
+if [[ $# -ne 1 ]]; then
+    usage
+    exit 2
+fi
+
+script_dir=$(cd "$(dirname "$0")" && pwd)
+repository_root=$(cd "$script_dir/.." && pwd)
+# shellcheck source=android-config
+source "$script_dir/android-config"
+
+output_dir=$1
+swift_command=${SWIFT_GODOT_SWIFT_COMMAND:-swift}
+java_command=${SWIFT_GODOT_JAVA_COMMAND:-java}
+work_dir=${SWIFT_GODOT_ANDROID_TEST_WORK_DIR:-"$repository_root/.build/android-test-extension"}
+staged_package=${SWIFT_GODOT_ANDROID_PACKAGE:-"$repository_root/.build/android-distribution/package"}
+runtime_root=${SWIFT_GODOT_ANDROID_LIBRARIES:-"$repository_root/.build/android"}
+consumer_package="$work_dir/package"
+scratch_root="$work_dir/build"
+validation_root="$work_dir/validation-jni"
+project_dir="$repository_root/Android/SwiftGodotPlugin"
+generated_jni="$project_dir/test-plugin/src/main/jniLibs"
+gradle_command=${SWIFT_GODOT_GRADLE_COMMAND:-"$project_dir/gradlew"}
+
+die() {
+    echo "Error: $*" >&2
+    exit 1
+}
+
+case "$output_dir" in
+    ""|/|"$repository_root") die "refusing unsafe output directory: $output_dir" ;;
+esac
+
+swift_version=$($swift_command --version 2>&1) || die "unable to run $swift_command"
+printf '%s\n' "$swift_version" | grep -Eq "Swift version ${SWIFT_ANDROID_VERSION}([[:space:]]|$)" ||
+    die "Swift ${SWIFT_ANDROID_VERSION} is required; found: $(printf '%s' "$swift_version" | head -1)"
+
+sdk_list=$($swift_command sdk list 2>&1) || die "unable to list installed Swift SDKs"
+printf '%s\n' "$sdk_list" | grep -Fq "$SWIFT_ANDROID_SDK_ID" ||
+    die "required Swift SDK is not installed: $SWIFT_ANDROID_SDK_ID"
+
+[[ -n "${ANDROID_HOME:-}" && -d "$ANDROID_HOME" ]] || die "ANDROID_HOME must name an installed Android SDK"
+[[ -n "${ANDROID_NDK_ROOT:-}" && -d "$ANDROID_NDK_ROOT" ]] || die "ANDROID_NDK_ROOT must name Android NDK $SWIFT_ANDROID_NDK_VERSION"
+ndk_revision=$(sed -n 's/^Pkg\.Revision[[:space:]]*=[[:space:]]*//p' "$ANDROID_NDK_ROOT/source.properties" | head -1)
+[[ "$ndk_revision" == "$SWIFT_ANDROID_NDK_VERSION" ]] ||
+    die "Android NDK $SWIFT_ANDROID_NDK_VERSION is required; found: ${ndk_revision:-unknown}"
+
+java_version=$($java_command -version 2>&1) || die "unable to run Java"
+printf '%s\n' "$java_version" | grep -Eq 'version "17([.]|"|$)' ||
+    die "JDK 17 is required; found: $(printf '%s' "$java_version" | head -1)"
+
+[[ -f "$staged_package/Package.swift" ]] ||
+    die "staged Android SwiftGodot package missing; run scripts/build-android-libraries first"
+for abi in arm64-v8a x86_64; do
+    [[ -f "$runtime_root/jni/$abi/libSwiftGodot.so" ]] ||
+        die "SwiftGodot Android runtime missing for $abi; run scripts/build-android-libraries first"
+done
+[[ ! -e "$generated_jni" ]] || die "generated JNI directory already exists: $generated_jni"
+
+cleanup() {
+    rm -rf "$generated_jni"
+}
+trap cleanup EXIT
+
+rm -rf "$consumer_package" "$validation_root" "$output_dir"
+mkdir -p "$consumer_package/Sources/AndroidTestExtension" "$scratch_root" "$validation_root" "$output_dir/jni"
+rsync -aL "$repository_root/Sources/AndroidTestExtension/" "$consumer_package/Sources/AndroidTestExtension/"
+
+cat > "$consumer_package/Package.swift" <<EOF
+// swift-tools-version: 6.3
+import PackageDescription
+
+let package = Package(
+    name: "SwiftGodotAndroidRuntimeTest",
+    products: [
+        .library(name: "AndroidTestExtension", type: .dynamic, targets: ["AndroidTestExtension"]),
+    ],
+    dependencies: [
+        .package(name: "SwiftGodotAndroid", path: "$staged_package"),
+    ],
+    targets: [
+        .target(
+            name: "AndroidTestExtension",
+            dependencies: [
+                .product(name: "SwiftGodot", package: "SwiftGodotAndroid"),
+            ],
+            swiftSettings: [.swiftLanguageMode(.v6)],
+            linkerSettings: [
+                .unsafeFlags(["-Xlinker", "-soname", "-Xlinker", "libAndroidTestExtension.so"]),
+            ]
+        ),
+    ]
+)
+EOF
+
+for triple in $SWIFT_ANDROID_TRIPLES; do
+    case "$triple" in
+        aarch64-unknown-linux-android28) abi=arm64-v8a ;;
+        x86_64-unknown-linux-android28) abi=x86_64 ;;
+        *) die "unsupported configured Android target: $triple" ;;
+    esac
+
+    abi_scratch="$scratch_root/$abi"
+    echo "Building AndroidTestExtension for $abi ($triple)..."
+    "$swift_command" build \
+        --package-path "$consumer_package" \
+        --scratch-path "$abi_scratch" \
+        -c release \
+        --swift-sdk "$triple" \
+        --product AndroidTestExtension
+
+    library=$(find "$abi_scratch" -type f -name 'libAndroidTestExtension.so' -print -quit)
+    [[ -n "$library" ]] || die "build did not emit libAndroidTestExtension.so for $abi"
+    mkdir -p "$output_dir/jni/$abi"
+    cp "$library" "$output_dir/jni/$abi/libAndroidTestExtension.so"
+done
+
+if [[ -z "${SWIFT_GODOT_SKIP_ELF_VALIDATION:-}" ]]; then
+    "$script_dir/strip-android-elf" "$output_dir/jni"
+    for abi in arm64-v8a x86_64; do
+        mkdir -p "$validation_root/$abi"
+        rsync -aL "$runtime_root/jni/$abi/" "$validation_root/$abi/"
+        cp "$output_dir/jni/$abi/libAndroidTestExtension.so" "$validation_root/$abi/"
+    done
+    "$script_dir/validate-android-elf" "$validation_root" "$validation_root/arm64-v8a/libAndroidTestExtension.so" "$validation_root/x86_64/libAndroidTestExtension.so"
+fi
+
+mkdir -p "$generated_jni"
+rsync -aL "$output_dir/jni/arm64-v8a" "$generated_jni/"
+rsync -aL "$output_dir/jni/x86_64" "$generated_jni/"
+
+(
+    cd "$project_dir"
+    "$gradle_command" --no-daemon :test-plugin:assembleRelease
+)
+
+aar="$project_dir/test-plugin/build/outputs/aar/SwiftGodotAndroidTest-release.aar"
+[[ -f "$aar" ]] || die "Gradle did not produce SwiftGodotAndroidTest-release.aar"
+cp "$aar" "$output_dir/SwiftGodotAndroidTest-release.aar"
+
+echo "Android test extension staged at $output_dir"

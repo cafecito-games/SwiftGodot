@@ -11,6 +11,8 @@ rg -q -- '-configuration "\$configuration"' scripts/build-distribution-products 
 rg -q 'Build/Products/Release/PackageFrameworks/SwiftGodot.framework' .github/workflows/release.yml || fail "release workflow must package macOS Release products"
 rg -q 'Build/Products/Release-iphoneos/PackageFrameworks/SwiftGodot.framework' .github/workflows/release.yml || fail "release workflow must package iOS Release products"
 rg -q 'SWIFT_GODOT_CONFIGURATION.*Release' .github/workflows/release.yml || fail "release workflow must set SWIFT_GODOT_CONFIGURATION to Release"
+rg -q 'SWIFT_GODOT_ANDROID_AAR' scripts/release .github/workflows/release.yml || fail "release path must pass the prebuilt Android AAR"
+rg -q 'SwiftGodot-release\.aar' .github/workflows/release.yml || fail "release workflow must stage the publishable Android AAR"
 
 if rg -q 'Build/Products/Debug' .github/workflows/release.yml scripts/release scripts/make-swiftgodot-framework; then
     fail "release packaging should not hard-code Debug product paths"

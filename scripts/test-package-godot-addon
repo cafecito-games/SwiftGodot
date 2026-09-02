@@ -50,9 +50,11 @@ make_fake_xcframework() {
 
 xcframework=$(make_fake_xcframework SwiftGodot)
 embed_xcframework=$(make_fake_xcframework SwiftGodotEmbed)
+android_aar="$work_dir/SwiftGodot.aar"
+printf 'fake Android AAR\n' > "$android_aar"
 
 output_dir="$work_dir/output"
-"$script" "v1.2.3-rc.1" "$xcframework" "$embed_xcframework" "$output_dir" >/dev/null
+"$script" "v1.2.3-rc.1" "$xcframework" "$embed_xcframework" "$android_aar" "$output_dir" >/dev/null
 
 zip_path="$output_dir/SwiftGodot-v1.2.3-rc.1.zip"
 [[ -f "$zip_path" ]] || fail "expected addon zip at $zip_path"
@@ -69,6 +71,7 @@ addon="$extract_dir/addons/SwiftGodot"
 [[ "$(find "$extract_dir" -mindepth 1 -maxdepth 1 -type d -name addons | wc -l | tr -d ' ')" == "1" ]] || fail "zip must have only addons at the root"
 
 [[ -f "$addon/plugin.cfg" ]] || fail "plugin.cfg missing"
+[[ -f "$addon/export_plugin.gd" ]] || fail "export_plugin.gd missing"
 [[ -f "$addon/LICENSE" ]] || fail "LICENSE missing"
 cmp -s LICENSE "$addon/LICENSE" || fail "addon LICENSE must match repo LICENSE"
 [[ -f "$addon/SwiftGodotEmbed.gdextension" ]] || fail "SwiftGodotEmbed.gdextension missing"
@@ -76,11 +79,13 @@ cmp -s LICENSE "$addon/LICENSE" || fail "addon LICENSE must match repo LICENSE"
 [[ -d "$addon/bin/ios/SwiftGodotEmbed.xcframework" ]] || fail "iOS SwiftGodotEmbed.xcframework missing"
 [[ -d "$addon/bin/macos_arm64/SwiftGodot.framework" ]] || fail "macOS SwiftGodot.framework missing"
 [[ -d "$addon/bin/macos_arm64/SwiftGodotEmbed.framework" ]] || fail "macOS SwiftGodotEmbed.framework missing"
+[[ -f "$addon/bin/android/SwiftGodot.aar" ]] || fail "Android SwiftGodot.aar missing"
+cmp -s "$android_aar" "$addon/bin/android/SwiftGodot.aar" || fail "Android AAR must be copied without modification"
 
-unexpected_addon_entries=$(find "$addon" -mindepth 1 -maxdepth 1 ! -name plugin.cfg ! -name LICENSE ! -name bin ! -name 'SwiftGodotEmbed.gdextension' -print)
+unexpected_addon_entries=$(find "$addon" -mindepth 1 -maxdepth 1 ! -name plugin.cfg ! -name export_plugin.gd ! -name LICENSE ! -name bin ! -name 'SwiftGodotEmbed.gdextension' -print)
 [[ -z "$unexpected_addon_entries" ]] || fail "unexpected top-level addon entries: $unexpected_addon_entries"
 
-unexpected_bin_entries=$(find "$addon/bin" -mindepth 1 -maxdepth 1 ! -name ios ! -name macos_arm64 -print)
+unexpected_bin_entries=$(find "$addon/bin" -mindepth 1 -maxdepth 1 ! -name ios ! -name macos_arm64 ! -name android -print)
 [[ -z "$unexpected_bin_entries" ]] || fail "unexpected bin entries: $unexpected_bin_entries"
 
 # Only SwiftGodotEmbed.gdextension is allowed; nothing under bin/ should be a
@@ -115,10 +120,10 @@ expected_plugin="$work_dir/expected-plugin.cfg"
 cat > "$expected_plugin" <<'EOF'
 [plugin]
 name="SwiftGodot"
-description="Shared SwiftGodot xcframework/framework for iOS/macOS GDExtensions. Registers a no-op SwiftGodotEmbed extension that owns embedding SwiftGodot.framework into exported apps; downstream GDExtensions should not list SwiftGodot in their own [dependencies]."
+description="Prebuilt SwiftGodot runtime for Android, iOS, and macOS GDExtensions. Registers SwiftGodotEmbed and exports the Android AAR automatically."
 author="cafecito-games"
 version="1.2.3-rc.1"
-script=""
+script="export_plugin.gd"
 EOF
 cmp -s "$expected_plugin" "$addon/plugin.cfg" || {
     echo "Expected plugin.cfg:" >&2
@@ -132,9 +137,14 @@ expected_gdextension="$work_dir/expected.gdextension"
 cat > "$expected_gdextension" <<'EOF'
 [configuration]
 entry_symbol = "swift_godot_embed_entry_point"
-compatibility_minimum = "4.4"
+compatibility_minimum = "4.7"
+android_aar_plugin = true
 
 [libraries]
+android.debug.arm64 = "res://addons/SwiftGodot/bin/android/arm64-v8a/libSwiftGodotEmbed.so"
+android.release.arm64 = "res://addons/SwiftGodot/bin/android/arm64-v8a/libSwiftGodotEmbed.so"
+android.debug.x86_64 = "res://addons/SwiftGodot/bin/android/x86_64/libSwiftGodotEmbed.so"
+android.release.x86_64 = "res://addons/SwiftGodot/bin/android/x86_64/libSwiftGodotEmbed.so"
 ios.debug = "res://addons/SwiftGodot/bin/ios/SwiftGodotEmbed.xcframework"
 ios.release = "res://addons/SwiftGodot/bin/ios/SwiftGodotEmbed.xcframework"
 ios.simulator.debug = "res://addons/SwiftGodot/bin/ios/SwiftGodotEmbed.xcframework"
@@ -156,6 +166,12 @@ cmp -s "$expected_gdextension" "$addon/SwiftGodotEmbed.gdextension" || {
     fail "SwiftGodotEmbed.gdextension contents differ"
 }
 
+rg -q '^extends EditorPlugin$' "$addon/export_plugin.gd" || fail "export plugin must extend EditorPlugin"
+rg -q 'add_export_plugin\(export_plugin\)' "$addon/export_plugin.gd" || fail "export plugin must register its Android export hook"
+rg -q 'platform is EditorExportPlatformAndroid' "$addon/export_plugin.gd" || fail "export plugin must support Android"
+rg -q 'res://addons/SwiftGodot/bin/android/SwiftGodot\.aar' "$addon/export_plugin.gd" || fail "export plugin must return the packaged Android AAR"
+rg -q '^\s*func _get_name\(\):' "$addon/export_plugin.gd" || fail "Android export plugin must have a stable name"
+
 for module in SwiftGodot SwiftGodotEmbed; do
     framework="$addon/bin/macos_arm64/$module.framework"
     [[ -f "$framework/Versions/A/$module" ]] || fail "macOS $module.framework must keep Versions/A/$module for its install name"
@@ -165,13 +181,14 @@ for module in SwiftGodot SwiftGodotEmbed; do
     [[ -d "$framework/Modules" ]] || fail "macOS $module.framework must materialize root Modules directory"
 done
 
-rg -q 'scripts/package-godot-addon "\$tag" "\$output_dir/SwiftGodot\.xcframework" "\$output_dir/SwiftGodotEmbed\.xcframework" "\$output_dir"' "$release_script" || fail "release script must package the Godot addon from both release xcframeworks"
+rg -q 'scripts/package-godot-addon "\$tag" "\$output_dir/SwiftGodot\.xcframework" "\$output_dir/SwiftGodotEmbed\.xcframework" "\$android_aar" "\$output_dir"' "$release_script" || fail "release script must package the Godot addon from Apple artifacts and the Android AAR"
 rg -q 'SwiftGodot-\$tag\.zip' "$release_script" || fail "release script must name the addon zip SwiftGodot-\$tag.zip"
-rg -q 'gh release create "\$tag" "\$zip_path" "\$macro_zip_path" "\$addon_zip_path"' "$release_script" || fail "release script must upload the addon zip with the release assets"
+rg -q 'gh release create "\$tag" "\$zip_path" "\$macro_zip_path" "\$android_aar" "\$addon_zip_path"' "$release_script" || fail "release script must upload the Android AAR and addon zip with the release assets"
 if rg -q 'no longer using vXXX|v-prefixed tags|\[\[ "\$RELEASE_TAG" == v\* \]\]' "$release_script" .github/workflows/release.yml; then
     fail "release path must allow v-prefixed tags for Godot addon assets"
 fi
 rg -q '^package-godot-addon:' Makefile || fail "Makefile must expose package-godot-addon"
+rg -q 'scripts/package-godot-addon "\$\$tag" "\$\$xcframework" "\$\$embed_xcframework" "\$\$android_aar" "\$\$output_dir"' Makefile || fail "Makefile must pass the Android AAR to package-godot-addon"
 rg -q 'scripts/test-package-godot-addon' "$swift_workflow" || fail "CI must run package-godot-addon regression tests"
 
 echo "Godot addon packaging tests passed"
