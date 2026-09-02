@@ -397,7 +397,7 @@ jobs:
   stage-android-package:
     name: Stage Android SwiftGodot package
     needs: prepare
-    runs-on: ubuntu-24.04
+    runs-on: blacksmith-8vcpu-ubuntu-2404
     timeout-minutes: 60
 
     steps:
@@ -411,9 +411,19 @@ jobs:
         with:
           swift-version: "6.3.3"
 
+      # Generation depends only on the Godot extension API and the generator, so
+      # a hit skips a full host build of SwiftGodot.
+      - name: Restore generated Swift sources
+        uses: actions/cache@v4
+        with:
+          path: .build/android-generated-sources
+          key: android-generated-sources-${{ runner.os }}-swift6.3.3-${{ hashFiles('Sources/ExtensionApi/**', 'Generator/**', 'Plugins/CodeGeneratorPlugin/**', 'Package.swift') }}
+
       # Binding generation is host-only and ABI independent, so every ABI job
       # reuses this one staged package instead of regenerating it.
       - name: Stage Android package
+        env:
+          SWIFT_GODOT_GENERATED_SOURCES_CACHE: ${{ github.workspace }}/.build/android-generated-sources
         run: scripts/generate-android-package .build/android-staged-package
 
       - name: Upload staged Android package
@@ -429,7 +439,7 @@ jobs:
     needs:
       - prepare
       - stage-android-package
-    runs-on: ubuntu-24.04
+    runs-on: blacksmith-8vcpu-ubuntu-2404
     timeout-minutes: 120
 
     strategy:
@@ -463,6 +473,7 @@ jobs:
       - name: Install pinned Android toolchain
         run: |
           sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0" "ndk;27.3.13750724"
+          echo "ANDROID_NDK_ROOT=$ANDROID_HOME/ndk/27.3.13750724" >> "$GITHUB_ENV"
           swift sdk install "$SWIFT_ANDROID_SDK_URL" --checksum "$SWIFT_ANDROID_SDK_SHA256"
           sdk_root=$(find "$HOME" -type d -path '*/swift-6.3.3-RELEASE_android.artifactbundle/swift-android' -print -quit)
           test -n "$sdk_root"
@@ -477,7 +488,6 @@ jobs:
 
       - name: Build and validate ${{ matrix.abi }}
         env:
-          ANDROID_NDK_ROOT: /usr/local/lib/android/sdk/ndk/27.3.13750724
           SWIFT_GODOT_ANDROID_PACKAGE: ${{ github.workspace }}/.build/android-staged-package
         run: |
           scripts/build-android-libraries .build/android
@@ -504,7 +514,7 @@ jobs:
     needs:
       - prepare
       - build-android-abi
-    runs-on: ubuntu-24.04
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 120
 
     steps:
@@ -528,7 +538,9 @@ jobs:
           sudo apt-get install -y ripgrep
 
       - name: Install pinned Android NDK
-        run: sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0" "ndk;27.3.13750724"
+        run: |
+          sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0" "ndk;27.3.13750724"
+          echo "ANDROID_NDK_ROOT=$ANDROID_HOME/ndk/27.3.13750724" >> "$GITHUB_ENV"
 
       - name: Download per-ABI artifacts
         uses: actions/download-artifact@v4
@@ -548,7 +560,6 @@ jobs:
 
       - name: Build and validate publishable Android AAR
         env:
-          ANDROID_NDK_ROOT: /usr/local/lib/android/sdk/ndk/27.3.13750724
           GH_TOKEN: ${{ steps.custom-godot-token.outputs.token }}
         run: |
           scripts/aggregate-android-jni .build/android/jni .build/android-abis/*/runtime-jni

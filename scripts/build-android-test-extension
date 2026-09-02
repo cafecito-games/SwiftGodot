@@ -21,10 +21,14 @@ output_dir=$1
 swift_command=${SWIFT_GODOT_SWIFT_COMMAND:-swift}
 java_command=${SWIFT_GODOT_JAVA_COMMAND:-java}
 work_dir=${SWIFT_GODOT_ANDROID_TEST_WORK_DIR:-"$repository_root/.build/android-test-extension"}
-staged_package=${SWIFT_GODOT_ANDROID_PACKAGE:-"$repository_root/.build/android-distribution/package"}
+distribution_work_dir=${SWIFT_GODOT_ANDROID_WORK_DIR:-"$repository_root/.build/android-distribution"}
+staged_package=${SWIFT_GODOT_ANDROID_PACKAGE:-"$distribution_work_dir/package"}
 runtime_root=${SWIFT_GODOT_ANDROID_LIBRARIES:-"$repository_root/.build/android"}
 consumer_package="$work_dir/consumer-package"
-scratch_root="$work_dir/build"
+# SwiftPM reuses a dependency's build products across root packages that share a
+# scratch path, so the consumer links the SwiftGodot that was just built for
+# this ABI instead of recompiling the whole module.
+scratch_root=${SWIFT_GODOT_ANDROID_SCRATCH_ROOT:-"$distribution_work_dir/build"}
 validation_root="$work_dir/validation-jni"
 
 die() {

@@ -253,6 +253,14 @@ that selection to build each ABI on its own runner, then merges the per-ABI JNI
 trees with `scripts/aggregate-android-jni` before packaging. A published AAR
 always carries both ABIs regardless of the selection.
 
+`scripts/build-android-test-extension` builds the consumer in the same SwiftPM
+scratch path as `scripts/build-android-libraries`, so it links the SwiftGodot
+that was just built for the ABI rather than recompiling the module. Override
+`SWIFT_GODOT_ANDROID_SCRATCH_ROOT` to separate them. Set
+`SWIFT_GODOT_GENERATED_SOURCES_CACHE` to a directory to reuse previously
+generated bindings and skip the host generation build; it is repopulated
+whenever generation does run.
+
 ## Export and verify
 
 Use a Gradle Build export so Godot discovers and merges both v2 plugin AARs. The APK must contain one copy of each native library under `lib/arm64-v8a` and `lib/x86_64`.

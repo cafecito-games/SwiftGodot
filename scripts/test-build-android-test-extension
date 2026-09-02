@@ -97,6 +97,7 @@ export ANDROID_NDK_ROOT="$ndk_root"
 export SWIFT_GODOT_ANDROID_PACKAGE="$staged_package"
 export SWIFT_GODOT_ANDROID_LIBRARIES="$runtime_root"
 export SWIFT_GODOT_ANDROID_TEST_WORK_DIR="$work_dir/build"
+export SWIFT_GODOT_ANDROID_WORK_DIR="$work_dir/distribution"
 export SWIFT_GODOT_GRADLE_COMMAND="$fake_bin/gradle"
 export SWIFT_GODOT_SKIP_ELF_VALIDATION=1
 
@@ -115,6 +116,14 @@ for abi in arm64-v8a x86_64; do
     [[ -f "$consumer" ]] || fail "missing test extension for $abi"
     [[ ! -e "$output/jni/$abi/libSwiftGodot.so" ]] || fail "test extension output must not own libSwiftGodot.so"
 done
+# The consumer must build in the scratch path the runtime build already
+# populated, so SwiftPM links the SwiftGodot it just built instead of
+# recompiling the whole module.
+for abi in arm64-v8a x86_64; do
+    grep -Fq -- "--scratch-path $work_dir/distribution/build/$abi" "$SWIFT_TEST_LOG" ||
+        fail "consumer build for $abi must share the runtime scratch path"
+done
+
 [[ ! -s "$GRADLE_TEST_LOG" ]] || fail "the per-ABI builder must not assemble the test AAR"
 [[ ! -e "$output/SwiftGodotAndroidTest-release.aar" ]] || fail "the per-ABI builder must not emit an AAR"
 

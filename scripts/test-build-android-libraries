@@ -111,6 +111,52 @@ fi
 [[ ! -e "$single_abi_output/jni/arm64-v8a" ]] || fail "single-ABI build leaked an unselected ABI directory"
 [[ -f "$staged_package/Package.swift" ]] || fail "pre-staged package must be left intact"
 
+generated_cache="$work_dir/generated-cache"
+: > "$SWIFT_TEST_LOG"
+SWIFT_GODOT_GENERATED_SOURCES_CACHE="$generated_cache" \
+    "$repo_root/scripts/generate-android-package" "$work_dir/cached-stage-1" \
+    >"$work_dir/cache-miss.log" 2>&1 ||
+    fail "generation with an empty cache failed: $(cat "$work_dir/cache-miss.log")"
+grep -Eq -- '-DSWIFTGODOT_ANDROID_HOST_GENERATION' "$SWIFT_TEST_LOG" ||
+    fail "an empty generated-source cache must fall back to host generation"
+find "$generated_cache" -type f -name '*.swift' -print -quit | grep -q . ||
+    fail "host generation must populate the generated-source cache"
+
+: > "$SWIFT_TEST_LOG"
+SWIFT_GODOT_GENERATED_SOURCES_CACHE="$generated_cache" \
+    "$repo_root/scripts/generate-android-package" "$work_dir/cached-stage-2" \
+    >"$work_dir/cache-hit.log" 2>&1 ||
+    fail "generation with a populated cache failed: $(cat "$work_dir/cache-hit.log")"
+if grep -Eq -- '-DSWIFTGODOT_ANDROID_HOST_GENERATION' "$SWIFT_TEST_LOG"; then
+    fail "a populated generated-source cache must skip host generation"
+fi
+[[ -f "$work_dir/cached-stage-2/Sources/SwiftGodot/_generated/GeneratedForTest.swift" ]] ||
+    fail "the cached generated sources must be staged into the package"
+
+# A cache left half written by an interrupted run must not be treated as a
+# complete API.
+printf '%s\n' 'public enum ExtraGenerated {}' > "$generated_cache/ExtraGenerated.swift"
+: > "$SWIFT_TEST_LOG"
+SWIFT_GODOT_GENERATED_SOURCES_CACHE="$generated_cache" \
+    "$repo_root/scripts/generate-android-package" "$work_dir/cached-stage-3" \
+    >"$work_dir/cache-mismatch.log" 2>&1 ||
+    fail "generation with a mismatched cache failed: $(cat "$work_dir/cache-mismatch.log")"
+grep -q 'Discarding incomplete generated Swift source cache' "$work_dir/cache-mismatch.log" ||
+    fail "a cache whose contents disagree with its manifest must be discarded"
+grep -Eq -- '-DSWIFTGODOT_ANDROID_HOST_GENERATION' "$SWIFT_TEST_LOG" ||
+    fail "a discarded cache must fall back to host generation"
+
+rm -f "$generated_cache/.generated-source-count"
+: > "$SWIFT_TEST_LOG"
+SWIFT_GODOT_GENERATED_SOURCES_CACHE="$generated_cache" \
+    "$repo_root/scripts/generate-android-package" "$work_dir/cached-stage-4" \
+    >"$work_dir/cache-unmanifested.log" 2>&1 ||
+    fail "generation with an unmanifested cache failed: $(cat "$work_dir/cache-unmanifested.log")"
+grep -q 'Discarding incomplete generated Swift source cache' "$work_dir/cache-unmanifested.log" ||
+    fail "a cache without a manifest must be discarded"
+grep -Eq -- '-DSWIFTGODOT_ANDROID_HOST_GENERATION' "$SWIFT_TEST_LOG" ||
+    fail "an unmanifested cache must fall back to host generation"
+
 unknown_abi_log="$work_dir/unknown-abi.log"
 if SWIFT_GODOT_ANDROID_ABIS=armeabi-v7a "$repo_root/scripts/build-android-libraries" \
     "$work_dir/unknown-abi-output" >"$unknown_abi_log" 2>&1; then

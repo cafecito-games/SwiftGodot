@@ -6,6 +6,16 @@ fail() {
     exit 1
 }
 
+job_block() {
+    local workflow=$1
+    local job=$2
+    awk -v header="  $job:" '
+        $0 == header { printing = 1 }
+        printing && $0 ~ /^  [[:alnum:]_-]+:$/ && $0 != header { exit }
+        printing { print }
+    ' "$workflow"
+}
+
 ci_workflow=.github/workflows/swift.yml
 release_workflow=.github/workflows/release.yml
 
@@ -40,7 +50,34 @@ for workflow in "$ci_workflow" "$release_workflow"; do
     if rg -q 'scripts/build-android-libraries .*&&' "$workflow"; then
         fail "$workflow must not chain the ABI build onto another ABI"
     fi
+
+    # The Swift cross-builds dominate wall clock, so they must not sit on the
+    # smallest hosted runner while every other job in the repository does not.
+    rg -q 'runs-on: blacksmith-8vcpu-ubuntu-2404' "$workflow" ||
+        fail "$workflow must build Android ABIs on a large Linux runner"
+    rg -q 'SWIFT_GODOT_GENERATED_SOURCES_CACHE' "$workflow" ||
+        fail "$workflow must reuse cached generated sources when staging"
+    rg -q 'path: \.build/android-generated-sources' "$workflow" ||
+        fail "$workflow must cache the generated Swift sources"
+    rg -q 'hashFiles\(.Sources/ExtensionApi/\*\*., .Generator/\*\*., .Plugins/CodeGeneratorPlugin/\*\*., .Package\.swift.\)' "$workflow" ||
+        fail "$workflow must key the generated-source cache on every generation input"
+    if rg -q 'ANDROID_NDK_ROOT: /usr/local' "$workflow"; then
+        fail "$workflow must derive ANDROID_NDK_ROOT from ANDROID_HOME, not the runner image layout"
+    fi
+    rg -q 'echo "ANDROID_NDK_ROOT=\$ANDROID_HOME/ndk/' "$workflow" ||
+        fail "$workflow must export a derived ANDROID_NDK_ROOT"
 done
+
+# The emulator needs /dev/kvm, which the larger runners do not provide.
+emulator_job=$(job_block "$ci_workflow" android-package)
+grep -Fq 'runs-on: ubuntu-24.04' <<< "$emulator_job" ||
+    fail "the Android emulator job must stay on a KVM-capable GitHub runner"
+grep -Fq 'scripts/test-android-runtime x86_64' <<< "$emulator_job" ||
+    fail "the emulator smoke test must run in the packaging job"
+
+abi_job=$(job_block "$ci_workflow" android-abi)
+grep -Fq 'runs-on: blacksmith-8vcpu-ubuntu-2404' <<< "$abi_job" ||
+    fail "the per-ABI Android build must run on a large Linux runner"
 
 rg -q 'needs: android-stage' "$ci_workflow" || fail "CI ABI jobs must wait for the staged package"
 rg -q 'needs: android-abi' "$ci_workflow" || fail "CI packaging must wait for every ABI job"
