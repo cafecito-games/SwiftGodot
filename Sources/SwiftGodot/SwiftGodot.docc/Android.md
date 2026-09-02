@@ -253,6 +253,36 @@ that selection to build each ABI on its own runner, then merges the per-ABI JNI
 trees with `scripts/aggregate-android-jni` before packaging. A published AAR
 always carries both ABIs regardless of the selection.
 
+### Iterating locally on one ABI
+
+CI builds both ABIs and runs the device test on an x86_64 emulator. On an Apple
+Silicon Mac the faster loop is arm64-v8a end to end: the Swift Android SDK
+cross-compiles from macOS, and an arm64 emulator runs natively rather than
+under CPU emulation.
+
+```sh
+export ANDROID_HOME="$HOME/Library/Android/sdk"
+export ANDROID_NDK_ROOT="$ANDROID_HOME/ndk/27.3.13750724"
+export SWIFT_GODOT_ANDROID_ABIS=arm64-v8a
+export SWIFT_GODOT_ANDROID_SINGLE_ABI=arm64-v8a
+
+scripts/build-android-libraries .build/android
+scripts/build-android-test-extension .build/android-test
+scripts/package-android-aar .build/android/jni .build/android-aar
+scripts/package-android-test-aar .build/android-test/jni .build/android-test
+ANDROID_SERIAL=<serial> scripts/test-android-runtime arm64-v8a
+```
+
+`SWIFT_GODOT_ANDROID_ABIS` selects which ABIs are compiled.
+`SWIFT_GODOT_ANDROID_SINGLE_ABI` additionally narrows the checks that otherwise
+require a publishable artifact to carry every configured ABI — AAR packaging,
+AAR validation, and the APK contents assertion. Anything built under it prints
+a warning and must not be published; CI never sets it, and
+`scripts/test-android-ci-topology` fails if a workflow does.
+
+The SwiftPM scratch path persists between runs, so only the first build pays
+full cost.
+
 `scripts/build-android-test-extension` builds the consumer in a scratch path of
 its own, so it recompiles SwiftGodot for each ABI. Pointing it at the scratch
 path `scripts/build-android-libraries` populated does not work: SwiftPM reuses

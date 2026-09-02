@@ -11,6 +11,10 @@ case "$abi" in arm64-v8a|x86_64) ;; *) usage; exit 2 ;; esac
 
 script_dir=$(cd "$(dirname "$0")" && pwd)
 repository_root=$(cd "$script_dir/.." && pwd)
+# shellcheck source=android-config
+source "$script_dir/android-config"
+# shellcheck source=android-abis
+source "$script_dir/android-abis"
 release_tag=v4.7.2-20260902.2
 godot_version=4.7.2.stable.cafecito_6b0b715d9.ed1daf0bf
 # Godot resolves export templates by major.minor.patch.status only; the custom
@@ -156,7 +160,7 @@ mkdir -p "$(dirname "$apk")"
 [[ -f "$apk" ]] || die "Godot export did not produce $apk"
 
 apk_entries=$(unzip -Z1 "$apk")
-for packaged_abi in arm64-v8a x86_64; do
+for packaged_abi in $(android_required_abis); do
     for library in libSwiftGodot.so libSwiftGodotEmbed.so libAndroidTestExtension.so; do
         packaged_path="lib/$packaged_abi/$library"
         count=$(awk -v required="$packaged_path" '$0 == required { count++ } END { print count + 0 }' <<< "$apk_entries")

@@ -29,7 +29,7 @@ die() {
 
 # The published AAR always carries every configured ABI, whichever subset an
 # individual build job produced.
-required_abis=$(unset SWIFT_GODOT_ANDROID_ABIS; android_selected_abis) || die "invalid Android ABI configuration"
+required_abis=$(android_required_abis) || die "invalid Android ABI configuration"
 
 for abi in $required_abis; do
     [[ -d "$jni_root/$abi" ]] || die "missing JNI ABI directory: $abi"
@@ -46,7 +46,7 @@ for abi in $required_abis; do
     rsync -aL "$jni_root/$abi" "$generated_jni/"
 done
 "$script_dir/strip-android-elf" "$generated_jni"
-SWIFT_GODOT_ANDROID_ABIS='' "$script_dir/validate-android-elf" "$generated_jni"
+SWIFT_GODOT_ANDROID_ABIS="$required_abis" "$script_dir/validate-android-elf" "$generated_jni"
 
 (
     cd "$project_dir"

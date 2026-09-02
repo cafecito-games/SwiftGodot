@@ -67,3 +67,25 @@ android_selected_abis() {
         esac
     done
 }
+
+# The ABIs a publishable artifact must carry. Normally every configured ABI,
+# regardless of any SWIFT_GODOT_ANDROID_ABIS selection a build job set.
+#
+# SWIFT_GODOT_ANDROID_SINGLE_ABI narrows it for local iteration, so a developer
+# can build, package and run one ABI without waiting for the other. It is not
+# set in CI — scripts/test-android-ci-topology asserts that — and every artifact
+# produced under it is announced as unpublishable.
+android_required_abis() {
+    local single=${SWIFT_GODOT_ANDROID_SINGLE_ABI:-}
+    if [[ -n "$single" ]]; then
+        android_triple_for_abi "$single" >/dev/null 2>&1 || {
+            echo "Error: unsupported Android ABI: $single" >&2
+            return 1
+        }
+        echo "WARNING: SWIFT_GODOT_ANDROID_SINGLE_ABI=$single covers one ABI;" \
+            "the result is for local iteration and must not be published." >&2
+        printf '%s\n' "$single"
+        return 0
+    fi
+    (unset SWIFT_GODOT_ANDROID_ABIS; android_all_abis)
+}

@@ -7,8 +7,15 @@ if [[ $# -ne 1 ]]; then
 fi
 
 script_dir=$(cd "$(dirname "$0")" && pwd)
+# shellcheck source=android-config
+source "$script_dir/android-config"
+# shellcheck source=android-abis
+source "$script_dir/android-abis"
+
 aar=$1
 die() { echo "Error: $*" >&2; exit 1; }
+
+required_abis=$(android_required_abis) || die "invalid Android ABI configuration"
 
 [[ -f "$aar" ]] || die "AAR does not exist: $aar"
 work_dir=$(mktemp -d)
@@ -19,23 +26,27 @@ entries=$(unzip -Z1 "$aar") || die "unable to list AAR: $aar"
 duplicates=$(printf '%s\n' "$entries" | sort | uniq -d)
 [[ -z "$duplicates" ]] || die "AAR contains duplicate archive paths: $duplicates"
 
-for required in \
-    AndroidManifest.xml \
-    classes.jar \
-    assets/addons/SwiftGodot/SwiftGodotEmbed.gdextension \
-    jni/arm64-v8a/libSwiftGodot.so \
-    jni/arm64-v8a/libSwiftGodotEmbed.so \
-    jni/x86_64/libSwiftGodot.so \
-    jni/x86_64/libSwiftGodotEmbed.so; do
+required_entries=(
+    AndroidManifest.xml
+    classes.jar
+    assets/addons/SwiftGodot/SwiftGodotEmbed.gdextension
+)
+for abi in $required_abis; do
+    required_entries+=("jni/$abi/libSwiftGodot.so" "jni/$abi/libSwiftGodotEmbed.so")
+done
+for required in "${required_entries[@]}"; do
     count=$(printf '%s\n' "$entries" | awk -v required="$required" '$0 == required { count++ } END { print count + 0 }')
     [[ "$count" == 1 ]] || die "AAR must contain exactly one $required; found $count"
 done
 
 while IFS= read -r abi; do
-    case "$abi" in
-        arm64-v8a|x86_64) ;;
-        *) die "AAR contains unexpected ABI: $abi" ;;
-    esac
+    expected=
+    for allowed in $required_abis; do
+        if [[ "$allowed" == "$abi" ]]; then
+            expected=1
+        fi
+    done
+    [[ -n "$expected" ]] || die "AAR contains unexpected ABI: $abi"
 done < <(printf '%s\n' "$entries" | sed -n 's#^jni/\([^/]*\)/.*[.]so$#\1#p' | sort -u)
 
 unzip -q "$aar" -d "$work_dir/unpacked"
@@ -49,7 +60,5 @@ rg -q 'android_aar_plugin[[:space:]]*=[[:space:]]*true' "$gdextension" ||
 rg -q 'entry_symbol[[:space:]]*=[[:space:]]*"swift_godot_embed_entry_point"' "$gdextension" ||
     die "packaged GDExtension entry symbol is incorrect"
 
-# A published AAR always carries every configured ABI, so an ABI selection
-# left over from a single-ABI build job must not narrow this check.
-SWIFT_GODOT_ANDROID_ABIS='' "$script_dir/validate-android-elf" "$work_dir/unpacked/jni"
+SWIFT_GODOT_ANDROID_ABIS="$required_abis" "$script_dir/validate-android-elf" "$work_dir/unpacked/jni"
 echo "Android AAR validation passed: $aar"

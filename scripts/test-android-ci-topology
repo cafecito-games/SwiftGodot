@@ -78,6 +78,12 @@ for workflow in "$ci_workflow" "$release_workflow"; do
     if rg -q 'skip-verify-signature: true' "$workflow"; then
         fail "$workflow must not disable Swift toolchain signature verification"
     fi
+
+    # SWIFT_GODOT_ANDROID_SINGLE_ABI narrows the published-artifact checks and
+    # exists only for local iteration.
+    if rg -q 'SWIFT_GODOT_ANDROID_SINGLE_ABI' "$workflow"; then
+        fail "$workflow must not narrow the published ABI set"
+    fi
 done
 
 # The emulator needs /dev/kvm, which the larger runners do not provide.
