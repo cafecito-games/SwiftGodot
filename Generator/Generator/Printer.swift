@@ -36,7 +36,15 @@ class Printer: @unchecked Sendable {
         import GDExtensionC
 
         #if CUSTOM_BUILTIN_IMPLEMENTATIONS
+        #if canImport(Darwin)
         import Darwin
+        #elseif canImport(Android)
+        import Android
+        #elseif canImport(Bionic)
+        import Bionic
+        #else
+        #error("Unable to identify your C library.")
+        #endif
         #endif
 
 

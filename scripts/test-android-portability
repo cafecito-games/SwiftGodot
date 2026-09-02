@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+fail() {
+    echo "FAIL: $*" >&2
+    exit 1
+}
+
+printer="Generator/Generator/Printer.swift"
+basis_tests="Tests/SwiftGodotTestExtension/Math/BasisTests.swift"
+
+rg -q '#if canImport\(Darwin\)' "$printer" || fail "generated preamble must detect Darwin"
+rg -q '#elseif canImport\(Android\)' "$printer" || fail "generated preamble must detect the Android module"
+rg -q '#elseif canImport\(Bionic\)' "$printer" || fail "generated preamble must support the Bionic module name"
+rg -q '#error\("Unable to identify your C library\."\)' "$printer" || fail "generated preamble must reject unknown C libraries"
+rg -q '#if os\(Android\)' "$basis_tests" || fail "Basis tests must import Android math APIs conditionally"
+
+echo "Android portability tests passed"
