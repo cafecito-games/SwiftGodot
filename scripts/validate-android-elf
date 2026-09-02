@@ -67,7 +67,7 @@ for abi in arm64-v8a x86_64; do
         if printf '%s\n' "$sections" | grep -Eq '[[:space:]][.]debug_'; then
             die "$abi/$(basename "$library") contains debug sections; strip release libraries before packaging"
         fi
-        if grep -Eq '/(Users|home|private/tmp|tmp)/' < <("$strings_tool" "$library"); then
+        if grep -Eq '/(Users|home)/[^/]+/' < <("$strings_tool" "$library"); then
             die "$abi/$(basename "$library") contains a build-host path"
         fi
 

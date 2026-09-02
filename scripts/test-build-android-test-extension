@@ -124,6 +124,7 @@ for abi in arm64-v8a x86_64; do
 done
 
 rg -q 'validate-android-elf.*--consumer|validate-android-elf.*libAndroidTestExtension\.so' "$builder" || fail "builder must validate the test extension as a dynamic consumer"
+rg -q 'strip-android-elf.*output_dir/jni' "$builder" || fail "builder must strip the Android consumer before validation"
 rg -q 'SWIFTGODOT_ANDROID_FAIL' "$repo_root/Tests/AndroidTestProject/main.gd" || fail "Godot fixture failure marker missing"
 rg -q 'SWIFTGODOT_ANDROID_OK:' "$repo_root/Tests/AndroidTestProject/main.gd" || fail "Godot fixture success marker missing"
 

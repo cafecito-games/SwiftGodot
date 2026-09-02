@@ -117,13 +117,17 @@ for triple in $SWIFT_ANDROID_TRIPLES; do
 
     library=$(find "$abi_scratch" -type f -name 'libAndroidTestExtension.so' -print -quit)
     [[ -n "$library" ]] || die "build did not emit libAndroidTestExtension.so for $abi"
-    mkdir -p "$output_dir/jni/$abi" "$validation_root/$abi"
+    mkdir -p "$output_dir/jni/$abi"
     cp "$library" "$output_dir/jni/$abi/libAndroidTestExtension.so"
-    rsync -aL "$runtime_root/jni/$abi/" "$validation_root/$abi/"
-    cp "$library" "$validation_root/$abi/libAndroidTestExtension.so"
 done
 
 if [[ -z "${SWIFT_GODOT_SKIP_ELF_VALIDATION:-}" ]]; then
+    "$script_dir/strip-android-elf" "$output_dir/jni"
+    for abi in arm64-v8a x86_64; do
+        mkdir -p "$validation_root/$abi"
+        rsync -aL "$runtime_root/jni/$abi/" "$validation_root/$abi/"
+        cp "$output_dir/jni/$abi/libAndroidTestExtension.so" "$validation_root/$abi/"
+    done
     "$script_dir/validate-android-elf" "$validation_root" "$validation_root/arm64-v8a/libAndroidTestExtension.so" "$validation_root/x86_64/libAndroidTestExtension.so"
 fi
 

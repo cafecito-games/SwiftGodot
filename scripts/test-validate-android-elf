@@ -123,6 +123,9 @@ cp -R "$good" "$debug_binary"
 "$toolchain/aarch64-linux-android28-clang" -shared -fPIC -g "$work_dir/swiftgodot.c" \
     -Wl,-soname,libSwiftGodot.so -o "$debug_binary/arm64-v8a/libSwiftGodot.so"
 expect_failure 'debug sections' "$repo_root/scripts/validate-android-elf" "$debug_binary"
+"$repo_root/scripts/strip-android-elf" "$debug_binary"
+"$repo_root/scripts/validate-android-elf" "$debug_binary" \
+    "$debug_binary/arm64-v8a/libConsumer.so" "$debug_binary/x86_64/libConsumer.so"
 
 host_path_binary="$work_dir/host-path-binary"
 cp -R "$good" "$host_path_binary"
