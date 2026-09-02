@@ -68,6 +68,9 @@ export SWIFT_GODOT_SKIP_ELF_VALIDATION=1
 output="$work_dir/output"
 "$repo_root/scripts/build-android-libraries" "$output"
 
+grep -Eq 'build .* -Xswiftc -DSWIFTGODOT_ANDROID_HOST_GENERATION .*--target SwiftGodot' "$SWIFT_TEST_LOG" ||
+    fail "host binding generation must enable its scoped Glibc import"
+
 for expected in \
     'build .* -c release --swift-sdk aarch64-unknown-linux-android28 --product SwiftGodot' \
     'build .* -c release --swift-sdk aarch64-unknown-linux-android28 --product SwiftGodotEmbed' \

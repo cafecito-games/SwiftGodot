@@ -63,6 +63,7 @@ if [[ -z "$generated_sources" ]]; then
     "$swift_command" build \
         --package-path "$repository_root" \
         --scratch-path "$generation_scratch" \
+        -Xswiftc -DSWIFTGODOT_ANDROID_HOST_GENERATION \
         --target SwiftGodot
     while IFS= read -r candidate; do
         first_generated_file=$(find "$candidate" -type f -name '*.swift' -print -quit)
