@@ -415,6 +415,11 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
+      - name: Install Android build utilities
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ripgrep
+
       - name: Install pinned Android toolchain
         run: |
           sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0" "ndk;27.3.13750724"
