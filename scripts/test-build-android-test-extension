@@ -15,6 +15,7 @@ rg -q 'type: \.dynamic' "$repo_root/Package.swift" || fail "AndroidTestExtension
 rg -q '#initSwiftExtension\(cdecl: "swiftgodot_android_test_entry"' "$repo_root/Sources/AndroidTestExtension/AndroidTestExtension.swift" || fail "test extension entry point missing"
 rg -q 'SWIFTGODOT_ANDROID_OK:' "$repo_root/Sources/AndroidTestExtension/AndroidTestExtension.swift" || fail "runtime success marker missing"
 rg -q 'include\(":test-plugin"\)' "$repo_root/Android/SwiftGodotPlugin/settings.gradle.kts" || fail "test plugin Gradle module missing"
+rg -q 'consumer_package="\$work_dir/consumer-package"' "$builder" || fail "consumer package must not collide with the staged package identity"
 
 work_dir=$(mktemp -d)
 trap 'rm -rf "$work_dir"' EXIT
