@@ -75,5 +75,6 @@ rg -q 'v4\.7\.2-20260826\.1' "$runtime" || fail "custom Godot release pin missin
 rg -q 'a3570264cfedba3b716d6b1bc33ff1b78351b965d0dcae6262b4c1a009b01bb8' "$runtime" || fail "Android template checksum missing"
 rg -q '6e9945ad00d7c6877f1c3a98224c17c5ff0caf8cf42b716e9152569f6b2ac71e' "$runtime" || fail "editor checksum missing"
 rg -q '120' "$runtime" || fail "bounded runtime timeout missing"
+rg -q -- '--install-android-build-template' "$runtime" || fail "Gradle build template installation missing"
 
 echo "Android runtime harness tests passed"

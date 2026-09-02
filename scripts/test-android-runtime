@@ -134,7 +134,9 @@ fi
 
 mkdir -p "$(dirname "$apk")"
 "$godot_command" --headless --path "$project_dir" --editor --quit
-"$godot_command" --headless --path "$project_dir" --export-debug Android "$apk"
+"$godot_command" --headless --path "$project_dir" \
+    --install-android-build-template \
+    --export-debug Android "$apk"
 [[ -f "$apk" ]] || die "Godot export did not produce $apk"
 
 apk_entries=$(unzip -Z1 "$apk")
