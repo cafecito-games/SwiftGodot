@@ -11,6 +11,7 @@
 
 #if defined(__ANDROID__)
 
+#include <android/log.h>
 #include <dlfcn.h>
 #include <stdint.h>
 
@@ -33,8 +34,15 @@ typedef SWIFTGODOT_SWIFTCALL void (*SwiftGodotEnqueueMainHook)(void *job, SwiftG
 extern bool swiftgodot_main_actor_owns_current_thread(void *identity);
 /// Implemented in Swift. Holds `job` until the engine thread drains main-actor jobs.
 extern void swiftgodot_enqueue_main_actor_job(void *job);
-/// Implemented in Swift. Logs the first hook that made a decision so device logs show the hooks are live.
-extern void swiftgodot_report_first_hook_hit(const char *hook);
+/// Logs the first hook that made a decision, so the device log shows the hooks are live.
+static void swiftgodot_report_first_hook_hit(const char *hook) {
+    static bool reported = false;
+    if (reported) {
+        return;
+    }
+    reported = true;
+    __android_log_print(ANDROID_LOG_INFO, "SwiftGodot", "main actor bound to the engine thread (first hook hit: %s)", hook);
+}
 
 static SWIFTGODOT_SWIFTCALL int8_t swiftgodot_is_isolating_current_context(SwiftGodotSerialExecutorRef executor, SwiftGodotIsIsolatingOriginal original) {
     if (swiftgodot_main_actor_owns_current_thread(executor.identity)) {

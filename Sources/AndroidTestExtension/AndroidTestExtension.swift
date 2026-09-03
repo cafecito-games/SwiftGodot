@@ -18,7 +18,7 @@ public final class AndroidRuntimeProbe: RefCounted {
 
     /// Exercises declared isolation inside the generated bindings by constructing,
     /// mutating, reading and freeing an engine object.
-    @Callable
+    @Callable(autoSnakeCase: true)
     public func probeNodeApi() -> String {
         let node = Node()
         node.name = "SwiftGodotProbe"
@@ -32,7 +32,7 @@ public final class AndroidRuntimeProbe: RefCounted {
 
     /// Starts a task that leaves the main actor and comes back to it. Both the initial job and
     /// the resumption are enqueued on the main executor, which the engine thread must drain.
-    @Callable
+    @Callable(autoSnakeCase: true)
     public func startMainActorHop() {
         Task {
             await Task.detached {}.value
@@ -40,7 +40,7 @@ public final class AndroidRuntimeProbe: RefCounted {
         }
     }
 
-    @Callable
+    @Callable(autoSnakeCase: true)
     public func isMainActorHopCompleted() -> Bool {
         mainActorHopCompleted
     }

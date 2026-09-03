@@ -34,7 +34,11 @@ let package = Package(
     targets: [
         .target(
             name: "GDExtensionC",
-            path: "Sources/GDExtension"
+            path: "Sources/GDExtension",
+            linkerSettings: [
+                // The concurrency hook trampolines report through the Android system log.
+                .linkedLibrary("log"),
+            ]
         ),
         .target(
             name: "SwiftGodot",

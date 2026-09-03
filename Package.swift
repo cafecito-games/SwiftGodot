@@ -140,7 +140,11 @@ var targets: [Target] = [
     .target(
         name: "GDExtensionC",
         path: "Sources/GDExtension",
-        swiftSettings: [.swiftLanguageMode(.v6)]
+        swiftSettings: [.swiftLanguageMode(.v6)],
+        linkerSettings: [
+            // The concurrency hook trampolines report through the Android system log.
+            .linkedLibrary("log", .when(platforms: [.android])),
+        ]
     ),
 
     // These are macros that can be used by third parties to simplify their

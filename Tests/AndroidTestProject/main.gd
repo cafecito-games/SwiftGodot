@@ -16,6 +16,11 @@ func _ready() -> void:
 		return
 	print("SWIFTGODOT_ANDROID_CONSTRUCTED")
 
+	for method in ["probe_node_api", "start_main_actor_hop", "is_main_actor_hop_completed"]:
+		if not probe.has_method(method):
+			fail("AndroidRuntimeProbe has no method %s" % method)
+			return
+
 	var node_result = probe.call("probe_node_api")
 	if str(node_result) != "SWIFTGODOT_ANDROID_NODE_API_OK":
 		fail("unexpected node API result: %s" % node_result)

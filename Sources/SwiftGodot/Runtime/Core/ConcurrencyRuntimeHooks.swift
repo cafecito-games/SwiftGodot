@@ -19,9 +19,6 @@ enum ConcurrencyRuntimeHooks {
     /// Identity word of the main actor's executor, captured once so hooks can recognise it.
     fileprivate nonisolated(unsafe) static var mainExecutorIdentity: UnsafeMutableRawPointer?
 
-    /// Set once the first hook has fired, so the device log shows the hooks are live.
-    fileprivate nonisolated(unsafe) static var reportedFirstHit = false
-
     static func installOnce() {
         let firstInstall = installed.withLockedValue { alreadyInstalled -> Bool in
             defer { alreadyInstalled = true }
@@ -51,13 +48,6 @@ func swiftgodot_main_actor_owns_current_thread(_ identity: UnsafeMutableRawPoint
 @_cdecl("swiftgodot_enqueue_main_actor_job")
 func swiftgodot_enqueue_main_actor_job(_ job: UnsafeMutableRawPointer) {
     MainActorJobQueue.enqueue(unsafeBitCast(job, to: UnownedJob.self))
-}
-
-@_cdecl("swiftgodot_report_first_hook_hit")
-func swiftgodot_report_first_hook_hit(_ hook: UnsafePointer<CChar>) {
-    guard !ConcurrencyRuntimeHooks.reportedFirstHit else { return }
-    ConcurrencyRuntimeHooks.reportedFirstHit = true
-    print("SwiftGodot: main actor bound to the engine thread (first hook hit: \(String(cString: hook)))")
 }
 #else
 enum ConcurrencyRuntimeHooks {
