@@ -34,7 +34,11 @@ let package = Package(
     targets: [
         .target(
             name: "GDExtensionC",
-            path: "Sources/GDExtension"
+            path: "Sources/GDExtension",
+            linkerSettings: [
+                // Diagnostics from the engine-thread executor go to the Android system log.
+                .linkedLibrary("log"),
+            ]
         ),
         .target(
             name: "SwiftGodot",

@@ -317,7 +317,26 @@ ANDROID_SERIAL=<serial> scripts/test-android-runtime x86_64
 ANDROID_SERIAL=<serial> scripts/test-android-runtime arm64-v8a
 ```
 
-Success prints `SWIFTGODOT_ANDROID_OK:<abi>:42`. The test creates a Swift class through Godot, invokes an `@Callable` method, and therefore verifies registration, dynamic loading, and Swift execution—not just APK contents.
+Success prints `SWIFTGODOT_ANDROID_OK:<abi>:42`, preceded by three markers that each prove a boundary crossing between Godot's engine thread and Swift's main actor:
+
+| Marker | What it proves |
+| --- | --- |
+| `SWIFTGODOT_ANDROID_CONSTRUCTED` | A `@Godot` class registered and was constructed from GDScript. |
+| `SWIFTGODOT_ANDROID_NODE_API_OK` | Generated bindings with declared isolation ran from a Godot callback. |
+| `SWIFTGODOT_ANDROID_MAIN_ACTOR_HOP_OK` | A `Task` left the main actor and resumed on it within sixty frames. |
+
+The test therefore verifies registration, dynamic loading, Swift execution and the concurrency model, not just APK contents.
+
+## Concurrency model
+
+Every Godot object is `@MainActor`, and on every platform the main actor's thread is the thread that runs Godot's main loop. On macOS and iOS that is the process main thread, so the platform's main executor recognises it unchanged. On Android the main loop runs on the renderer thread, which the Swift runtime and libdispatch would not recognise on their own, so at load SwiftGodot installs its own main executor through the Swift runtime's custom executor interface: isolation checks pass on the engine thread and fail elsewhere, and jobs enqueued on the main executor are held until Godot's per-frame main loop callback drains them. That interface is `@_spi(ExperimentalCustomExecutors)` in the Swift 6.3.3 toolchain the Android contract pins, so upgrading the Android toolchain means re-verifying it.
+
+Consequences for extension code:
+
+- Synchronous calls into Godot objects from Godot callbacks need no annotation; they are already on the main actor.
+- A `Task` started from a Godot object inherits main-actor isolation. On Android its jobs run at the next frame boundary rather than immediately, so expect a one-frame delay before and after each `await` that leaves the main actor.
+- Calling a Godot object from a Godot worker thread, a GDScript `Thread`, or any other thread is a fatal error on every platform. Marshal the work back with `callDeferred` or a signal instead.
+- The engine thread is recorded when the extension loads, again when Godot initialises the `.scene` level, and once more when the main loop starts. Code that runs before the `.scene` level runs on the thread that loaded the extension and is treated as main-actor isolated there.
 
 ## Diagnose loader failures
 

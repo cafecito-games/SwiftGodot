@@ -231,7 +231,7 @@ open class Wrapped {
             if self is RefCounted {
                 // Godot may already have consumed the final native reference before
                 // the Swift wrapper is torn down, especially for editor-managed resources.
-                if let refCounted = self as? RefCounted, _assumeGodotMainActor({ refCounted.getReferenceCount() <= 0 }) {
+                if let refCounted = self as? RefCounted, MainActor.assumeIsolated({ refCounted.getReferenceCount() <= 0 }) {
                     print("RefCounted: it was already zero, flagging as deinited.")
                     extensionInterface.objectDeinited(object: self)
                     return
@@ -549,7 +549,7 @@ func register<T: Object>(type name: StringName, parent: StringName, type: T.Type
     nonisolated func getVirtual(_ userData: UnsafeMutableRawPointer?, _ name: GDExtensionConstStringNamePtr?) ->  GDExtensionClassCallVirtual? {
         let userDataInt = userData.map { Int(bitPattern: $0) }
         let nameInt = name.map { Int(bitPattern: $0) }
-        return _assumeGodotMainActor {
+        return MainActor.assumeIsolated {
             guard let userDataInt else { return nil }
             let userData = UnsafeMutableRawPointer(bitPattern: userDataInt)!
             let name = nameInt.flatMap { UnsafeRawPointer(bitPattern: $0) }
@@ -1048,7 +1048,7 @@ nonisolated func unreferenceFunc(_ userData: UnsafeMutableRawPointer) {
 /// to instantiate it.   Notice that this is different that direct instantiation from our API
 nonisolated func createFunc(_ userData: UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer? {
     let userDataInt = userData.map { Int(bitPattern: $0) }
-    let handleInt: Int? = _assumeGodotMainActor {
+    let handleInt: Int? = MainActor.assumeIsolated {
         //print ("SWIFT: Creating object userData:\(String(describing: userData))")
         guard let userDataInt else {
             print ("SwiftGodot.createFunc: Got a nil userData")
@@ -1089,7 +1089,7 @@ nonisolated func createFunc(_ userData: UnsafeMutableRawPointer?) -> UnsafeMutab
 nonisolated func recreateFunc(_ userData: UnsafeMutableRawPointer?, godotObjectHandle: UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer? {
     let userDataInt = userData.map { Int(bitPattern: $0) }
     let godotObjectHandleInt = godotObjectHandle.map { Int(bitPattern: $0) }
-    let resultInt: Int? = _assumeGodotMainActor {
+    let resultInt: Int? = MainActor.assumeIsolated {
         //print ("SWIFT: Recreate object userData:\(String(describing: userData))")
         guard let userDataInt else {
             print ("Got a nil userData")
@@ -1132,7 +1132,7 @@ nonisolated func recreateFunc(_ userData: UnsafeMutableRawPointer?, godotObjectH
 //
 nonisolated func freeFunc (_ userData: UnsafeMutableRawPointer?, _ objectHandle: UnsafeMutableRawPointer?) {
     let objectHandleInt = objectHandle.map { Int(bitPattern: $0) }
-    _assumeGodotMainActor {
+    MainActor.assumeIsolated {
         guard let objectHandleInt else { return }
         let objectHandle = UnsafeMutableRawPointer(bitPattern: objectHandleInt)!
         // Release the unmanaged reference that was retained in bindGodotInstance()
@@ -1142,7 +1142,7 @@ nonisolated func freeFunc (_ userData: UnsafeMutableRawPointer?, _ objectHandle:
 
 nonisolated func notificationFunc (ptr: UnsafeMutableRawPointer?, code: Int32, reversed: UInt8) {
     let ptrInt = ptr.map { Int(bitPattern: $0) }
-    _assumeGodotMainActor {
+    MainActor.assumeIsolated {
         guard let ptrInt else { return }
         let ptr = UnsafeMutableRawPointer(bitPattern: ptrInt)!
         let original = Unmanaged<WrappedReference>.fromOpaque(ptr).takeUnretainedValue()
@@ -1154,7 +1154,7 @@ nonisolated func notificationFunc (ptr: UnsafeMutableRawPointer?, code: Int32, r
 nonisolated func validatePropertyFunc(ptr: UnsafeMutableRawPointer?, _info: UnsafeMutablePointer<GDExtensionPropertyInfo>?) -> UInt8 {
     let ptrInt = ptr.map { Int(bitPattern: $0) }
     let infoInt = _info.map { Int(bitPattern: $0) }
-    return _assumeGodotMainActor {
+    return MainActor.assumeIsolated {
         guard let ptrInt else { return 0 }
         let ptr = UnsafeMutableRawPointer(bitPattern: ptrInt)!
         let original = Unmanaged<WrappedReference>.fromOpaque(ptr).takeUnretainedValue()
@@ -1195,7 +1195,7 @@ nonisolated func validatePropertyFunc(ptr: UnsafeMutableRawPointer?, _info: Unsa
 // does not go away while the object is in use.
 nonisolated func bindingReference(_ token: UnsafeMutableRawPointer?, _ binding: UnsafeMutableRawPointer?, _ reference: UInt8) -> UInt8 {
     let bindingInt = binding.map { Int(bitPattern: $0) }
-    return _assumeGodotMainActor {
+    return MainActor.assumeIsolated {
         guard let bindingInt else { return 0 }
         let binding = UnsafeMutableRawPointer(bitPattern: bindingInt)!
         let ref = Unmanaged<WrappedReference>.fromOpaque(binding).takeUnretainedValue()
@@ -1229,7 +1229,7 @@ nonisolated func bindingReference(_ token: UnsafeMutableRawPointer?, _ binding: 
 
 nonisolated func bindingCreate (_ token: UnsafeMutableRawPointer?, _ instance: UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer? {
     let instanceInt = instance.map { Int(bitPattern: $0) }
-    let resultInt: Int? = _assumeGodotMainActor {
+    let resultInt: Int? = MainActor.assumeIsolated {
         guard let instanceInt else { return nil }
         let instance = UnsafeMutableRawPointer(bitPattern: instanceInt)!
         guard let object = createSwiftObject(nativeHandle: instance) else { return nil }
@@ -1261,7 +1261,7 @@ nonisolated func bindingCreate (_ token: UnsafeMutableRawPointer?, _ instance: U
 nonisolated func bindingFree (_ token: UnsafeMutableRawPointer?, _ instance: UnsafeMutableRawPointer?, _ binding: UnsafeMutableRawPointer?) {
     let instanceInt = instance.map { Int(bitPattern: $0) }
     let bindingInt = binding.map { Int(bitPattern: $0) }
-    _assumeGodotMainActor {
+    MainActor.assumeIsolated {
         guard let bindingInt else { return }
         let binding = UnsafeMutableRawPointer(bitPattern: bindingInt)!
         let reference = Unmanaged<WrappedReference>.fromOpaque(binding).takeUnretainedValue()
@@ -1298,7 +1298,7 @@ nonisolated func userTypeBindingCreate (_ token: UnsafeMutableRawPointer?, _ ins
 
 nonisolated func userTypeBindingFree (_ token: UnsafeMutableRawPointer?, _ instance: UnsafeMutableRawPointer?, _ binding: UnsafeMutableRawPointer?) {
     let bindingInt = binding.map { Int(bitPattern: $0) }
-    _assumeGodotMainActor {
+    MainActor.assumeIsolated {
         if let bindingInt {
             let binding = UnsafeMutableRawPointer(bitPattern: bindingInt)!
             let reference = Unmanaged<WrappedReference>.fromOpaque(binding).takeUnretainedValue()
@@ -1329,7 +1329,7 @@ nonisolated func userTypeBindingFree (_ token: UnsafeMutableRawPointer?, _ insta
 // does not go away while the object is in use.
 nonisolated func userTypeBindingReference(_ token: UnsafeMutableRawPointer?, _ binding: UnsafeMutableRawPointer?, _ reference: UInt8) -> UInt8 {
     let bindingInt = binding.map { Int(bitPattern: $0) }
-    return _assumeGodotMainActor {
+    return MainActor.assumeIsolated {
         guard let bindingInt else { return 0 }
         let binding = UnsafeMutableRawPointer(bitPattern: bindingInt)!
         let ref = Unmanaged<WrappedReference>.fromOpaque(binding).takeUnretainedValue()
@@ -1363,7 +1363,7 @@ nonisolated func userTypeBindingReference(_ token: UnsafeMutableRawPointer?, _ b
 
 nonisolated func frameworkTypeBindingReference(_ token: UnsafeMutableRawPointer?, _ binding: UnsafeMutableRawPointer?, _ reference: UInt8) -> UInt8 {
     let bindingInt = binding.map { Int(bitPattern: $0) }
-    return _assumeGodotMainActor {
+    return MainActor.assumeIsolated {
         guard let bindingInt else { return 0 }
         let binding = UnsafeMutableRawPointer(bitPattern: bindingInt)!
         let ref = Unmanaged<WrappedReference>.fromOpaque(binding).takeUnretainedValue()
@@ -1402,7 +1402,7 @@ nonisolated func frameworkTypeBindingCreate (_ token: UnsafeMutableRawPointer?, 
 nonisolated func frameworkTypeBindingFree (_ token: UnsafeMutableRawPointer?, _ instance: UnsafeMutableRawPointer?, _ binding: UnsafeMutableRawPointer?) {
     let instanceInt = instance.map { Int(bitPattern: $0) }
     let bindingInt = binding.map { Int(bitPattern: $0) }
-    _assumeGodotMainActor {
+    MainActor.assumeIsolated {
         if let bindingInt {
             let binding = UnsafeMutableRawPointer(bitPattern: bindingInt)!
             let reference = Unmanaged<WrappedReference>.fromOpaque(binding).takeUnretainedValue()
@@ -1453,7 +1453,7 @@ nonisolated func invokeWrappedCallable(wrapperPtr: UnsafeMutableRawPointer?, par
     let pargsInt = pargs.map { Int(bitPattern: $0) }
     let retPtrInt = retPtr.map { Int(bitPattern: $0) }
     let errInt = err.map { Int(bitPattern: $0) }
-    _assumeGodotMainActor {
+    MainActor.assumeIsolated {
         guard let wrapperPtrInt else { return }
         let wrapperPtr = UnsafeMutableRawPointer(bitPattern: wrapperPtrInt)!
         let pargs = pargsInt.flatMap { UnsafePointer<UnsafeRawPointer?>(bitPattern: $0) }

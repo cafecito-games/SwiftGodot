@@ -140,7 +140,11 @@ var targets: [Target] = [
     .target(
         name: "GDExtensionC",
         path: "Sources/GDExtension",
-        swiftSettings: [.swiftLanguageMode(.v6)]
+        swiftSettings: [.swiftLanguageMode(.v6)],
+        linkerSettings: [
+            // Diagnostics from the engine-thread executor go to the Android system log.
+            .linkedLibrary("log", .when(platforms: [.android])),
+        ]
     ),
 
     // These are macros that can be used by third parties to simplify their
