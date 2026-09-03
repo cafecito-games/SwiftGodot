@@ -48,6 +48,7 @@ public class TestRunnerNode: Node {
         PhysicsDirectSpaceState2DIntersectRayResultTests(),
         PhysicsDirectSpaceState3DIntersectRayResultTests(),
         CodableTests(),
+        MainActorHopTests(),
 
         // BuiltIn type tests
         ColorTests(),
@@ -88,6 +89,22 @@ public class TestRunnerNode: Node {
         GD.print("SwiftGodot Test Runner")
         GD.print("=".repeated(60))
 
+        // The hop needs frames to complete, so the tests run from _process once it
+        // finishes or once the frame budget is spent.
+        MainActorHopProbe.start()
+        setProcess(enable: true)
+    }
+
+    public override func _process(delta: Double) {
+        if !MainActorHopProbe.hopCompleted && MainActorHopProbe.framesWaited < MainActorHopProbe.frameBudget {
+            MainActorHopProbe.framesWaited += 1
+            return
+        }
+        setProcess(enable: false)
+        runTestsAndQuit()
+    }
+
+    private func runTestsAndQuit() {
         let results = runAllTests()
         writeResults(results)
 
