@@ -2,7 +2,7 @@ final class MyData: Resource {
 
     nonisolated override public class var classInitializer: Void {
         let _ = super.classInitializer
-        SwiftGodot._assumeGodotMainActor {
+        MainActor.assumeIsolated {
             _initializeClass()
         }
     }
@@ -44,7 +44,7 @@ final class MyClass: Node {
 
     nonisolated override public class var classInitializer: Void {
         let _ = super.classInitializer
-        SwiftGodot._assumeGodotMainActor {
+        MainActor.assumeIsolated {
             _initializeClass()
         }
     }

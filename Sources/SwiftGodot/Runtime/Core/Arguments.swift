@@ -463,7 +463,7 @@ public struct RawArguments: @unchecked Sendable {
             if let value = lookup as? T {
                 return value
             } else {
-                let className = _assumeGodotMainActor { lookup.godotClassName.description }
+                let className = MainActor.assumeIsolated { lookup.godotClassName.description }
                 throw ArgumentAccessError.variantConversionError(VariantConversionError.unexpectedContent(requestedType: T.self, actualContent: className))
             }
         } else {

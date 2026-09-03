@@ -37,7 +37,7 @@ class MultiplierNode: Node {
 
     nonisolated override open class var classInitializer: Void {
         let _ = super.classInitializer
-        SwiftGodot._assumeGodotMainActor {
+        MainActor.assumeIsolated {
             _initializeClass()
         }
     }
