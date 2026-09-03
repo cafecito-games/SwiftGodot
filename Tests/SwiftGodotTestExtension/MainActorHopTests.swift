@@ -16,13 +16,14 @@ enum MainActorHopProbe {
     nonisolated(unsafe) static var hopCompleted = false
     nonisolated(unsafe) static var framesWaited = 0
 
-    /// Leaves the main actor and returns to it. Both the initial job and the resumption
-    /// are enqueued on the main executor, so completion proves the executor is drained
-    /// while Godot owns the thread.
+    /// Leaves the main actor and returns to it twice, once from a detached task and once
+    /// from a timer. Each resumption is enqueued on the main executor, so completion proves
+    /// the executor is drained while Godot owns the thread.
     @MainActor
     static func start() {
         Task {
             await Task.detached {}.value
+            try? await Task.sleep(for: .milliseconds(1))
             hopCompleted = true
         }
     }

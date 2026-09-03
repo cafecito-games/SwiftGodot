@@ -329,7 +329,7 @@ The test therefore verifies registration, dynamic loading, Swift execution and t
 
 ## Concurrency model
 
-Every Godot object is `@MainActor`, and on every platform the main actor's thread is the thread that runs Godot's main loop. On macOS and iOS that is the process main thread, so the platform's main executor recognises it unchanged. On Android the main loop runs on the renderer thread, which the Swift runtime and libdispatch would not recognise on their own, so at load SwiftGodot installs the runtime's concurrency hooks: isolation checks pass on the engine thread and fail elsewhere, and jobs enqueued on the main executor are held until Godot's per-frame main loop callback drains them.
+Every Godot object is `@MainActor`, and on every platform the main actor's thread is the thread that runs Godot's main loop. On macOS and iOS that is the process main thread, so the platform's main executor recognises it unchanged. On Android the main loop runs on the renderer thread, which the Swift runtime and libdispatch would not recognise on their own, so at load SwiftGodot installs its own main executor through the Swift runtime's custom executor interface: isolation checks pass on the engine thread and fail elsewhere, and jobs enqueued on the main executor are held until Godot's per-frame main loop callback drains them. That interface is `@_spi(ExperimentalCustomExecutors)` in the Swift 6.3.3 toolchain the Android contract pins, so upgrading the Android toolchain means re-verifying it.
 
 Consequences for extension code:
 

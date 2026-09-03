@@ -30,12 +30,14 @@ public final class AndroidRuntimeProbe: RefCounted {
         return "SWIFTGODOT_ANDROID_NODE_API_OK"
     }
 
-    /// Starts a task that leaves the main actor and comes back to it. Both the initial job and
-    /// the resumption are enqueued on the main executor, which the engine thread must drain.
+    /// Starts a task that leaves the main actor and comes back to it twice: once from a detached
+    /// task and once from a timer. Each resumption is enqueued on the main executor, which the
+    /// engine thread must drain.
     @Callable(autoSnakeCase: true)
     public func startMainActorHop() {
         Task {
             await Task.detached {}.value
+            try? await Task.sleep(for: .milliseconds(1))
             mainActorHopCompleted = true
         }
     }

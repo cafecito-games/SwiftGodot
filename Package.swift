@@ -142,7 +142,7 @@ var targets: [Target] = [
         path: "Sources/GDExtension",
         swiftSettings: [.swiftLanguageMode(.v6)],
         linkerSettings: [
-            // The concurrency hook trampolines report through the Android system log.
+            // Diagnostics from the engine-thread executor go to the Android system log.
             .linkedLibrary("log", .when(platforms: [.android])),
         ]
     ),

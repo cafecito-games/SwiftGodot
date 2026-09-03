@@ -130,7 +130,7 @@ public func setExtensionInterface(interface: ExtensionInterface) {
     extensionInterface = interface
     loadGodotInterface(unsafeBitCast(interface.getProcAddr(), to: GDExtensionInterfaceGetProcAddress.self))
     EngineThread.adopt()
-    ConcurrencyRuntimeHooks.installOnce()
+    EngineThreadMainActorBinding.installOnce()
 }
 
 // Extension initialization callback
@@ -529,7 +529,7 @@ public func initializeSwiftModule(
     let getProcAddrFun = unsafeBitCast(godotGetProcAddrPtr, to: GDExtensionInterfaceGetProcAddress.self)
     loadGodotInterface(getProcAddrFun)
     EngineThread.adopt()
-    ConcurrencyRuntimeHooks.installOnce()
+    EngineThreadMainActorBinding.installOnce()
     EngineMainLoop.registerCallbacksOnce(library: GDExtensionClassLibraryPtr(libraryPtr))
 
     // For now, we will only initialize the library once, so all of the SwiftGodot

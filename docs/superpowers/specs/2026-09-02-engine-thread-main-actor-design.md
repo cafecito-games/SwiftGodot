@@ -34,19 +34,13 @@ The workaround also removes the assertion entirely on Android. A Godot worker th
 
 Independently of the assertion, any job enqueued on the main executor on Android goes to libdispatch's main queue, which nothing drains. A `Task` inheriting main-actor isolation from a Godot object, or an `await` that must resume on the main actor, never runs. Neither option A nor option B in the issue addresses this. The design below does.
 
-### The Swift runtime provides a supported hook surface
+### The Swift runtime lets a library replace the main executor
 
-`libswift_Concurrency.so` in the Swift 6.3.3 SDK for Android exports the concurrency hooks declared in `include/swift/Runtime/ConcurrencyHooks.def`. The three that matter:
+Two runtime surfaces were evaluated against the Swift 6.3.3 sources.
 
-| Hook symbol | Signature (Swift calling convention) | Consulted by |
-| --- | --- | --- |
-| `swift_task_isIsolatingCurrentContext_hook` | `(SerialExecutorRef, original) -> Int8` | step 2 above |
-| `swift_task_checkIsolated_hook` | `(SerialExecutorRef, original) -> Void` | step 3 above |
-| `swift_task_enqueueMainExecutor_hook` | `(Job *, original) -> Void` | every main-executor enqueue |
+**Concurrency hooks.** `libswift_Concurrency.so` exports `swift_task_checkIsolated_hook`, `swift_task_isIsolatingCurrentContext_hook` and `swift_task_enqueueMainExecutor_hook`. The first two are consulted by steps 2 and 3 above and do make isolation checks pass on the engine thread; CI run 33706088533 proved that with the C trampolines described below. The third is not consulted for main-actor tasks: `swift_task_enqueueImpl` in `Actor.cpp` routes a job for the main executor straight to the executor's Swift `enqueue` witness (`DispatchMainExecutor.enqueue`, which calls libdispatch directly), and only legacy callers reach `swift_task_enqueueMainExecutor`. The hooks therefore cannot deliver the drain, and draining libdispatch's main queue by hand is not an option either: `_dispatch_main_queue_callback_4CF` requires the main queue to be thread-bound to the caller, and corelibs binds it at load to the thread that loaded libdispatch, the Java UI thread.
 
-Each hook receives the original implementation to delegate to. These are exported C symbols that have existed across Swift 5.x and 6.x, are consulted unconditionally by `ConcurrencyHooks.cpp`, and are the mechanism the runtime's own test suite uses. They need no SPI import.
-
-The alternative, the SE-0462 executor factory (`MainActor.executor`, `ExecutorFactory`), is present in the 6.3.3 stdlib but is `@_spi(ExperimentalCustomExecutors)`, must be installed before the first enqueue, and supplies no way to answer step 1. It is the eventual official replacement; it is not the right foundation today.
+**Custom main executor.** The SE-0462 executor factory is present in the 6.3.3 stdlib behind `@_spi(ExperimentalCustomExecutors)`: `MainExecutor`, `ExecutorFactory`, `PlatformExecutorFactory` and `_createExecutors(factory:)`. `_createExecutors` assigns `MainActor._executor` and `Task._defaultExecutor` without a guard, and the lazy default creation then skips, so a library can install its own main executor at load. The runtime's isolation check reaches that executor's `isIsolatingCurrentContext()` through the Swift witness (step 2), `isMainExecutor` is derived from being `MainActor.executor`, and every enqueue for the main actor arrives at its `enqueue`. This is the chosen mechanism. It is SPI, so it is pinned to the exact Swift 6.3.3 toolchain the Android compatibility contract already requires; upgrading that toolchain includes re-verifying the SPI.
 
 ### Godot provides a per-frame callback
 
@@ -58,39 +52,39 @@ The alternative, the SE-0462 executor factory (`MainActor.executor`, `ExecutorFa
 
 **B. Drop blanket isolation and adopt upstream's opt-in model.** Rejected. It reverts the Swift 6 model that consumers already write against, forces `nonisolated(unsafe)` back into the runtime's shared state, and still leaves main-actor jobs undrained on Android. Upstream has no Android support, so it has never had to answer this question.
 
-**C. Make the engine thread the main actor's thread.** Chosen. Install the three runtime hooks on Android so the isolation check recognises the engine thread and main-executor jobs are queued for the engine thread, and drain that queue from Godot's `frame_func`. The isolation model stays as it is, the check stays real, and asynchronous work works.
+**C. Make the engine thread the main actor's thread.** Chosen. Install a main executor on Android that answers isolation checks from the engine thread's identity and queues main-executor jobs for the engine thread, and drain that queue from Godot's `frame_func`. The isolation model stays as it is, the check stays real, and asynchronous work works.
 
 ## Design
 
 ### Components
 
-All new code lives in `Sources/SwiftGodot/Runtime/Core/`. The platform-neutral pieces are unit-tested on macOS; only the hook installation is Android-specific.
+All new code lives in `Sources/SwiftGodot/Runtime/Core/`. The platform-neutral pieces are unit-tested on macOS; only the executor and its installation are Android-specific.
 
 **`EngineThread`** records which thread is the engine thread and answers whether the caller is on it.
 
 - `static func adopt()` records `pthread_self()` as the engine thread.
 - `static var isCurrent: Bool` compares `pthread_self()` against the record with `pthread_equal`.
-- The record is a single atomic word so reads on the check path take no lock. Before any `adopt()` the answer is `false`.
+- The record is protected by a lock, which the macOS 14 deployment target requires in place of `Synchronization.Atomic`; an uncontended lock is cheap enough for the check path. Before any `adopt()` the answer is `false`.
 
 **`MainActorJobQueue`** is a lock-protected FIFO of `UnownedJob`.
 
 - `static func enqueue(_ job: UnownedJob)` may be called from any thread.
 - `static func drainFrame()` must be called on the engine thread. It takes the jobs present at entry and runs each with `runSynchronously(on: MainActor.sharedUnownedExecutor)`. Jobs enqueued while draining wait for the next frame, so a job that re-enqueues itself cannot starve the frame.
-- Running a job through `runSynchronously(on:)` installs the main executor as the current executor, so nested checks inside the job pass through the runtime's normal "current equals expected" path without reaching the hooks.
+- Running a job through `runSynchronously(on:)` installs the main executor as the current executor, so nested checks inside the job pass through the runtime's normal "current equals expected" path without reaching the executor.
 
-**`ConcurrencyRuntimeHooks`** (compiled only for `os(Android)`) installs the hooks once per process.
+**`EngineThreadMainExecutor`** (compiled only for `os(Android)`) is the main actor's executor, installed once per process through `_createExecutors(factory:)` with a factory that keeps `PlatformExecutorFactory.defaultExecutor` for global tasks.
 
-- Obtains the hook variable addresses with `dlsym` on the handle returned by `dlopen("libswift_Concurrency.so", RTLD_NOW | RTLD_NOLOAD)`. The library is always loaded because `libSwiftGodot.so` links it. If either the handle or a symbol is missing, initialisation fails with a `fatalError` naming the symbol, because without the hooks the runtime is unusable on Android and a later SIGILL is a worse diagnostic.
-- Captures the identity word of `MainActor.sharedUnownedExecutor` once, so hooks can tell the main executor apart from any other serial executor without SPI.
-- `isIsolatingCurrentContext` hook: if the executor is the main executor and `EngineThread.isCurrent`, return isolated (1). Otherwise delegate to the original.
-- `checkIsolated` hook: if the executor is the main executor and `EngineThread.isCurrent`, return. Otherwise delegate to the original, which crashes with the runtime's own "incorrect actor executor assumption" message. This keeps the assertion real for worker threads.
-- `enqueueMainExecutor` hook: forward to `MainActorJobQueue.enqueue`. Never delegate, because the original targets a queue nothing drains.
-- Hook functions are captureless `@convention(thin)` Swift functions stored through a pointer typed as the hook's function type. They are installed once, guarded so repeated `initializeSwiftModule` calls from several extensions in one process do not reinstall, and are never uninstalled.
+- `enqueue` forwards to `MainActorJobQueue.enqueue`. Nothing is delegated to libdispatch, because its main queue is never drained.
+- `isIsolatingCurrentContext()` returns `EngineThread.isCurrent`, so the runtime's check has a definite answer before it would reach `checkIsolated`.
+- `checkIsolated()` is a fatal error off the engine thread, with the runtime's own wording, so worker-thread misuse still crashes rather than racing.
+- `run()` and `stop()` are fatal errors: Godot owns the main loop and no async main exists.
+- Installation happens first thing in `initializeSwiftModule`, before anything reads `MainActor.sharedUnownedExecutor`. Repeated entry points in one process are guarded so only the first installs.
+- The first enqueue and the first isolation decision are written to the Android system log through a small C helper, so a device log shows the executor is live.
 
 **Entry point changes** in `Sources/SwiftGodot/Runtime/EntryPoint.swift`:
 
 - `GodotInterface` gains `register_main_loop_callbacks`, loaded with `loadOptional` so older engines still initialise.
-- `initializeSwiftModule` calls `EngineThread.adopt()` on the loading thread, installs the hooks on Android, and registers the main loop callbacks with the first library that initialises. Adopting the loading thread first means anything that touches the main actor between library load and `.scene` initialisation passes; on Android that thread is the UI thread, which is the correct answer during `Main::setup`.
+- `initializeSwiftModule` calls `EngineThread.adopt()` on the loading thread, installs the executor on Android, and registers the main loop callbacks with the first library that initialises. Adopting the loading thread first means anything that touches the main actor between library load and `.scene` initialisation passes; on Android that thread is the UI thread, which is the correct answer during `Main::setup`.
 - `extension_initialize` at the `.scene` level calls `EngineThread.adopt()` again. On Android this is the first callback on the renderer thread, and it precedes class registration, which is the first crash site in the issue.
 - `startup_func` calls `EngineThread.adopt()` a final time as the authoritative main loop thread. `frame_func` calls `MainActorJobQueue.drainFrame()`. `shutdown_func` drains once more so jobs pending at exit run.
 
@@ -101,20 +95,20 @@ All new code lives in `Sources/SwiftGodot/Runtime/Core/`. The platform-neutral p
 | | macOS and iOS | Android |
 | --- | --- | --- |
 | Engine thread | Process main thread | Renderer thread (`GLThread` or `VkThread`) |
-| Hooks installed | No | Yes |
-| Synchronous check on engine thread | Passes via dispatch | Passes via `isIsolatingCurrentContext` hook |
+| Custom main executor installed | No | Yes |
+| Synchronous check on engine thread | Passes via dispatch | Passes via `isIsolatingCurrentContext` |
 | Synchronous check on a worker thread | Crashes (dispatch assertion) | Crashes (runtime's own assertion, via delegated original) |
 | Main-actor jobs | Run when the run loop spins | Run in `frame_func`, in FIFO order, at most one frame later |
 | Main loop callbacks registered | Yes, drain is a no-op | Yes |
 
 ### Known limitation
 
-The runtime's `Thread::onMainThread()` fast path cannot be hooked. On Android it answers true for the thread that loaded the Swift runtime, which is the Java UI thread. Swift code executing on that thread after startup would pass a main-actor check without reaching the hooks. No SwiftGodot or Godot path runs extension code on the UI thread after `Main::setup`, so this is documented rather than mitigated. It is the same class of gap as any thread that libdispatch considers the main queue's owner.
+The runtime's `Thread::onMainThread()` fast path cannot be replaced. On Android it answers true for the thread that loaded the Swift runtime, which is the Java UI thread. Swift code executing on that thread after startup would pass a main-actor check without reaching the executor. No SwiftGodot or Godot path runs extension code on the UI thread after `Main::setup`, so this is documented rather than mitigated. It is the same class of gap as any thread that libdispatch considers the main queue's owner.
 
 ### Error handling
 
-- Missing `libswift_Concurrency.so` handle or hook symbol on Android: `fatalError` at `initializeSwiftModule` naming the symbol.
-- Missing `register_main_loop_callbacks` (engine older than 4.5): the interface field is `nil`, no callbacks are registered, and on Android a warning is printed through Godot's `print_warning` that main-actor jobs will not run. Synchronous checks still work because they depend only on the hooks.
+- The SPI entry points are resolved at link time against the pinned toolchain, so a missing symbol is a build failure rather than a runtime condition.
+- Missing `register_main_loop_callbacks` (engine older than 4.5): the interface field is `nil`, no callbacks are registered, and on Android a warning is printed through Godot's `print_warning` that main-actor jobs will not run. Synchronous checks still work because they depend only on the executor.
 - `drainFrame()` called off the engine thread: precondition failure. It is only ever called from `frame_func` and `shutdown_func`.
 
 ## Testing
@@ -134,7 +128,7 @@ The runtime's `Thread::onMainThread()` fast path cannot be hooked. On Android it
 
 The CI script asserts all three lines. The existing `SWIFTGODOT_ANDROID_OK` line remains.
 
-**Spike before implementation.** The first task verifies on the local single-ABI loop that the installed `checkIsolated` hook is actually called with the expected executor layout, by logging from the hook and constructing a `RefCounted`. If the two-word `SerialExecutorRef` does not arrive intact through a `@convention(thin)` Swift function, the fallback is a C trampoline with `__attribute__((swiftcall))` in the `GDExtension` C target that forwards to a `@_cdecl` Swift function. The rest of the design is unchanged either way.
+**Spike outcome.** The hook-based first attempt was carried through CI: `@convention(thin)` Swift hook functions do not compile on the 6.3.3 Android toolchain ("nontrivial thin function reference"), C trampolines with `__attribute__((swiftcall))` do, and with them construction and the generated API passed while the asynchronous hop never completed, which led to the routing finding above and the custom executor.
 
 ## Documentation
 
@@ -142,7 +136,7 @@ The Android guide gains a "Concurrency model" section stating: the engine thread
 
 ## Out of scope
 
-- Linux and Windows. The hook installation is written so enabling Linux is a platform-condition change, but it is neither built nor tested here.
-- SE-0462 custom executors. Revisit when `ExecutorFactory` leaves SPI.
+- Linux and Windows. The executor is written so enabling Linux is a platform-condition change, but it is neither built nor tested here.
+- Removing the `@_spi(ExperimentalCustomExecutors)` dependency. Revisit when `ExecutorFactory` becomes public API.
 - `cafecito-games/Foundry-Swift` carries the same model with 19 assumption sites. `EngineThread`, `MainActorJobQueue` and `ConcurrencyRuntimeHooks` depend only on the Swift runtime and the GDExtension main loop callbacks, so they port unchanged. That port is separate work.
 - Hot reload of extensions on Android, which the engine does not support.

@@ -36,7 +36,7 @@ let package = Package(
             name: "GDExtensionC",
             path: "Sources/GDExtension",
             linkerSettings: [
-                // The concurrency hook trampolines report through the Android system log.
+                // Diagnostics from the engine-thread executor go to the Android system log.
                 .linkedLibrary("log"),
             ]
         ),
