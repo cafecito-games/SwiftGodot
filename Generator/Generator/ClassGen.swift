@@ -98,7 +98,7 @@ import ExtensionApi
         if hasReturnValue {
             p ("let retPtrInt = retPtr.map { Int(bitPattern: $0) }")
         }
-        p ("MainActor.assumeIsolated") {
+        p ("_assumeGodotMainActor") {
             p ("guard let instanceInt else { return }")
             p ("let instance = UnsafeMutableRawPointer(bitPattern: instanceInt)!")
             if hasArguments {
@@ -738,7 +738,7 @@ let objectInherits = "Wrapped, _GodotBridgeable, _GodotNullableBridgeable"
                 guard let objectHandle else {
                     throw .unexpectedContent(parsing: self, from: variant)
                 }
-                guard let value = MainActor.assumeIsolated({ getOrInitSwiftObject(nativeHandle: objectHandle, ownership: .borrowed) as? Self }) else {
+                guard let value = _assumeGodotMainActor({ getOrInitSwiftObject(nativeHandle: objectHandle, ownership: .borrowed) as? Self }) else {
                     throw .unexpectedContent(parsing: self, from: variant)
                 }
                 return value
@@ -771,7 +771,7 @@ let objectInherits = "Wrapped, _GodotBridgeable, _GodotNullableBridgeable"
                 guard let objectHandle else {
                     throw .unexpectedContent(parsing: self, from: variant)
                 }
-                guard let value = MainActor.assumeIsolated({ getOrInitSwiftObject(nativeHandle: objectHandle, ownership: .borrowed) as? Self }) else {
+                guard let value = _assumeGodotMainActor({ getOrInitSwiftObject(nativeHandle: objectHandle, ownership: .borrowed) as? Self }) else {
                     throw .unexpectedContent(parsing: self, from: variant)
                 }
                 return value
@@ -792,12 +792,12 @@ let objectInherits = "Wrapped, _GodotBridgeable, _GodotNullableBridgeable"
         if cdef.name == "RefCounted" {
             p("/// Internal API")
             p("nonisolated public final override func _macroRcRef()") {
-                p("_ = MainActor.assumeIsolated { reference() }")
+                p("_ = _assumeGodotMainActor { reference() }")
             }
 
             p("/// Internal API")
             p("nonisolated public final override func _macroRcUnref()") {
-                p("_ = MainActor.assumeIsolated { unreference() }")
+                p("_ = _assumeGodotMainActor { unreference() }")
             }
         }
         

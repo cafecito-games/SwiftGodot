@@ -11,11 +11,18 @@ case "$abi" in arm64-v8a|x86_64) ;; *) usage; exit 2 ;; esac
 
 script_dir=$(cd "$(dirname "$0")" && pwd)
 repository_root=$(cd "$script_dir/.." && pwd)
-release_tag=v4.7.2-20260826.1
-godot_version=4.7.2.stable.cafecito_dc0a505af.ed1daf0bf
-editor_sha=6e9945ad00d7c6877f1c3a98224c17c5ff0caf8cf42b716e9152569f6b2ac71e
-linux_editor_sha=2c94cdefddfe78ede2b5fa11b7aec6affdff5496584fe59b3f9a967ff7fefd55
-templates_sha=a3570264cfedba3b716d6b1bc33ff1b78351b965d0dcae6262b4c1a009b01bb8
+# shellcheck source=android-config
+source "$script_dir/android-config"
+# shellcheck source=android-abis
+source "$script_dir/android-abis"
+release_tag=v4.7.2-20260902.2
+godot_version=4.7.2.stable.cafecito_6b0b715d9.ed1daf0bf
+# Godot resolves export templates by major.minor.patch.status only; the custom
+# build name and hash that --version reports are not part of the directory.
+godot_template_version=4.7.2.stable
+editor_sha=d5c760b89da2ef01e9e19153f5fae969c058dd9f1e78d0e1a3881923e1a77b38
+linux_editor_sha=5ef9ae1efd521967e803935885e53fd8e620e02a2b8db6aeba3108b92dcd7238
+templates_sha=1e6bca23f4278466f9b1ab159ce869ab5a877884122a1faec6d5353c3d7744d2
 cache_dir=${SWIFT_GODOT_ANDROID_RUNTIME_CACHE:-"$repository_root/.build/android-runtime-cache"}
 work_dir=${SWIFT_GODOT_ANDROID_RUNTIME_WORK_DIR:-"$repository_root/.build/android-runtime-$abi"}
 project_dir="$work_dir/project"
@@ -52,23 +59,26 @@ author="cafecito-games"
 version="test"
 script="export_plugin.gd"
 EOF
+    # Indent with spaces: an unquoted heredoc passes a backslash escape through
+    # verbatim, so a "\t" here would reach GDScript as two literal characters
+    # and fail to parse.
     cat > "$addon/export_plugin.gd" <<EOF
 @tool
 extends EditorPlugin
 var export_plugin
 func _enter_tree():
-\texport_plugin = AndroidExportPlugin.new()
-\tadd_export_plugin(export_plugin)
+    export_plugin = AndroidExportPlugin.new()
+    add_export_plugin(export_plugin)
 func _exit_tree():
-\tremove_export_plugin(export_plugin)
-\texport_plugin = null
+    remove_export_plugin(export_plugin)
+    export_plugin = null
 class AndroidExportPlugin extends EditorExportPlugin:
-\tfunc _supports_platform(platform):
-\t\treturn platform is EditorExportPlatformAndroid
-\tfunc _get_android_libraries(platform, debug):
-\t\treturn PackedStringArray(["res://addons/$plugin_name/bin/$aar_name"])
-\tfunc _get_name():
-\t\treturn "$plugin_name"
+    func _supports_platform(platform):
+        return platform is EditorExportPlatformAndroid
+    func _get_android_libraries(platform, debug):
+        return PackedStringArray(["res://addons/$plugin_name/bin/$aar_name"])
+    func _get_name():
+        return "$plugin_name"
 EOF
 }
 
@@ -123,12 +133,31 @@ if [[ -z "${SWIFT_GODOT_RUNTIME_SKIP_SETUP:-}" ]]; then
 
     templates_zip="$cache_dir/android.zip"
     download_release_asset android.zip "$templates_zip" "$templates_sha"
-    export GODOT_DATA_PATH="$cache_dir/godot-data"
-    template_dir="$GODOT_DATA_PATH/export_templates/$godot_version"
-    if [[ ! -d "$template_dir" ]]; then
-        mkdir -p "$template_dir"
-        unzip -q "$templates_zip" -d "$template_dir"
+    # Godot reads export templates from its own data directory, not from
+    # GODOT_DATA_PATH.
+    case "$(uname -s)" in
+        Darwin) template_root="$HOME/Library/Application Support/Godot/export_templates" ;;
+        *) template_root="${XDG_DATA_HOME:-$HOME/.local/share}/godot/export_templates" ;;
+    esac
+    template_dir="$template_root/$godot_template_version"
+    # This directory is shared with whatever else the user has installed for
+    # this Godot version, so never clear it; overwrite only the entries the
+    # archive owns. The stamp records which archive those entries came from,
+    # because a present-but-stale android_source.zip is indistinguishable from
+    # a current one by name alone.
+    template_stamp="$template_dir/.swiftgodot-android-templates"
+    installed_templates=
+    if [[ -f "$template_stamp" ]]; then
+        installed_templates=$(cat "$template_stamp")
     fi
+    if [[ ! -f "$template_dir/android_source.zip" || "$installed_templates" != "$templates_sha" ]]; then
+        mkdir -p "$template_dir"
+        unzip -o -q "$templates_zip" -d "$template_dir"
+        printf '%s\n' "$templates_sha" > "$template_stamp"
+        echo "Installed Android export templates $templates_sha into $template_dir"
+    fi
+    [[ -f "$template_dir/android_source.zip" ]] ||
+        die "Android export template missing: $template_dir/android_source.zip"
 else
     [[ -n "$godot_command" ]] || die "SWIFT_GODOT_GODOT_COMMAND is required when setup is skipped"
 fi
@@ -142,7 +171,7 @@ mkdir -p "$(dirname "$apk")"
 [[ -f "$apk" ]] || die "Godot export did not produce $apk"
 
 apk_entries=$(unzip -Z1 "$apk")
-for packaged_abi in arm64-v8a x86_64; do
+for packaged_abi in $(android_required_abis); do
     for library in libSwiftGodot.so libSwiftGodotEmbed.so libAndroidTestExtension.so; do
         packaged_path="lib/$packaged_abi/$library"
         count=$(awk -v required="$packaged_path" '$0 == required { count++ } END { print count + 0 }' <<< "$apk_entries")
@@ -155,20 +184,60 @@ if [[ -n "${SWIFT_GODOT_ANDROID_EXPORT_ONLY:-}" ]]; then
     exit 0
 fi
 
+package=games.cafecito.swiftgodot.runtime_test
 if [[ -n "$serial" ]]; then adb=("$adb_command" -s "$serial"); else adb=("$adb_command"); fi
+
+diagnostics_dir="$work_dir/diagnostics"
+mkdir -p "$diagnostics_dir"
+
+# Capture device state on every exit, not only on the failures we anticipated.
+# An unexpected abort used to leave nothing behind to diagnose from.
+# shellcheck disable=SC2329  # invoked through the EXIT trap below
+capture_diagnostics() {
+    local status=$?
+    {
+        printf 'serial=%s\n' "${serial:-<default>}"
+        "${adb[@]}" devices -l || true
+        "${adb[@]}" shell getprop || true
+        "${adb[@]}" shell dumpsys activity processes || true
+    } > "$diagnostics_dir/device.txt" 2>&1
+    "${adb[@]}" logcat -d > "$diagnostics_dir/logcat.txt" 2>&1 || true
+    return "$status"
+}
+trap capture_diagnostics EXIT
+
 "${adb[@]}" wait-for-device
 "${adb[@]}" logcat -c
 "${adb[@]}" install -r "$apk"
-"${adb[@]}" shell monkey -p games.cafecito.swiftgodot.runtime_test 1 >/dev/null
+
+# monkey reports "No activities found to run" on stdout and still exits 0, so
+# discarding its output turns a launch that never happened into a silent
+# 120 second wait for a marker that was never going to appear.
+launch_output=$("${adb[@]}" shell monkey -p "$package" 1 2>&1 || true)
+printf '%s\n' "$launch_output"
+if grep -Eqi 'no activities found|monkey aborted|Error:' <<< "$launch_output"; then
+    die "could not launch $package: $launch_output"
+fi
+
+logcat_dump="$work_dir/logcat.txt"
+
+# Every failure path saves the device log. A bare "timed out" says nothing
+# about what the application actually did.
+save_logcat() {
+    printf '%s\n' "$1" > "$logcat_dump"
+    echo "Saved device log to $logcat_dump" >&2
+    printf '%s\n' "$1" >&2
+}
 
 deadline=$((SECONDS + timeout_seconds))
 success="SWIFTGODOT_ANDROID_OK:$abi:42"
+logs=
 while (( SECONDS < deadline )); do
     logs=$("${adb[@]}" logcat -d 2>&1 || true)
     if grep -Fq "$success" <<< "$logs"; then
         exit_deadline=$((SECONDS + exit_timeout_seconds))
         while (( SECONDS < exit_deadline )); do
-            if ! "${adb[@]}" shell pidof games.cafecito.swiftgodot.runtime_test >/dev/null 2>&1; then
+            if ! "${adb[@]}" shell pidof "$package" >/dev/null 2>&1; then
                 echo "$success"
                 exit 0
             fi
@@ -177,9 +246,16 @@ while (( SECONDS < deadline )); do
         die "Android test emitted success but did not terminate cleanly"
     fi
     if grep -Eq 'SWIFTGODOT_ANDROID_FAIL|dlopen failed|GDExtension.*(failed|error)|Cannot open dynamic library' <<< "$logs"; then
-        printf '%s\n' "$logs" >&2
+        save_logcat "$logs"
         die "Android runtime reported a loader or GDExtension failure"
     fi
     sleep 1
 done
+
+save_logcat "${logs:-$("${adb[@]}" logcat -d 2>&1 || true)}"
+if [[ -n "$("${adb[@]}" shell pidof "$package" 2>/dev/null | tr -d '\r')" ]]; then
+    echo "$package is still running; it started but never reached the marker" >&2
+else
+    echo "$package is not running; it exited or never started" >&2
+fi
 die "timed out after ${timeout_seconds}s waiting for $success"

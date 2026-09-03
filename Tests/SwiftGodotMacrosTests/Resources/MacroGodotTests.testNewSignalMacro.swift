@@ -13,7 +13,7 @@ class Demo: Node3D {
 
     nonisolated override open class var classInitializer: Void {
         let _ = super.classInitializer
-        MainActor.assumeIsolated {
+        SwiftGodot._assumeGodotMainActor {
             _initializeClass()
         }
     }

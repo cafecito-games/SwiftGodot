@@ -6,7 +6,7 @@ Ship Swift GDExtensions on Android with SwiftGodot's Godot v2 plugin and prebuil
 
 Android releases are built and tested as one pinned set:
 
-- Cafecito Godot 4.7.2 (`4.7.2.stable.cafecito_dc0a505af.ed1daf0bf`)
+- Cafecito Godot 4.7.2 (`4.7.2.stable.cafecito_6b0b715d9.ed1daf0bf`)
 - Swift 6.3.3 and `swift-6.3.3-RELEASE_android`
 - Android API 28 minimum, NDK r27d (`27.3.13750724`), and JDK 17
 - `arm64-v8a` and `x86_64`
@@ -253,6 +253,36 @@ that selection to build each ABI on its own runner, then merges the per-ABI JNI
 trees with `scripts/aggregate-android-jni` before packaging. A published AAR
 always carries both ABIs regardless of the selection.
 
+### Iterating locally on one ABI
+
+CI builds both ABIs and runs the device test on an x86_64 emulator. On an Apple
+Silicon Mac the faster loop is arm64-v8a end to end: the Swift Android SDK
+cross-compiles from macOS, and an arm64 emulator runs natively rather than
+under CPU emulation.
+
+```sh
+export ANDROID_HOME="$HOME/Library/Android/sdk"
+export ANDROID_NDK_ROOT="$ANDROID_HOME/ndk/27.3.13750724"
+export SWIFT_GODOT_ANDROID_ABIS=arm64-v8a
+export SWIFT_GODOT_ANDROID_SINGLE_ABI=arm64-v8a
+
+scripts/build-android-libraries .build/android
+scripts/build-android-test-extension .build/android-test
+scripts/package-android-aar .build/android/jni .build/android-aar
+scripts/package-android-test-aar .build/android-test/jni .build/android-test
+ANDROID_SERIAL=<serial> scripts/test-android-runtime arm64-v8a
+```
+
+`SWIFT_GODOT_ANDROID_ABIS` selects which ABIs are compiled.
+`SWIFT_GODOT_ANDROID_SINGLE_ABI` additionally narrows the checks that otherwise
+require a publishable artifact to carry every configured ABI — AAR packaging,
+AAR validation, and the APK contents assertion. Anything built under it prints
+a warning and must not be published; CI never sets it, and
+`scripts/test-android-ci-topology` fails if a workflow does.
+
+The SwiftPM scratch path persists between runs, so only the first build pays
+full cost.
+
 `scripts/build-android-test-extension` builds the consumer in a scratch path of
 its own, so it recompiles SwiftGodot for each ABI. Pointing it at the scratch
 path `scripts/build-android-libraries` populated does not work: SwiftPM reuses
@@ -266,6 +296,19 @@ whenever generation does run.
 ## Export and verify
 
 Use a Gradle Build export so Godot discovers and merges both v2 plugin AARs. The APK must contain one copy of each native library under `lib/arm64-v8a` and `lib/x86_64`.
+
+Set the export preset's **Min SDK** to 28. The Godot Android build template
+defaults to 24, and the SwiftGodot AAR declares 28 because that is the API
+level the Swift Android SDK targets. A lower value fails during the export's
+Gradle build with a manifest merger error that names the AAR rather than the
+preset:
+
+```
+Manifest merger failed : uses-sdk:minSdkVersion 24 cannot be smaller than
+version 28 declared in library [SwiftGodot-release.aar]
+```
+
+In `export_presets.cfg` that setting is `gradle_build/min_sdk="28"`.
 
 Run the repository smoke test against an attached emulator or device:
 

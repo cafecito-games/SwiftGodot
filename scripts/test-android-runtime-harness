@@ -55,6 +55,12 @@ if [[ "$*" == *"shell pidof games.cafecito.swiftgodot.runtime_test"* ]]; then
     [[ -n "${ADB_STAYS_RUNNING:-}" ]] && echo 1234 && exit 0
     exit 1
 fi
+if [[ "$*" == *"shell monkey"* ]]; then
+    if [[ -n "${ADB_MONKEY_FAILS:-}" ]]; then
+        echo "** No activities found to run, monkey aborted."
+    fi
+    exit 0
+fi
 if [[ "$*" == *"logcat -d"* ]]; then
     case "${ADB_SCENARIO:-success}" in
         success) echo "SWIFTGODOT_ANDROID_OK:x86_64:42" ;;
@@ -92,10 +98,81 @@ if run_case success ADB_STAYS_RUNNING=1 >/dev/null 2>&1; then
     fail "a test application that remains running should fail"
 fi
 
-rg -q 'v4\.7\.2-20260826\.1' "$runtime" || fail "custom Godot release pin missing"
-rg -q 'a3570264cfedba3b716d6b1bc33ff1b78351b965d0dcae6262b4c1a009b01bb8' "$runtime" || fail "Android template checksum missing"
-rg -q '6e9945ad00d7c6877f1c3a98224c17c5ff0caf8cf42b716e9152569f6b2ac71e' "$runtime" || fail "editor checksum missing"
+# A launch that never happened must be reported as such, not as a marker
+# timeout, and must not wait out the full runtime budget first.
+launch_log="$work_dir/launch.log"
+if run_case success ADB_MONKEY_FAILS=1 >"$launch_log" 2>&1; then
+    fail "a failed application launch should fail the run"
+fi
+grep -q 'could not launch games.cafecito.swiftgodot.runtime_test' "$launch_log" ||
+    fail "a failed launch must name the package it could not start"
+if grep -q 'timed out after' "$launch_log"; then
+    fail "a failed launch must not be reported as a marker timeout"
+fi
+
+rg -q 'v4\.7\.2-20260902\.2' "$runtime" || fail "custom Godot release pin missing"
+rg -q '1e6bca23f4278466f9b1ab159ce869ab5a877884122a1faec6d5353c3d7744d2' "$runtime" || fail "Android template checksum missing"
+rg -q 'd5c760b89da2ef01e9e19153f5fae969c058dd9f1e78d0e1a3881923e1a77b38' "$runtime" || fail "editor checksum missing"
+rg -q '5ef9ae1efd521967e803935885e53fd8e620e02a2b8db6aeba3108b92dcd7238' "$runtime" || fail "Linux editor checksum missing"
+rg -q '4\.7\.2\.stable\.cafecito_6b0b715d9\.ed1daf0bf' "$runtime" || fail "custom Godot version identity missing"
 rg -q '120' "$runtime" || fail "bounded runtime timeout missing"
 rg -q -- '--install-android-build-template' "$runtime" || fail "Gradle build template installation missing"
+
+# A timeout that prints nothing about what the application did is not
+# diagnosable; every failure path must save the device log.
+timeout_log="$work_dir/timeout.log"
+if run_case timeout >"$timeout_log" 2>&1; then
+    fail "timeout scenario should fail"
+fi
+grep -q 'Saved device log to' "$timeout_log" ||
+    fail "a runtime timeout must save the device log"
+
+# The generated editor plugin is real GDScript: an unquoted heredoc would pass
+# a "\t" escape through verbatim and Godot would refuse to parse the file.
+plugin_dir="$work_dir/generated-addon"
+mkdir -p "$plugin_dir"
+sed -n '/^write_export_plugin/,/^}/p' "$runtime" > "$work_dir/write-export-plugin.sh"
+# shellcheck disable=SC1091
+. "$work_dir/write-export-plugin.sh"
+write_export_plugin "$plugin_dir" SwiftGodot-release.aar SwiftGodot
+
+generated="$plugin_dir/export_plugin.gd"
+[[ -f "$generated" ]] || fail "generated export plugin missing"
+if grep -q '[\]' "$generated"; then
+    fail "generated export plugin contains a literal backslash instead of indentation"
+fi
+grep -Eq '^[[:space:]]+export_plugin = AndroidExportPlugin\.new\(\)$' "$generated" ||
+    fail "generated export plugin body is not indented"
+grep -Fq 'res://addons/SwiftGodot/bin/SwiftGodot-release.aar' "$generated" ||
+    fail "generated export plugin does not contribute the AAR"
+[[ -f "$plugin_dir/plugin.cfg" ]] || fail "generated plugin.cfg missing"
+
+# The SwiftGodot AAR declares minSdk 28, so the export preset must raise
+# Godot's default of 24 or the manifest merger rejects the build.
+rg -q '^gradle_build/min_sdk="28"$' \
+    "$repo_root/Tests/AndroidTestProject/export_presets.cfg" ||
+    fail "the Android test project must export with a minimum SDK of 28"
+
+# Godot refuses to export an Android preset unless the project opts into
+# ETC2/ASTC VRAM compression.
+rg -q '^textures/vram_compression/import_etc2_astc=true$' \
+    "$repo_root/Tests/AndroidTestProject/project.godot" ||
+    fail "the Android test project must enable ETC2/ASTC texture compression"
+
+rg -q 'godot_template_version=4\.7\.2\.stable$' "$runtime" ||
+    fail "export templates must resolve by Godot's short version"
+rg -q 'android_source\.zip' "$runtime" ||
+    fail "the harness must verify the Android export template landed"
+
+# The export templates directory is shared with the user's other installs for
+# the same Godot version, and a stale android_source.zip looks identical to a
+# current one by name.
+if rg -q 'rm -rf "\$template_dir"' "$runtime"; then
+    fail "the runtime test must not clear the shared export templates directory"
+fi
+rg -q 'unzip -o -q "\$templates_zip"' "$runtime" ||
+    fail "Android templates must overwrite in place rather than replace the directory"
+rg -q 'swiftgodot-android-templates' "$runtime" ||
+    fail "installed Android templates must be stamped with their source archive"
 
 echo "Android runtime harness tests passed"

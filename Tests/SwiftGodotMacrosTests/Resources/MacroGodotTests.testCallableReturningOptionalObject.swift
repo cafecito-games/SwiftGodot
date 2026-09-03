@@ -2,7 +2,7 @@ class MyThing: SwiftGodot.RefCounted {
 
     nonisolated override open class var classInitializer: Void {
         let _ = super.classInitializer
-        MainActor.assumeIsolated {
+        SwiftGodot._assumeGodotMainActor {
             _initializeClass()
         }
     }
@@ -47,7 +47,7 @@ class OtherThing: SwiftGodot.Node {
 
     nonisolated override open class var classInitializer: Void {
         let _ = super.classInitializer
-        MainActor.assumeIsolated {
+        SwiftGodot._assumeGodotMainActor {
             _initializeClass()
         }
     }
