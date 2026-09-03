@@ -129,6 +129,8 @@ func loadFunctions(loader: GDExtensionInterfaceGetProcAddress) {
 public func setExtensionInterface(interface: ExtensionInterface) {
     extensionInterface = interface
     loadGodotInterface(unsafeBitCast(interface.getProcAddr(), to: GDExtensionInterfaceGetProcAddress.self))
+    EngineThread.adopt()
+    ConcurrencyRuntimeHooks.installOnce()
 }
 
 // Extension initialization callback
@@ -136,6 +138,8 @@ func extension_initialize(userData: UnsafeMutableRawPointer?, l: GDExtensionInit
     //print ("SWIFT: extension_initialize")
     guard let level = ExtensionInitializationLevel(rawValue: Int64(exactly: l.rawValue)!) else { return }
     if level == .scene {
+        // On Android this is the first callback on the thread that will run the main loop.
+        EngineThread.adopt()
         extensionInterface.classDBReady = true
         for initializer in extensionInterface.pendingInitializers {
             initializer()
@@ -336,6 +340,7 @@ func toCallErrorType(_ godotCallError: GDExtensionCallErrorType) -> CallErrorTyp
     public let get_library_path: GDExtensionInterfaceGetLibraryPath
     public let editor_help_load_xml_from_utf8_chars: GDExtensionsInterfaceEditorHelpLoadXmlFromUtf8Chars?
     public let editor_help_load_xml_from_utf8_chars_and_len: GDExtensionsInterfaceEditorHelpLoadXmlFromUtf8CharsAndLen?
+    public let register_main_loop_callbacks: GDExtensionInterfaceRegisterMainLoopCallbacks?
 }
 
 @_spi(SwiftGodotRuntimePrivate) public nonisolated(unsafe) var gi: GodotInterface!
@@ -467,7 +472,8 @@ func loadGodotInterface(_ godotGetProcAddrPtr: GDExtensionInterfaceGetProcAddres
 
         get_library_path: load("get_library_path"),
         editor_help_load_xml_from_utf8_chars: loadOptional("editor_help_load_xml_from_utf8_chars"),
-        editor_help_load_xml_from_utf8_chars_and_len: loadOptional("editor_help_load_xml_from_utf8_chars_and_len")
+        editor_help_load_xml_from_utf8_chars_and_len: loadOptional("editor_help_load_xml_from_utf8_chars_and_len"),
+        register_main_loop_callbacks: loadOptional("register_main_loop_callbacks")
     )
 }
 
@@ -522,6 +528,9 @@ public func initializeSwiftModule(
 ) {
     let getProcAddrFun = unsafeBitCast(godotGetProcAddrPtr, to: GDExtensionInterfaceGetProcAddress.self)
     loadGodotInterface(getProcAddrFun)
+    EngineThread.adopt()
+    ConcurrencyRuntimeHooks.installOnce()
+    EngineMainLoop.registerCallbacksOnce(library: GDExtensionClassLibraryPtr(libraryPtr))
 
     // For now, we will only initialize the library once, so all of the SwiftGodot
     // modules are bundled together.   This is not optimal, see this bug
