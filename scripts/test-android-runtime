@@ -231,10 +231,24 @@ save_logcat() {
 
 deadline=$((SECONDS + timeout_seconds))
 success="SWIFTGODOT_ANDROID_OK:$abi:42"
+# Each marker is a boundary crossing between Godot's engine thread and Swift's
+# main actor that has failed on Android before; the final marker alone would
+# not prove the earlier ones ran.
+required_markers=(
+    SWIFTGODOT_ANDROID_CONSTRUCTED
+    SWIFTGODOT_ANDROID_NODE_API_OK
+    SWIFTGODOT_ANDROID_MAIN_ACTOR_HOP_OK
+)
 logs=
 while (( SECONDS < deadline )); do
     logs=$("${adb[@]}" logcat -d 2>&1 || true)
     if grep -Fq "$success" <<< "$logs"; then
+        for marker in "${required_markers[@]}"; do
+            if ! grep -Fq "$marker" <<< "$logs"; then
+                save_logcat "$logs"
+                die "Android test reached $success without emitting $marker"
+            fi
+        done
         exit_deadline=$((SECONDS + exit_timeout_seconds))
         while (( SECONDS < exit_deadline )); do
             if ! "${adb[@]}" shell pidof "$package" >/dev/null 2>&1; then

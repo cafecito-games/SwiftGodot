@@ -63,7 +63,16 @@ if [[ "$*" == *"shell monkey"* ]]; then
 fi
 if [[ "$*" == *"logcat -d"* ]]; then
     case "${ADB_SCENARIO:-success}" in
-        success) echo "SWIFTGODOT_ANDROID_OK:x86_64:42" ;;
+        success)
+            echo "SWIFTGODOT_ANDROID_CONSTRUCTED"
+            echo "SWIFTGODOT_ANDROID_NODE_API_OK"
+            echo "SWIFTGODOT_ANDROID_MAIN_ACTOR_HOP_OK"
+            echo "SWIFTGODOT_ANDROID_OK:x86_64:42"
+            ;;
+        missing_marker)
+            echo "SWIFTGODOT_ANDROID_CONSTRUCTED"
+            echo "SWIFTGODOT_ANDROID_OK:x86_64:42"
+            ;;
         fail) echo "SWIFTGODOT_ANDROID_FAIL: probe failed" ;;
         dlopen) echo "dlopen failed: library not found" ;;
         gdextension) echo "GDExtension initialization error" ;;
@@ -86,11 +95,18 @@ run_case() {
 }
 
 run_case success >/dev/null || fail "success marker should pass"
-for scenario in fail dlopen gdextension timeout; do
+for scenario in fail dlopen gdextension timeout missing_marker; do
     if run_case "$scenario" >/dev/null 2>&1; then
         fail "$scenario scenario should fail"
     fi
 done
+
+# Reaching the final marker without the intermediate ones must name what is
+# missing, so a regression at one boundary crossing is diagnosable from CI.
+missing_log="$work_dir/missing-marker.log"
+run_case missing_marker >"$missing_log" 2>&1 || true
+grep -q 'without emitting SWIFTGODOT_ANDROID_NODE_API_OK' "$missing_log" ||
+    fail "a missing intermediate marker must be named in the failure"
 if run_case success GODOT_FAIL=1 >/dev/null 2>&1; then
     fail "nonzero Godot export should fail"
 fi
