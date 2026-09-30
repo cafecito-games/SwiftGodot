@@ -51,10 +51,11 @@ for workflow in "$ci_workflow" "$release_workflow"; do
         fail "$workflow must not chain the ABI build onto another ABI"
     fi
 
-    # The Swift cross-builds dominate wall clock, so they must not sit on the
-    # smallest hosted runner while every other job in the repository does not.
-    rg -q 'runs-on: blacksmith-8vcpu-ubuntu-2404' "$workflow" ||
-        fail "$workflow must build Android ABIs on a large Linux runner"
+    # The Swift cross-builds dominate wall clock and are the first thing a
+    # runner image change breaks, so the image must stay pinned rather than
+    # tracking ubuntu-latest.
+    rg -q 'runs-on: ubuntu-24\.04' "$workflow" ||
+        fail "$workflow must build Android ABIs on the pinned Ubuntu runner image"
     rg -q 'SWIFT_GODOT_GENERATED_SOURCES_CACHE' "$workflow" ||
         fail "$workflow must reuse cached generated sources when staging"
     rg -q 'path: \.build/android-generated-sources' "$workflow" ||
@@ -67,7 +68,7 @@ for workflow in "$ci_workflow" "$release_workflow"; do
     rg -q 'echo "ANDROID_NDK_ROOT=\$ANDROID_HOME/ndk/' "$workflow" ||
         fail "$workflow must export a derived ANDROID_NDK_ROOT"
 
-    # The Blacksmith image ships no Swift release signing keys, so setup-swift
+    # The Ubuntu runner image ships no Swift release signing keys, so setup-swift
     # cannot verify its Swiftly download without importing them first.
     setup_swift_jobs=$(rg -c 'uses: swift-actions/setup-swift@' "$workflow" || true)
     key_imports=$(rg -c 'name: Import Swift signing keys' "$workflow" || true)
@@ -113,9 +114,15 @@ grep -Fq 'getprop sys.boot_completed' <<< "$emulator_job" ||
 grep -Fq 'swiftgodot-emulator.log' <<< "$emulator_job" ||
     fail "the emulator job must capture an emulator log to diagnose from"
 
+# The exported APK embeds the engine runtime from the custom Android export
+# templates, and artifacts on a public repository are downloadable by anyone.
+if grep -Fq '.apk' <<< "$emulator_job"; then
+    fail "the emulator job must not upload the exported APK as an artifact"
+fi
+
 abi_job=$(job_block "$ci_workflow" android-abi)
-grep -Fq 'runs-on: blacksmith-8vcpu-ubuntu-2404' <<< "$abi_job" ||
-    fail "the per-ABI Android build must run on a large Linux runner"
+grep -Fq 'runs-on: ubuntu-24.04' <<< "$abi_job" ||
+    fail "the per-ABI Android build must run on the pinned Ubuntu runner image"
 
 rg -q 'needs: android-stage' "$ci_workflow" || fail "CI ABI jobs must wait for the staged package"
 rg -q 'needs: android-abi' "$ci_workflow" || fail "CI packaging must wait for every ABI job"
