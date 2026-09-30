@@ -36,7 +36,7 @@ env:
 jobs:
   prepare:
     name: Prepare release
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-24.04
     outputs:
       commit: ${{ steps.release.outputs.commit }}
 
@@ -89,7 +89,7 @@ jobs:
   stage-package:
     name: Stage generated sources
     needs: prepare
-    runs-on: blacksmith-6vcpu-macos-26
+    runs-on: macos-26
 
     steps:
       - name: Checkout SwiftGodot
@@ -137,7 +137,7 @@ jobs:
     needs:
       - prepare
       - stage-package
-    runs-on: blacksmith-6vcpu-macos-26
+    runs-on: macos-26
     if: ${{ inputs.include_macos_x86 }}
 
     steps:
@@ -203,7 +203,7 @@ jobs:
     needs:
       - prepare
       - stage-package
-    runs-on: blacksmith-6vcpu-macos-26
+    runs-on: macos-26
 
     steps:
       - name: Checkout SwiftGodot
@@ -268,7 +268,7 @@ jobs:
     needs:
       - prepare
       - stage-package
-    runs-on: blacksmith-6vcpu-macos-26
+    runs-on: macos-26
 
     steps:
       - name: Checkout SwiftGodot
@@ -334,7 +334,7 @@ jobs:
     needs:
       - prepare
       - stage-package
-    runs-on: blacksmith-6vcpu-macos-26
+    runs-on: macos-26
 
     steps:
       - name: Checkout SwiftGodot
@@ -397,8 +397,8 @@ jobs:
   stage-android-package:
     name: Stage Android SwiftGodot package
     needs: prepare
-    runs-on: blacksmith-8vcpu-ubuntu-2404
-    timeout-minutes: 60
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
 
     steps:
       - name: Checkout SwiftGodot
@@ -406,7 +406,7 @@ jobs:
         with:
           ref: ${{ needs.prepare.outputs.commit }}
 
-      # The Blacksmith Ubuntu image does not ship the Swift release signing keys
+      # The Ubuntu runner image does not ship the Swift release signing keys
       # that setup-swift needs to verify its Swiftly download.
       - name: Import Swift signing keys
         run: curl -fsSL --compressed https://swift.org/keys/all-keys.asc | gpg --import -
@@ -444,8 +444,8 @@ jobs:
     needs:
       - prepare
       - stage-android-package
-    runs-on: blacksmith-8vcpu-ubuntu-2404
-    timeout-minutes: 120
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
 
     strategy:
       fail-fast: false
@@ -461,7 +461,7 @@ jobs:
         with:
           ref: ${{ needs.prepare.outputs.commit }}
 
-      # The Blacksmith Ubuntu image does not ship the Swift release signing keys
+      # The Ubuntu runner image does not ship the Swift release signing keys
       # that setup-swift needs to verify its Swiftly download.
       - name: Import Swift signing keys
         run: curl -fsSL --compressed https://swift.org/keys/all-keys.asc | gpg --import -
@@ -524,7 +524,7 @@ jobs:
     needs:
       - prepare
       - build-android-abi
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-24.04
     timeout-minutes: 120
 
     steps:
@@ -597,7 +597,7 @@ jobs:
       - build-ios-simulator
       - build-arm64
       - build-android
-    runs-on: blacksmith-6vcpu-macos-26
+    runs-on: macos-26
     if: >-
       ${{ !cancelled()
       && needs.prepare.result == 'success'

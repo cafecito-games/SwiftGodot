@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   build:
-    runs-on: blacksmith-6vcpu-macos-26
+    runs-on: macos-26
 
     steps:
       - name: Checkout
@@ -70,7 +70,7 @@ jobs:
 
   deploy:
     needs: build
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-24.04
 
     environment:
       name: github-pages

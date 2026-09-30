@@ -22,7 +22,7 @@ env:
 
 jobs:
   build-and-test-macos:
-    runs-on: blacksmith-6vcpu-macos-26
+    runs-on: macos-26
 
     steps:
     - name: Checkout
@@ -105,14 +105,14 @@ jobs:
 
   build-and-test-linux:
     name: Linux source build and runtime tests
-    runs-on: blacksmith-8vcpu-ubuntu-2404
-    timeout-minutes: 60
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
 
     steps:
     - name: Checkout
       uses: actions/checkout@v6
 
-    # The Blacksmith Ubuntu image does not ship the Swift release signing keys
+    # The Ubuntu runner image does not ship the Swift release signing keys
     # that setup-swift needs to verify its Swiftly download.
     - name: Import Swift signing keys
       run: curl -fsSL --compressed https://swift.org/keys/all-keys.asc | gpg --import -
@@ -174,7 +174,7 @@ jobs:
 
   android-scripts:
     name: Android script regression tests
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
 
     steps:
@@ -215,14 +215,14 @@ jobs:
 
   android-stage:
     name: Stage Android SwiftGodot package
-    runs-on: blacksmith-8vcpu-ubuntu-2404
-    timeout-minutes: 60
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
 
     steps:
     - name: Checkout
       uses: actions/checkout@v6
 
-    # The Blacksmith Ubuntu image does not ship the Swift release signing keys
+    # The Ubuntu runner image does not ship the Swift release signing keys
     # that setup-swift needs to verify its Swiftly download.
     - name: Import Swift signing keys
       run: curl -fsSL --compressed https://swift.org/keys/all-keys.asc | gpg --import -
@@ -258,8 +258,8 @@ jobs:
   android-abi:
     name: Android ${{ matrix.abi }} libraries
     needs: android-stage
-    runs-on: blacksmith-8vcpu-ubuntu-2404
-    timeout-minutes: 120
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
 
     strategy:
       fail-fast: false
@@ -273,7 +273,7 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v6
 
-    # The Blacksmith Ubuntu image does not ship the Swift release signing keys
+    # The Ubuntu runner image does not ship the Swift release signing keys
     # that setup-swift needs to verify its Swiftly download.
     - name: Import Swift signing keys
       run: curl -fsSL --compressed https://swift.org/keys/all-keys.asc | gpg --import -
@@ -334,9 +334,8 @@ jobs:
   android-package:
     name: Android AAR packaging and x86_64 runtime
     needs: android-abi
-    # Stays on a GitHub runner: the emulator smoke test needs /dev/kvm. This job
-    # is Gradle and emulator bound, not compile bound, so it gains nothing from
-    # the larger Blacksmith hosts the ABI builds use.
+    # The emulator smoke test needs /dev/kvm, which the hosted Ubuntu image
+    # exposes only on this runner size.
     runs-on: ubuntu-24.04
     timeout-minutes: 120
 
@@ -396,7 +395,7 @@ jobs:
     # Launch the emulator directly instead of through a third-party action. The
     # action booted a google_apis image on a pixel_6 profile and never reached
     # sys.boot_completed on this runner, and it captures no emulator log to
-    # diagnose from. This mirrors the launch that works in Foundry-Java.
+    # diagnose from.
     - name: Launch x86_64 emulator
       run: |
         test -c /dev/kvm
