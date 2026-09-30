@@ -79,17 +79,31 @@ struct SwiftGodotTestRunner {
         let destDir = "\(projectPath)/bin"
         do {
             try fm.createDirectory(atPath: destDir, withIntermediateDirectories: true)
+            if fm.fileExists(atPath: absoluteResultsPath) {
+                try fm.removeItem(atPath: absoluteResultsPath)
+            }
         } catch {
-            print("      Failed to create bin directory: \(error)")
+            print("      Failed to prepare test project: \(error)")
             exit(1)
         }
 
         let libPrefix = "lib"
+        #if os(macOS)
         let libExt = "dylib"
         #if arch(arm64)
         let platformDir = "arm64-apple-macosx"
         #else
         let platformDir = "x86_64-apple-macosx"
+        #endif
+        #elseif os(Linux)
+        let libExt = "so"
+        #if arch(arm64)
+        let platformDir = "aarch64-unknown-linux-gnu"
+        #else
+        let platformDir = "x86_64-unknown-linux-gnu"
+        #endif
+        #else
+        #error("SwiftGodotTestRunner supports macOS and Linux hosts.")
         #endif
 
         let libraryNames = [extensionTarget, "SwiftGodot"]
@@ -160,6 +174,10 @@ struct SwiftGodotTestRunner {
         } catch {
             print("      Import failed: \(error)")
             exit(1)
+        }
+        if importProcess.terminationStatus != 0 {
+            print("      Import failed with code: \(importProcess.terminationStatus)")
+            exit(importProcess.terminationStatus)
         }
         print("      Import successful")
 
