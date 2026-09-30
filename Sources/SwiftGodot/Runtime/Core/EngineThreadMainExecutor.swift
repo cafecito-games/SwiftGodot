@@ -2,17 +2,18 @@
 // A main executor that lives on Godot's engine thread.
 //
 
-#if os(Android)
+#if os(Android) || os(Linux)
 @_spi(ExperimentalCustomExecutors) import _Concurrency
 import GDExtensionC
 
 /// The main actor's executor on platforms where Godot's main loop is not the process main thread.
 ///
 /// On Android the engine's main loop runs on a renderer thread that is neither the process main
-/// thread nor a thread libdispatch will ever recognise as owning its main queue. With the default
-/// executor, every main-actor isolation check outside a task aborts, and every job enqueued on the
-/// main executor is placed on a queue nothing drains. This executor answers isolation checks from
-/// `EngineThread` and holds jobs in `MainActorJobQueue` until Godot's per-frame callback drains them.
+/// thread nor a thread libdispatch will ever recognise as owning its main queue. On Linux, Swift's
+/// main dispatch queue is likewise not integrated with Godot's main loop. With the default executor,
+/// main-actor jobs can be placed on a queue nothing drains. This executor answers isolation checks
+/// from `EngineThread` and holds jobs in `MainActorJobQueue` until Godot's per-frame callback drains
+/// them.
 final class EngineThreadMainExecutor: MainExecutor, @unchecked Sendable {
     private nonisolated(unsafe) static var reportedFirstDecision = false
     private nonisolated(unsafe) static var reportedFirstEnqueue = false

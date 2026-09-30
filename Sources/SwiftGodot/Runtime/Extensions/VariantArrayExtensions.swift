@@ -77,7 +77,10 @@ extension VariantArray: CustomDebugStringConvertible {
             let ptr = ret.assumingMemoryBound(to: VariantContent.self)
             
             // We are making a copy of the variant managed by the array. Array is managing its copy, we are managing ours
-            return Variant(copying: ptr.pointee)
+            guard let variant = Variant(copying: ptr.pointee) else {
+                return nil
+            }
+            return variant.gtype == .nil ? nil : variant
         }
         set {
             guard let ret = gi.array_operator_index(&content, Int64 (index)) else {
