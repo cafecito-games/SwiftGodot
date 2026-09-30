@@ -20,8 +20,8 @@ enum EngineMainLoop {
         guard firstRegistration else { return }
 
         guard let register = gi.register_main_loop_callbacks else {
-            #if os(Android)
-            GD.pushWarning("This Godot build has no register_main_loop_callbacks; main-actor jobs will not run on Android")
+            #if os(Android) || os(Linux)
+            GD.pushWarning("This Godot build has no register_main_loop_callbacks; main-actor jobs will not run on this platform")
             #endif
             return
         }

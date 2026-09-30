@@ -42,8 +42,10 @@ class Printer: @unchecked Sendable {
         import Android
         #elseif canImport(Bionic)
         import Bionic
-        #elseif canImport(Glibc) && SWIFTGODOT_ANDROID_HOST_GENERATION
+        #elseif canImport(Glibc)
         import Glibc
+        #elseif canImport(Musl)
+        import Musl
         #else
         #error("Unable to identify your C library.")
         #endif

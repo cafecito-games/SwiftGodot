@@ -6,3 +6,5 @@ compatibility_minimum = 4.6
 [libraries]
 macos.debug = "res://bin/ManualExtension"
 macos.release = "res://bin/ManualExtension"
+linux.debug = "res://bin/libManualExtension.so"
+linux.release = "res://bin/libManualExtension.so"

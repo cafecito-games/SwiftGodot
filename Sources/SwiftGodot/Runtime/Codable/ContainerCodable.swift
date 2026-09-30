@@ -13,7 +13,10 @@ extension VariantArray: Encodable {
         var container = encoder.unkeyedContainer()
         for i in 0..<Int(size()) {
             let variant = self[i]
-            if let variant {
+            // A Godot nil Variant may bridge either as Swift nil or as a
+            // non-nil Variant wrapper whose type is `.nil`, depending on the
+            // platform ABI. Encode both representations as JSON null.
+            if let variant, variant.gtype != .nil {
                 try container.encode(Variant.CodableTaggedRepresentation(variant))
             } else {
                 try container.encodeNil()
@@ -52,11 +55,21 @@ extension VariantDictionary: Encodable {
         var container = encoder.unkeyedContainer()
         for i in 0..<Int(allKeys.size()) {
             let k: Variant? = allKeys[i]
-            let keyTagged = try k.map { try Variant.CodableTaggedRepresentation($0) }
+            let keyTagged: Variant.CodableTaggedRepresentation?
+            if let k, k.gtype != .nil {
+                keyTagged = try Variant.CodableTaggedRepresentation(k)
+            } else {
+                keyTagged = nil
+            }
             let v: Variant? = k.flatMap { key in
                 Variant(takingOver: self[key])
             }
-            let valueTagged = try v.map { try Variant.CodableTaggedRepresentation($0) }
+            let valueTagged: Variant.CodableTaggedRepresentation?
+            if let v, v.gtype != .nil {
+                valueTagged = try Variant.CodableTaggedRepresentation(v)
+            } else {
+                valueTagged = nil
+            }
             let entry = CodableEntryRepresentation(key: keyTagged, value: valueTagged)
             try container.encode(entry)
         }

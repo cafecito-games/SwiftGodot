@@ -3,11 +3,12 @@
 This is a hard fork of [migueldeicaza/SwiftGodot](https://github.com/migueldeicaza/SwiftGodot), maintained by [Cafecito Games](https://github.com/cafecito-games).
 
 **Scope of this fork:**
-- Runtime support for **Android, iOS, and macOS**
+- Runtime and packaged-release support for **Android, iOS, and macOS**
+- Source-build support for **Linux** (x86_64 is exercised in CI)
 - Targets Cafecito's **Godot 4.7.2** build
-- Requires **Swift 6.3.3** for Android (swift-tools-version 6.3, strict concurrency)
+- Requires a **Swift 6.3** toolchain; CI and Android releases use Swift 6.3.3
 
-If you need other platforms, older Godot versions, or community-driven development, use the upstream project.
+Linux support currently covers building from source, unit tests, and loading a Swift GDExtension in the Godot editor. Prebuilt Linux artifacts, Swift runtime bundling, and exported-game packaging are not provided yet. If you need Windows, older Godot versions, or community-driven development, use the upstream project.
 
 ---
 
@@ -54,7 +55,7 @@ targets: [
 ]
 ```
 
-The `SwiftGodot` product carries the prebuilt runtime *and* the prebuilt macro compiler plugin, so `@Godot`, `@Callable`, `@Export`, `#initSwiftExtension`, etc. work without depending on `swift-syntax` or building macros from source. The plugin is shipped as a universal macOS (arm64 + x86_64) artifact bundle; if you're on a Swift toolchain that's incompatible with the prebuilt plugin, use the source build above instead.
+The `SwiftGodot` product carries the prebuilt runtime *and* the prebuilt macro compiler plugin, so `@Godot`, `@Callable`, `@Export`, `#initSwiftExtension`, etc. work without depending on `swift-syntax` or building macros from source. The plugin is shipped as a universal macOS (arm64 + x86_64) artifact bundle; Linux consumers must use the source build above.
 
 ## Using SwiftGodot as a Godot addon
 
@@ -136,9 +137,22 @@ macos.debug = "res://bin/MyFirstGame"
 macos.release = "res://bin/MyFirstGame"
 ios.debug = "res://bin/MyFirstGame"
 ios.release = "res://bin/MyFirstGame"
+linux.debug = "res://bin/libMyFirstGame.so"
+linux.release = "res://bin/libMyFirstGame.so"
 ```
 
 Copy the `.gdextension` file and its referenced binaries into your Godot project. Godot will load the extension automatically on startup.
+
+### Linux source builds
+
+Install Swift 6.3 or newer, then build your dynamic extension product normally:
+
+```bash
+swift build -c release --product MyFirstGame
+cp .build/release/libMyFirstGame.so /path/to/project/bin/
+```
+
+The development machine must have a compatible Swift runtime installed. Linux release artifacts and exported-game runtime bundling are intentionally deferred to a later milestone.
 
 ## Working with this Repository
 

@@ -6,6 +6,7 @@
 - Android API 28 support for `arm64-v8a` and `x86_64`, built with Swift 6.3.3 and the official matching Swift Android SDK.
 - A publishable Godot Android v2 plugin AAR containing `libSwiftGodot.so`, `libSwiftGodotEmbed.so`, and their complete shared runtime dependency closure.
 - Android export integration in the cross-platform Godot addon, plus an independently linked runtime probe exercised on an x86_64 emulator in CI.
+- Linux source-build support, including Swift tests and an end-to-end Godot editor runtime test in CI.
 
 ### Changed
 - The supported engine contract is now Cafecito Godot 4.7.2.
