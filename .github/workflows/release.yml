@@ -398,7 +398,7 @@ jobs:
     name: Stage Android SwiftGodot package
     needs: prepare
     runs-on: ubuntu-24.04
-    timeout-minutes: 90
+    timeout-minutes: 60
 
     steps:
       - name: Checkout SwiftGodot
@@ -445,7 +445,7 @@ jobs:
       - prepare
       - stage-android-package
     runs-on: ubuntu-24.04
-    timeout-minutes: 180
+    timeout-minutes: 120
 
     strategy:
       fail-fast: false

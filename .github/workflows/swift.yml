@@ -106,7 +106,7 @@ jobs:
   build-and-test-linux:
     name: Linux source build and runtime tests
     runs-on: ubuntu-24.04
-    timeout-minutes: 90
+    timeout-minutes: 60
 
     steps:
     - name: Checkout
@@ -216,7 +216,7 @@ jobs:
   android-stage:
     name: Stage Android SwiftGodot package
     runs-on: ubuntu-24.04
-    timeout-minutes: 90
+    timeout-minutes: 60
 
     steps:
     - name: Checkout
@@ -259,7 +259,7 @@ jobs:
     name: Android ${{ matrix.abi }} libraries
     needs: android-stage
     runs-on: ubuntu-24.04
-    timeout-minutes: 180
+    timeout-minutes: 120
 
     strategy:
       fail-fast: false
