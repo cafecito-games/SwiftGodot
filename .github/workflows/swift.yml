@@ -443,6 +443,10 @@ jobs:
         ANDROID_SERIAL: emulator-5554
       run: scripts/test-android-runtime x86_64
 
+    # The exported APK is deliberately absent. It embeds the engine runtime
+    # from the custom Android export templates, and artifacts on a public
+    # repository are downloadable by anyone. The logs below are enough to
+    # diagnose a failed smoke test.
     - name: Upload Android diagnostics
       if: always()
       uses: actions/upload-artifact@v4
@@ -451,8 +455,8 @@ jobs:
         path: |
           .build/android-aar/SwiftGodot-release.aar
           .build/android-test/SwiftGodotAndroidTest-release.aar
-          .build/android-runtime-x86_64/project/build/SwiftGodotAndroidTest.apk
           .build/android-runtime-x86_64/logcat.txt
           .build/android-runtime-x86_64/diagnostics/
           ${{ runner.temp }}/swiftgodot-emulator.log
         if-no-files-found: warn
+        retention-days: 7

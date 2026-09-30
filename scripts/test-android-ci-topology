@@ -114,6 +114,12 @@ grep -Fq 'getprop sys.boot_completed' <<< "$emulator_job" ||
 grep -Fq 'swiftgodot-emulator.log' <<< "$emulator_job" ||
     fail "the emulator job must capture an emulator log to diagnose from"
 
+# The exported APK embeds the engine runtime from the custom Android export
+# templates, and artifacts on a public repository are downloadable by anyone.
+if grep -Fq '.apk' <<< "$emulator_job"; then
+    fail "the emulator job must not upload the exported APK as an artifact"
+fi
+
 abi_job=$(job_block "$ci_workflow" android-abi)
 grep -Fq 'runs-on: ubuntu-24.04' <<< "$abi_job" ||
     fail "the per-ABI Android build must run on the pinned Ubuntu runner image"
