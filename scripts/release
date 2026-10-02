@@ -46,7 +46,7 @@ if [[ ! -f "$release_notes" ]]; then
     exit 1
 fi
 
-if [[ ! -x scripts/build-distribution-products || ! -x scripts/make-swiftgodot-framework || ! -x scripts/build-macro-artifactbundle || ! -x scripts/package-godot-addon ]]; then
+if [[ ! -x scripts/build-distribution-products || ! -x scripts/make-swiftgodot-framework || ! -x scripts/build-macro-artifactbundle || ! -x scripts/package-godot-addon || ! -x scripts/build-gdextension-shim ]]; then
     echo "Expected this to run from the SwiftGodot directory"
     exit 1
 fi
@@ -201,7 +201,9 @@ fi
 
 SWIFT_GODOT_CONFIGURATION="$configuration" scripts/make-swiftgodot-framework "$derived_data/" "$output_dir"
 addon_zip_path="$output_dir/SwiftGodot-$tag.zip"
-scripts/package-godot-addon "$tag" "$output_dir/SwiftGodot.xcframework" "$output_dir/SwiftGodotEmbed.xcframework" "$android_aar" "$output_dir" >/dev/null
+shim_dir="$output_dir/gdextension-shim"
+scripts/build-gdextension-shim "$shim_dir"
+scripts/package-godot-addon "$tag" "$output_dir/SwiftGodot.xcframework" "$output_dir/SwiftGodotEmbed.xcframework" "$android_aar" "$shim_dir" "$output_dir" >/dev/null
 
 if [[ -n "${SWIFT_GODOT_NODEPLOY:-}" ]]; then
     echo "Skipping deployment stage."

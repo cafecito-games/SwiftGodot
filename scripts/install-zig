@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+# Installs the pinned Zig toolchain used to cross-compile the GDExtension shim.
+#
+# The version and the per-host archive checksums live in
+# scripts/gdextension-shim-config, so CI never names a toolchain version of its
+# own. Prints the directory to put on PATH.
+set -euo pipefail
+
+usage() {
+    cat <<'EOF'
+Usage: scripts/install-zig INSTALL_DIR
+
+Downloads the pinned Zig release for this host, verifies its SHA-256, unpacks it
+under INSTALL_DIR and prints the directory containing the zig binary.
+EOF
+}
+
+if [[ $# -ne 1 ]]; then
+    usage
+    exit 2
+fi
+
+repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+
+# shellcheck source=gdextension-shim-config
+source "$repo_root/scripts/gdextension-shim-config"
+
+install_dir=$1
+
+die() {
+    echo "Error: $*" >&2
+    exit 1
+}
+
+case "$(uname -s)" in
+    Darwin) host_os=macos ;;
+    Linux) host_os=linux ;;
+    *) die "unsupported host OS for the pinned Zig toolchain: $(uname -s)" ;;
+esac
+
+case "$(uname -m)" in
+    arm64|aarch64) host_arch=aarch64 ;;
+    x86_64) host_arch=x86_64 ;;
+    *) die "unsupported host architecture for the pinned Zig toolchain: $(uname -m)" ;;
+esac
+
+archive_url=
+archive_sha256=
+for entry in "${GDEXTENSION_SHIM_ZIG_ARCHIVES[@]}"; do
+    IFS='|' read -r entry_os entry_arch entry_url entry_sha256 <<<"$entry"
+    if [[ "$entry_os" == "$host_os" && "$entry_arch" == "$host_arch" ]]; then
+        archive_url=$entry_url
+        archive_sha256=$entry_sha256
+    fi
+done
+[[ -n "$archive_url" ]] ||
+    die "scripts/gdextension-shim-config pins no Zig $GDEXTENSION_SHIM_ZIG_VERSION archive for $host_os/$host_arch"
+
+mkdir -p "$install_dir"
+install_dir=$(cd "$install_dir" && pwd)
+archive="$install_dir/${archive_url##*/}"
+
+curl -fsSL --retry 3 -o "$archive" "$archive_url"
+if command -v shasum >/dev/null 2>&1; then
+    echo "$archive_sha256  $archive" | shasum -a 256 --check
+else
+    echo "$archive_sha256  $archive" | sha256sum --check
+fi
+
+unpacked="$install_dir/${archive_url##*/}"
+unpacked=${unpacked%.tar.xz}
+rm -rf "$unpacked"
+tar -xJf "$archive" -C "$install_dir"
+[[ -x "$unpacked/zig" ]] || die "the pinned Zig archive did not unpack a zig binary at $unpacked/zig"
+
+installed_version=$("$unpacked/zig" version)
+[[ "$installed_version" == "$GDEXTENSION_SHIM_ZIG_VERSION" ]] ||
+    die "downloaded zig reports $installed_version, expected the pinned $GDEXTENSION_SHIM_ZIG_VERSION"
+
+printf '%s\n' "$unpacked"

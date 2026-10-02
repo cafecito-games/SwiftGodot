@@ -3,7 +3,7 @@ set -euo pipefail
 
 usage() {
     cat <<'EOF'
-Usage: scripts/package-godot-addon TAG SWIFTGODOT_XCFRAMEWORK SWIFTGODOTEMBED_XCFRAMEWORK ANDROID_AAR [OUTPUT_DIR]
+Usage: scripts/package-godot-addon TAG SWIFTGODOT_XCFRAMEWORK SWIFTGODOTEMBED_XCFRAMEWORK ANDROID_AAR SHIM_DIR [OUTPUT_DIR]
 
 Stages the SwiftGodot Godot addon at OUTPUT_DIR/dist/addons/SwiftGodot and
 writes OUTPUT_DIR/SwiftGodot-TAG.zip. The zip extracts to addons/SwiftGodot.
@@ -16,16 +16,33 @@ The addon ships:
   - bin/ios/SwiftGodotEmbed.xcframework
   - bin/macos_arm64/SwiftGodot.framework
   - bin/macos_arm64/SwiftGodotEmbed.framework
+  - bin/linux_x86_64/libSwiftGodotEmbed.so
+  - bin/linux_arm64/libSwiftGodotEmbed.so
+  - bin/windows_x86_64/SwiftGodotEmbed.dll
+
+SHIM_DIR is the directory produced by scripts/build-gdextension-shim; it supplies
+the three Linux and Windows payloads above.
 
 The export plugin adds the AAR to Android exports. The .gdextension declares
 SwiftGodot under `[dependencies]` so Godot's iOS/macOS exporters embed
 SwiftGodot.framework into the exported app exactly once. Downstream
 GDExtensions that link SwiftGodot do NOT need to list it in their own
 `[dependencies]` block as long as this addon is installed.
+
+The Linux and Windows payloads are the no-op SwiftGodotEmbed shim only. Linux is
+supported as a source build, but the addon ships no prebuilt SwiftGodot library
+for Linux or Windows, so those platforms get no `[dependencies]` entry: there
+would be nothing for Godot's exporter to embed, and an entry naming an absent
+file would reintroduce the load error this shim removes. Consumer GDExtensions
+link their own SwiftGodot build on those hosts.
+
+A host outside the declared set — linux.riscv64 or windows.arm64, say — still
+sees Godot's "No GDExtension library found" report. That is accepted; no wildcard
+entry masks it.
 EOF
 }
 
-if [[ $# -lt 4 || $# -gt 5 ]]; then
+if [[ $# -lt 5 || $# -gt 6 ]]; then
     usage
     exit 1
 fi
@@ -34,7 +51,8 @@ tag=$1
 xcframework=$2
 embed_xcframework=$3
 android_aar=$4
-output_dir=${5:-.}
+shim_dir=$5
+output_dir=${6:-.}
 
 case "$tag" in
     ""|*/*)
@@ -57,6 +75,7 @@ absolute_path() {
 xcframework=$(absolute_path "$xcframework")
 embed_xcframework=$(absolute_path "$embed_xcframework")
 android_aar=$(absolute_path "$android_aar")
+shim_dir=$(absolute_path "$shim_dir")
 output_dir=$(absolute_path "$output_dir")
 
 if [[ ! -d "$xcframework" ]]; then
@@ -74,8 +93,32 @@ if [[ ! -f "$android_aar" ]]; then
     exit 1
 fi
 
+if [[ ! -d "$shim_dir" ]]; then
+    echo "Expected the GDExtension shim directory produced by scripts/build-gdextension-shim: $shim_dir"
+    exit 1
+fi
+
 if [[ ! -f LICENSE ]]; then
     echo "Expected to run from the SwiftGodot repository root"
+    exit 1
+fi
+
+# shellcheck source=gdextension-shim-config
+source scripts/gdextension-shim-config
+
+# Refuse before staging anything if the shim build was skipped or soft-failed
+# upstream: never emit a [libraries] entry for a payload that is not there.
+missing_payloads=()
+for entry in "${GDEXTENSION_SHIM_TARGETS[@]}"; do
+    IFS='|' read -r _tag payload_dir payload_name _target _container _machine <<<"$entry"
+    if [[ ! -s "$shim_dir/$payload_dir/$payload_name" ]]; then
+        missing_payloads+=("$payload_dir/$payload_name")
+    fi
+done
+if [[ ${#missing_payloads[@]} -gt 0 ]]; then
+    echo "Missing GDExtension shim payloads under $shim_dir:"
+    printf '  %s\n' "${missing_payloads[@]}"
+    echo "Run scripts/build-gdextension-shim first."
     exit 1
 fi
 
@@ -125,12 +168,17 @@ zip_path="$output_dir/SwiftGodot-$tag.zip"
 plugin_version=${tag#v}
 
 rm -rf "$addon_dir"
-mkdir -p "$addon_dir/bin/android" "$addon_dir/bin/ios" "$addon_dir/bin/macos_arm64"
+shim_bin_dirs=()
+for entry in "${GDEXTENSION_SHIM_TARGETS[@]}"; do
+    IFS='|' read -r _tag payload_dir _name _target _container _machine <<<"$entry"
+    shim_bin_dirs+=("$addon_dir/bin/$payload_dir")
+done
+mkdir -p "$addon_dir/bin/android" "$addon_dir/bin/ios" "$addon_dir/bin/macos_arm64" "${shim_bin_dirs[@]}"
 
 cat > "$addon_dir/plugin.cfg" <<EOF
 [plugin]
 name="SwiftGodot"
-description="Prebuilt SwiftGodot runtime for Android, iOS, and macOS GDExtensions. Registers SwiftGodotEmbed and exports the Android AAR automatically."
+description="Prebuilt SwiftGodot runtime for Android, iOS, and macOS GDExtensions, and a no-op SwiftGodotEmbed for Linux and Windows. Registers SwiftGodotEmbed and exports the Android AAR automatically."
 author="cafecito-games"
 version="$plugin_version"
 script="export_plugin.gd"
@@ -177,6 +225,9 @@ ios.release = "res://addons/SwiftGodot/bin/ios/SwiftGodotEmbed.xcframework"
 ios.simulator.debug = "res://addons/SwiftGodot/bin/ios/SwiftGodotEmbed.xcframework"
 ios.simulator.release = "res://addons/SwiftGodot/bin/ios/SwiftGodotEmbed.xcframework"
 macos.arm64 = "res://addons/SwiftGodot/bin/macos_arm64/SwiftGodotEmbed.framework"
+linux.x86_64 = "res://addons/SwiftGodot/bin/linux_x86_64/libSwiftGodotEmbed.so"
+linux.arm64 = "res://addons/SwiftGodot/bin/linux_arm64/libSwiftGodotEmbed.so"
+windows.x86_64 = "res://addons/SwiftGodot/bin/windows_x86_64/SwiftGodotEmbed.dll"
 
 [dependencies]
 ios.debug = { "res://addons/SwiftGodot/bin/ios/SwiftGodot.xcframework": "" }
@@ -193,11 +244,20 @@ copy_without_symlinks "$embed_xcframework" "$addon_dir/bin/ios"
 copy_without_symlinks "$mac_framework" "$addon_dir/bin/macos_arm64"
 copy_without_symlinks "$mac_embed_framework" "$addon_dir/bin/macos_arm64"
 
+for entry in "${GDEXTENSION_SHIM_TARGETS[@]}"; do
+    IFS='|' read -r _tag payload_dir payload_name _target _container _machine <<<"$entry"
+    cp "$shim_dir/$payload_dir/$payload_name" "$addon_dir/bin/$payload_dir/$payload_name"
+done
+
 if find "$addon_dir" -type l -print | grep -q .; then
     echo "Refusing to package addon with symlinks; gpm cannot extract them:"
     find "$addon_dir" -type l -print
     exit 1
 fi
+
+# Resolvability is proven after staging and before zipping, so a failure leaves
+# no artifact behind for a release to publish.
+scripts/validate-godot-addon-libraries "$addon_dir" "$addon_dir/bin/android/SwiftGodot.aar"
 
 rm -f "$zip_path"
 (

@@ -75,6 +75,9 @@ jobs:
       run: |
         rg --version
 
+    - name: Install pinned Zig
+      run: scripts/install-zig "$RUNNER_TEMP/zig" >> "$GITHUB_PATH"
+
     - name: Build
       run: swift build --build-tests --quiet
 
@@ -95,6 +98,7 @@ jobs:
         scripts/test-package-resolution
         scripts/test-distribution-package-staging
         scripts/test-android-ci-topology
+        scripts/test-build-gdextension-shim
         scripts/test-package-godot-addon
         scripts/test-release-toolchain
 
@@ -171,6 +175,73 @@ jobs:
 
     - name: Run Godot-based tests
       run: swift run SwiftGodotTestRunner
+
+    - name: Install pinned Zig
+      run: scripts/install-zig "$RUNNER_TEMP/zig" >> "$GITHUB_PATH"
+
+    # This is the platform where the defect reproduces: before the shim
+    # shipped, a Linux host loading the addon printed "No GDExtension library
+    # found" for an addon that was in fact working correctly.
+    #
+    # Godot exits 0 even when a .gdextension resolves no library for the host,
+    # so the log is what this gate asserts; the exit status is only a secondary
+    # check. The project needs a main scene — headless Godot refuses to run
+    # without one and does not exit — and an import pass before the asserted
+    # run, so first-run editor noise stays out of the log being checked.
+    - name: Gate the addon's GDExtension load on Linux
+      run: |
+        shim_dir="$RUNNER_TEMP/gdextension-shim"
+        project_dir="$RUNNER_TEMP/addon-load-gate"
+        addon_dir="$project_dir/addons/SwiftGodot"
+
+        scripts/build-gdextension-shim "$shim_dir"
+
+        mkdir -p "$addon_dir/bin/linux_x86_64"
+        cp "$shim_dir/linux_x86_64/libSwiftGodotEmbed.so" "$addon_dir/bin/linux_x86_64/"
+
+        # The entry symbol and the linux.x86_64 library line are read out of the
+        # packaging script's emitted text rather than retyped, so this gate
+        # exercises what consumers actually install. [dependencies] is omitted:
+        # it drives Apple export embedding and names no Linux payload.
+        entry_symbol=$(sed -n 's/^entry_symbol = "\(.*\)"$/\1/p' scripts/package-godot-addon)
+        library_line=$(grep '^linux\.x86_64 = ' scripts/package-godot-addon)
+        test -n "$entry_symbol"
+        test -n "$library_line"
+
+        {
+          echo '[configuration]'
+          echo "entry_symbol = \"$entry_symbol\""
+          echo 'compatibility_minimum = "4.7"'
+          echo
+          echo '[libraries]'
+          echo "$library_line"
+        } > "$addon_dir/SwiftGodotEmbed.gdextension"
+        cat "$addon_dir/SwiftGodotEmbed.gdextension"
+
+        printf '[gd_scene format=3]\n\n[node name="Main" type="Node"]\n' \
+          > "$project_dir/main.tscn"
+        printf 'config_version=5\n\n[application]\nconfig/name="SwiftGodot addon load gate"\nrun/main_scene="res://main.tscn"\n' \
+          > "$project_dir/project.godot"
+
+        godot --headless --path "$project_dir" --import
+
+        log="$RUNNER_TEMP/addon-load-gate.log"
+        godot_status=0
+        godot --headless --path "$project_dir" --quit > "$log" 2>&1 || godot_status=$?
+        cat "$log"
+
+        if grep -q 'No GDExtension library found' "$log"; then
+          echo "::error::the addon .gdextension resolved no library for linux.x86_64"
+          exit 1
+        fi
+        if grep -Eq '(SCRIPT )?ERROR:' "$log"; then
+          echo "::error::loading the SwiftGodot addon logged an error"
+          exit 1
+        fi
+        if [ "$godot_status" -ne 0 ]; then
+          echo "::error::Godot exited $godot_status while loading the SwiftGodot addon"
+          exit 1
+        fi
 
   android-scripts:
     name: Android script regression tests

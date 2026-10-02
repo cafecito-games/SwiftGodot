@@ -625,6 +625,14 @@ jobs:
           xcodebuild -version
           swift --version
 
+      # scripts/release cross-compiles the Linux and Windows SwiftGodotEmbed
+      # shim from this macOS host before packaging the addon, and
+      # scripts/package-godot-addon re-validates every payload afterwards, so a
+      # skipped or soft-failed shim build fails packaging instead of publishing
+      # an addon that errors on those hosts.
+      - name: Install pinned Zig
+        run: scripts/install-zig "$RUNNER_TEMP/zig" >> "$GITHUB_PATH"
+
       - name: Configure git identity
         run: |
           git config --global user.name "github-actions[bot]"

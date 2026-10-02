@@ -39,7 +39,9 @@ package-godot-addon:
 	embed_xcframework="$${EMBED_XCFRAMEWORK:-$${SWIFT_GODOT_EMBED_XCFRAMEWORK:-.build/release-verify/SwiftGodotEmbed.xcframework}}"; \
 	android_aar="$${ANDROID_AAR:-.build/android/SwiftGodot.aar}"; \
 	output_dir="$${OUTPUT_DIR:-.}"; \
-	scripts/package-godot-addon "$$tag" "$$xcframework" "$$embed_xcframework" "$$android_aar" "$$output_dir"
+	shim_dir="$${SHIM_DIR:-.build/gdextension-shim}"; \
+	scripts/build-gdextension-shim "$$shim_dir"; \
+	scripts/package-godot-addon "$$tag" "$$xcframework" "$$embed_xcframework" "$$android_aar" "$$shim_dir" "$$output_dir"
 
 check-args:
 	@if test x$(VERSION)$(NOTES) = x; then echo You need to provide both VERSION=XX NOTES=FILENAME arguments to this makefile target; exit 1; fi
