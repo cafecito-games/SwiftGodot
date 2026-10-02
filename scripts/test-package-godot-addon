@@ -320,6 +320,23 @@ strip_windows_export() {
 }
 expect_packaging_failure "the DLL does not export the entry symbol" strip_windows_export
 
+# A PE name forwarded to another DLL is present in the export table but resolves
+# to someone else's function. GetProcAddress would hand Godot KERNEL32.Sleep, so
+# the name alone must not satisfy the export check.
+forward_windows_export() {
+    local case_shim=$1
+    local decoy_source="$case_shim/forward.c"
+    local forward_exports="$case_shim/forward.def"
+
+    printf 'unsigned char unrelated(void) { return 1; }\n' > "$decoy_source"
+    printf 'EXPORTS\n%s = KERNEL32.Sleep\n' "$entry_symbol" > "$forward_exports"
+    zig cc -target x86_64-windows-gnu -shared -O2 -std=c11 -s \
+        -o "$case_shim/windows_x86_64/SwiftGodotEmbed.dll" \
+        "$decoy_source" "$forward_exports"
+    rm -f "$decoy_source" "$forward_exports" "$case_shim/windows_x86_64/SwiftGodotEmbed.lib"
+}
+expect_packaging_failure "the DLL forwards the entry symbol to another DLL" forward_windows_export
+
 remove_aar_abi() {
     local case_shim=$1
     local case_aar=$2
@@ -337,6 +354,31 @@ sed 's#^linux\.arm64 = .*$#&\nlinux.riscv64 = "res://addons/SwiftGodot/bin/linux
     "$stage_root/SwiftGodotEmbed.gdextension" > "$undeclared_addon/SwiftGodotEmbed.gdextension"
 if scripts/validate-godot-addon-libraries "$undeclared_addon" "$undeclared_addon/bin/android/SwiftGodot.aar" >/dev/null 2>&1; then
     fail "validation must fail for a [libraries] entry whose payload was never staged"
+fi
+
+# A directory-valued entry must not launder an unsupported platform past the
+# check. Classification is by platform tag, so pointing an undeclared tag at a
+# directory that happens to exist still fails.
+directory_payload_dir=$(mktemp -d "$work_dir/directory-payload.XXXXXX")
+directory_payload_addon="$directory_payload_dir/addons/SwiftGodot"
+mkdir -p "$directory_payload_addon"
+cp -R "$stage_root/bin" "$directory_payload_addon/bin"
+sed 's#^linux\.arm64 = .*$#&\nlinux.riscv64 = "res://addons/SwiftGodot/bin/linux_x86_64"#' \
+    "$stage_root/SwiftGodotEmbed.gdextension" > "$directory_payload_addon/SwiftGodotEmbed.gdextension"
+if scripts/validate-godot-addon-libraries "$directory_payload_addon" "$directory_payload_addon/bin/android/SwiftGodot.aar" >/dev/null 2>&1; then
+    fail "validation must fail for an unsupported platform pointed at an existing directory"
+fi
+
+# A supported native platform must not be satisfied by a directory either.
+directory_library_dir=$(mktemp -d "$work_dir/directory-library.XXXXXX")
+directory_library_addon="$directory_library_dir/addons/SwiftGodot"
+mkdir -p "$directory_library_addon"
+cp -R "$stage_root/bin" "$directory_library_addon/bin"
+cp "$stage_root/SwiftGodotEmbed.gdextension" "$directory_library_addon/SwiftGodotEmbed.gdextension"
+rm -f "$directory_library_addon/bin/linux_x86_64/libSwiftGodotEmbed.so"
+mkdir -p "$directory_library_addon/bin/linux_x86_64/libSwiftGodotEmbed.so"
+if scripts/validate-godot-addon-libraries "$directory_library_addon" "$directory_library_addon/bin/android/SwiftGodot.aar" >/dev/null 2>&1; then
+    fail "validation must fail when a native library entry resolves to a directory"
 fi
 
 # And the mirror image: a payload the shim builds but the addon never declares.

@@ -121,17 +121,33 @@ while IFS= read -r line; do
     payload="$addon_dir/$relative"
     [[ -e "$payload" ]] || die "$tag resolves to a path absent from the staged addon: $relative"
 
+    # Classify by platform tag, never by what the payload happens to be on disk.
+    # Deciding from the payload would let an entry for an unsupported platform
+    # pass simply by pointing at some directory that exists, which is the class
+    # of defect this validator exists to catch.
+    if expected_container=$(expected_container_for "$tag"); then
+        payload_kind=library
+    elif [[ "$tag" == ios.* || "$tag" == macos.* ]]; then
+        payload_kind=bundle
+    else
+        die "$tag is not a platform this addon supports; add a row to scripts/gdextension-shim-config or remove the entry"
+    fi
+
     # Apple slices are framework and xcframework bundles, staged and checked as
-    # whole directories by scripts/make-swiftgodot-framework. A plain file is a
-    # native library and must prove its format, architecture and export.
-    if [[ -d "$payload" ]]; then
+    # whole directories by scripts/make-swiftgodot-framework. Anything else must
+    # prove its format, architecture and export. A future Apple slice shipped as
+    # a plain dylib would land here and fail until this branch is taught about
+    # it, which is the intended direction to fail in.
+    if [[ "$payload_kind" == bundle ]]; then
+        [[ -d "$payload" ]] ||
+            die "$tag must resolve to a framework or xcframework bundle directory: $relative"
         continue
     fi
 
+    [[ -f "$payload" ]] ||
+        die "$tag must resolve to a native library file, not a directory: $relative"
     [[ -s "$payload" ]] || die "$tag resolves to an empty payload: $relative"
 
-    expected_container=$(expected_container_for "$tag") ||
-        die "$tag declares a native library payload but no row in scripts/gdextension-shim-config describes it"
     expected_machine=$(expected_machine_for "$tag")
 
     facts=$("$inspect_script" "$payload") ||

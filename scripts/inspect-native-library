@@ -14,6 +14,11 @@ Prints one `key=value` line per fact:
     type=shared|executable|relocatable|...
     exports=<space-separated symbol names>
 
+`exports` lists only names that resolve to code inside this file. An ELF symbol
+imported from elsewhere and a PE name forwarded to another DLL are both omitted,
+because a validator asking "does this payload export the entry point Godot will
+call" must not be satisfied by a name that resolves somewhere else or nowhere.
+
 Exits non-zero when the file cannot be parsed as a supported container.
 """
 
@@ -132,11 +137,36 @@ def inspect_pe(data):
     (export_rva, export_size) = struct.unpack_from("<II", data, directories)
     if export_rva and export_size:
         export_table = file_offset(export_rva)
+        (ordinal_base,) = struct.unpack_from("<I", data, export_table + 0x10)
+        (function_count,) = struct.unpack_from("<I", data, export_table + 0x14)
         (name_count,) = struct.unpack_from("<I", data, export_table + 0x18)
+        (functions_rva,) = struct.unpack_from("<I", data, export_table + 0x1C)
         (names_rva,) = struct.unpack_from("<I", data, export_table + 0x20)
+        (ordinals_rva,) = struct.unpack_from("<I", data, export_table + 0x24)
+
         names_table = file_offset(names_rva)
+        ordinals_table = file_offset(ordinals_rva)
+        functions_table = file_offset(functions_rva)
+
         for index in range(name_count):
             (name_rva,) = struct.unpack_from("<I", data, names_table + index * 4)
+            # A name is only usable if its ordinal indexes a real function RVA.
+            # AddressOfNameOrdinals holds a biased index into AddressOfFunctions;
+            # the bias is already applied, so it is used directly here.
+            (ordinal,) = struct.unpack_from("<H", data, ordinals_table + index * 2)
+            if ordinal >= function_count:
+                raise UnsupportedLibrary(
+                    f"export ordinal {ordinal + ordinal_base} indexes past the function table"
+                )
+            (function_rva,) = struct.unpack_from("<I", data, functions_table + ordinal * 4)
+            if function_rva == 0:
+                continue
+            # An RVA landing inside the export directory itself is a forwarder
+            # string like "KERNEL32.Sleep", not code in this file. GetProcAddress
+            # would hand back someone else's function, so it is not an export of
+            # this payload.
+            if export_rva <= function_rva < export_rva + export_size:
+                continue
             exports.append(read_cstring(data, file_offset(name_rva)))
 
     return {
