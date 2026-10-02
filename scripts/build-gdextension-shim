@@ -1,0 +1,115 @@
+#!/usr/bin/env bash
+# Cross-compiles the no-op SwiftGodotEmbed GDExtension for Linux and Windows.
+#
+# SwiftGodotEmbed registers nothing and links nothing; its only job is to be a
+# resolvable GDExtension so Godot stops reporting
+#
+#   No GDExtension library found for current OS and architecture (linux.x86_64)
+#
+# for an addon that is working correctly. Because the shim touches no libc
+# beyond <stddef.h>/<stdint.h>, zig cc builds every target without a sysroot,
+# which is what lets the macOS release packaging job produce all three.
+set -euo pipefail
+
+usage() {
+    cat <<'EOF'
+Usage: scripts/build-gdextension-shim OUTPUT_DIR
+
+Cross-compiles Sources/SwiftGodotEmbed/SwiftGodotEmbed.c for every platform
+declared in scripts/gdextension-shim-config and writes one payload per platform
+under OUTPUT_DIR:
+
+  linux_x86_64/libSwiftGodotEmbed.so
+  linux_arm64/libSwiftGodotEmbed.so
+  windows_x86_64/SwiftGodotEmbed.dll
+
+Pass the resulting directory to scripts/package-godot-addon.
+EOF
+}
+
+if [[ $# -ne 1 ]]; then
+    usage
+    exit 2
+fi
+
+repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+cd "$repo_root"
+
+# shellcheck source=gdextension-shim-config
+source scripts/gdextension-shim-config
+
+output_dir=$1
+
+die() {
+    echo "Error: $*" >&2
+    exit 1
+}
+
+command -v zig >/dev/null 2>&1 ||
+    die "zig $GDEXTENSION_SHIM_ZIG_VERSION not found. Install it with 'brew install zig' or from https://ziglang.org/download/."
+
+zig_version=$(zig version)
+[[ "$zig_version" == "$GDEXTENSION_SHIM_ZIG_VERSION" ]] ||
+    die "zig $zig_version does not match the pinned $GDEXTENSION_SHIM_ZIG_VERSION; refusing to build with an unpinned toolchain"
+
+[[ -f "$GDEXTENSION_SHIM_SOURCE" ]] || die "missing shim source: $GDEXTENSION_SHIM_SOURCE"
+
+entry_symbol=$(gdextension_shim_entry_symbol) || exit 1
+
+case "$output_dir" in
+    /*) ;;
+    *) output_dir="$PWD/$output_dir" ;;
+esac
+
+mkdir -p "$output_dir"
+
+# lld derives a PE/COFF DLL's TimeDateStamp from the path it links to, so the
+# staging directory has to be a stable function of the output directory for a
+# re-run to reproduce the same bytes. It lives under the output directory rather
+# than in a random mktemp path for that reason, and is removed on exit.
+staging_dir="$output_dir/.build-gdextension-shim"
+trap 'rm -rf "$staging_dir"' EXIT
+rm -rf "$staging_dir"
+mkdir -p "$staging_dir"
+
+# A PE/COFF DLL exports nothing by default, where ELF exports the entry point
+# with its default visibility. Name it in a linker export list generated from
+# the C source rather than adding __declspec(dllexport) there, so the Apple and
+# Android slices keep their current symbol visibility.
+exports_definition="$staging_dir/exports.def"
+printf 'EXPORTS\n%s\n' "$entry_symbol" > "$exports_definition"
+
+for entry in "${GDEXTENSION_SHIM_TARGETS[@]}"; do
+    IFS='|' read -r platform_tag payload_dir payload_name zig_target container _machine <<<"$entry"
+
+    staged="$staging_dir/$payload_dir/$payload_name"
+    mkdir -p "$staging_dir/$payload_dir"
+    compile_arguments=(
+        -target "$zig_target"
+        -shared
+        -O2
+        -std=c11
+        -Wall
+        -Wextra
+        -Werror
+        # The shim is loaded for its one exported symbol and nothing else, so it
+        # ships without a symbol table or debug directory. .dynsym survives,
+        # which is what Godot's dlsym resolves against.
+        -s
+        -o "$staged"
+        "$GDEXTENSION_SHIM_SOURCE"
+    )
+    if [[ "$container" == pe ]]; then
+        compile_arguments+=("$exports_definition")
+    fi
+
+    zig cc "${compile_arguments[@]}" || die "failed to build $platform_tag ($zig_target)"
+    [[ -s "$staged" ]] || die "zig cc produced no output for $platform_tag ($zig_target)"
+
+    # Publish only after a successful compile, so a failed target can never
+    # leave a partial or stale payload where packaging would pick it up. zig cc
+    # also emits an import library beside the Windows DLL; it stays in staging.
+    mkdir -p "$output_dir/$payload_dir"
+    mv -f "$staged" "$output_dir/$payload_dir/$payload_name"
+    echo "Built $payload_dir/$payload_name ($platform_tag)"
+done

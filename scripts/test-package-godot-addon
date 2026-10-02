@@ -9,6 +9,7 @@ fail() {
 script="scripts/package-godot-addon"
 release_script="scripts/release"
 swift_workflow=".github/workflows/swift.yml"
+release_workflow=".github/workflows/release.yml"
 
 [[ -x "$script" ]] || fail "package-godot-addon script must exist and be executable"
 
@@ -50,11 +51,36 @@ make_fake_xcframework() {
 
 xcframework=$(make_fake_xcframework SwiftGodot)
 embed_xcframework=$(make_fake_xcframework SwiftGodotEmbed)
-android_aar="$work_dir/SwiftGodot.aar"
-printf 'fake Android AAR\n' > "$android_aar"
+
+# shellcheck source=gdextension-shim-config
+source scripts/gdextension-shim-config
+entry_symbol=$(gdextension_shim_entry_symbol)
+
+# The android.* [libraries] entries point at bin/android/<abi>/ paths that
+# deliberately do not exist in the addon tree; Godot resolves them from the
+# exported APK, and the real objects live inside the AAR. The fixture therefore
+# has to be a real zip with jni/<abi>/ entries so the validator can check them.
+make_fake_android_aar() {
+    local aar="$work_dir/SwiftGodot.aar"
+    local staging="$work_dir/aar-staging"
+
+    mkdir -p "$staging/jni/arm64-v8a" "$staging/jni/x86_64"
+    printf 'fake manifest\n' > "$staging/AndroidManifest.xml"
+    printf 'fake classes\n' > "$staging/classes.jar"
+    printf 'fake arm64 embed\n' > "$staging/jni/arm64-v8a/libSwiftGodotEmbed.so"
+    printf 'fake x86_64 embed\n' > "$staging/jni/x86_64/libSwiftGodotEmbed.so"
+    (cd "$staging" && zip -qryX "$aar" .)
+
+    printf '%s\n' "$aar"
+}
+
+android_aar=$(make_fake_android_aar)
+
+shim_dir="$work_dir/shim"
+scripts/build-gdextension-shim "$shim_dir" >/dev/null
 
 output_dir="$work_dir/output"
-"$script" "v1.2.3-rc.1" "$xcframework" "$embed_xcframework" "$android_aar" "$output_dir" >/dev/null
+"$script" "v1.2.3-rc.1" "$xcframework" "$embed_xcframework" "$android_aar" "$shim_dir" "$output_dir" >/dev/null
 
 zip_path="$output_dir/SwiftGodot-v1.2.3-rc.1.zip"
 [[ -f "$zip_path" ]] || fail "expected addon zip at $zip_path"
@@ -82,10 +108,26 @@ cmp -s LICENSE "$addon/LICENSE" || fail "addon LICENSE must match repo LICENSE"
 [[ -f "$addon/bin/android/SwiftGodot.aar" ]] || fail "Android SwiftGodot.aar missing"
 cmp -s "$android_aar" "$addon/bin/android/SwiftGodot.aar" || fail "Android AAR must be copied without modification"
 
+for entry in "${GDEXTENSION_SHIM_TARGETS[@]}"; do
+    IFS='|' read -r _tag payload_dir payload_name _target _container _machine <<<"$entry"
+    [[ -f "$addon/bin/$payload_dir/$payload_name" ]] || fail "$payload_dir/$payload_name missing from the addon"
+    cmp -s "$shim_dir/$payload_dir/$payload_name" "$addon/bin/$payload_dir/$payload_name" ||
+        fail "$payload_dir/$payload_name must be copied without modification"
+    facts=$(scripts/inspect-native-library "$addon/bin/$payload_dir/$payload_name") ||
+        fail "$payload_dir/$payload_name is not a loadable native library"
+    printf '%s\n' "$facts" | sed -n 's/^exports=//p' | tr ' ' '\n' | grep -qx "$entry_symbol" ||
+        fail "$payload_dir/$payload_name does not export $entry_symbol"
+done
+
 unexpected_addon_entries=$(find "$addon" -mindepth 1 -maxdepth 1 ! -name plugin.cfg ! -name export_plugin.gd ! -name LICENSE ! -name bin ! -name 'SwiftGodotEmbed.gdextension' -print)
 [[ -z "$unexpected_addon_entries" ]] || fail "unexpected top-level addon entries: $unexpected_addon_entries"
 
-unexpected_bin_entries=$(find "$addon/bin" -mindepth 1 -maxdepth 1 ! -name ios ! -name macos_arm64 ! -name android -print)
+bin_whitelist=(-name ios -o -name macos_arm64 -o -name android)
+for entry in "${GDEXTENSION_SHIM_TARGETS[@]}"; do
+    IFS='|' read -r _tag payload_dir _name _target _container _machine <<<"$entry"
+    bin_whitelist+=(-o -name "$payload_dir")
+done
+unexpected_bin_entries=$(find "$addon/bin" -mindepth 1 -maxdepth 1 ! \( "${bin_whitelist[@]}" \) -print)
 [[ -z "$unexpected_bin_entries" ]] || fail "unexpected bin entries: $unexpected_bin_entries"
 
 # Only SwiftGodotEmbed.gdextension is allowed; nothing under bin/ should be a
@@ -120,7 +162,7 @@ expected_plugin="$work_dir/expected-plugin.cfg"
 cat > "$expected_plugin" <<'EOF'
 [plugin]
 name="SwiftGodot"
-description="Prebuilt SwiftGodot runtime for Android, iOS, and macOS GDExtensions. Registers SwiftGodotEmbed and exports the Android AAR automatically."
+description="Prebuilt SwiftGodot runtime for Android, iOS, and macOS GDExtensions, and a no-op SwiftGodotEmbed for Linux and Windows. Registers SwiftGodotEmbed and exports the Android AAR automatically."
 author="cafecito-games"
 version="1.2.3-rc.1"
 script="export_plugin.gd"
@@ -150,6 +192,9 @@ ios.release = "res://addons/SwiftGodot/bin/ios/SwiftGodotEmbed.xcframework"
 ios.simulator.debug = "res://addons/SwiftGodot/bin/ios/SwiftGodotEmbed.xcframework"
 ios.simulator.release = "res://addons/SwiftGodot/bin/ios/SwiftGodotEmbed.xcframework"
 macos.arm64 = "res://addons/SwiftGodot/bin/macos_arm64/SwiftGodotEmbed.framework"
+linux.x86_64 = "res://addons/SwiftGodot/bin/linux_x86_64/libSwiftGodotEmbed.so"
+linux.arm64 = "res://addons/SwiftGodot/bin/linux_arm64/libSwiftGodotEmbed.so"
+windows.x86_64 = "res://addons/SwiftGodot/bin/windows_x86_64/SwiftGodotEmbed.dll"
 
 [dependencies]
 ios.debug = { "res://addons/SwiftGodot/bin/ios/SwiftGodot.xcframework": "" }
@@ -181,14 +226,138 @@ for module in SwiftGodot SwiftGodotEmbed; do
     [[ -d "$framework/Modules" ]] || fail "macOS $module.framework must materialize root Modules directory"
 done
 
-rg -q 'scripts/package-godot-addon "\$tag" "\$output_dir/SwiftGodot\.xcframework" "\$output_dir/SwiftGodotEmbed\.xcframework" "\$android_aar" "\$output_dir"' "$release_script" || fail "release script must package the Godot addon from Apple artifacts and the Android AAR"
+rg -q 'scripts/package-godot-addon "\$tag" "\$output_dir/SwiftGodot\.xcframework" "\$output_dir/SwiftGodotEmbed\.xcframework" "\$android_aar" "\$shim_dir" "\$output_dir"' "$release_script" || fail "release script must package the Godot addon from Apple artifacts, the Android AAR, and the GDExtension shim"
+rg -q 'scripts/build-gdextension-shim "\$shim_dir"' "$release_script" || fail "release script must build the GDExtension shim before packaging the addon"
+rg -q '! -x scripts/build-gdextension-shim' "$release_script" || fail "release script must require scripts/build-gdextension-shim up front"
 rg -q 'SwiftGodot-\$tag\.zip' "$release_script" || fail "release script must name the addon zip SwiftGodot-\$tag.zip"
 rg -q 'gh release create "\$tag" "\$zip_path" "\$gdextension_zip_path" "\$macro_zip_path" "\$android_aar" "\$addon_zip_path"' "$release_script" || fail "release script must upload the binary artifacts, Android AAR, and addon zip"
 if rg -q 'no longer using vXXX|v-prefixed tags|\[\[ "\$RELEASE_TAG" == v\* \]\]' "$release_script" .github/workflows/release.yml; then
     fail "release path must allow v-prefixed tags for Godot addon assets"
 fi
 rg -q '^package-godot-addon:' Makefile || fail "Makefile must expose package-godot-addon"
-rg -q 'scripts/package-godot-addon "\$\$tag" "\$\$xcframework" "\$\$embed_xcframework" "\$\$android_aar" "\$\$output_dir"' Makefile || fail "Makefile must pass the Android AAR to package-godot-addon"
+rg -q 'scripts/package-godot-addon "\$\$tag" "\$\$xcframework" "\$\$embed_xcframework" "\$\$android_aar" "\$\$shim_dir" "\$\$output_dir"' Makefile || fail "Makefile must pass the Android AAR and the GDExtension shim to package-godot-addon"
+rg -q 'scripts/build-gdextension-shim "\$\$shim_dir"' Makefile || fail "Makefile must build the GDExtension shim before packaging the addon"
 rg -q 'scripts/test-package-godot-addon' "$swift_workflow" || fail "CI must run package-godot-addon regression tests"
+rg -q 'scripts/test-build-gdextension-shim' "$swift_workflow" || fail "CI must run the GDExtension shim build tests"
+
+# A release must not be publishable with the shim build skipped. scripts/release
+# builds the shim itself and package-godot-addon re-validates every payload, so
+# the release job only has to supply the pinned toolchain.
+for workflow in "$release_workflow" "$swift_workflow"; do
+    rg -q 'scripts/install-zig' "$workflow" ||
+        fail "$workflow must install the pinned Zig toolchain via scripts/install-zig"
+done
+# The toolchain pin lives only in scripts/gdextension-shim-config; a workflow
+# naming a zig version of its own would be a second place to update.
+if rg -q 'zig-version|ZIG_VERSION|brew install zig' "$release_workflow" "$swift_workflow"; then
+    fail "workflows must not pin a zig version separately from scripts/gdextension-shim-config"
+fi
+
+# The Linux job is the one that reproduces the defect, so the load gate belongs
+# there rather than on the macOS packaging host.
+rg -q "No GDExtension library found" "$swift_workflow" ||
+    fail "the Linux job must fail on Godot's missing-library error text"
+
+# --- Fail-closed contract ---------------------------------------------------
+# Every row below must make packaging exit non-zero. Each case repackages from a
+# pristine copy of the good inputs so the cases stay independent.
+expect_packaging_failure() {
+    local description=$1
+    shift
+
+    local case_dir
+    case_dir=$(mktemp -d "$work_dir/case.XXXXXX")
+    cp -R "$shim_dir" "$case_dir/shim"
+    cp "$android_aar" "$case_dir/SwiftGodot.aar"
+
+    local case_shim="$case_dir/shim"
+    local case_aar="$case_dir/SwiftGodot.aar"
+    # The mutation runs against the copies, via the two names above.
+    "$@" "$case_shim" "$case_aar"
+
+    if "$script" "v1.2.3-rc.1" "$xcframework" "$embed_xcframework" "$case_aar" "$case_shim" "$case_dir/output" >/dev/null 2>&1; then
+        fail "packaging must fail: $description"
+    fi
+    if [[ -f "$case_dir/output/SwiftGodot-v1.2.3-rc.1.zip" ]]; then
+        fail "a failed packaging run must publish no zip: $description"
+    fi
+}
+
+delete_linux_payload() { rm -f "$1/linux_x86_64/libSwiftGodotEmbed.so"; }
+expect_packaging_failure "a shim payload is missing" delete_linux_payload
+
+truncate_windows_payload() { : > "$1/windows_x86_64/SwiftGodotEmbed.dll"; }
+expect_packaging_failure "a shim payload is empty" truncate_windows_payload
+
+substitute_macos_object() {
+    local case_shim=$1
+    cc -shared -o "$case_shim/linux_x86_64/libSwiftGodotEmbed.so" -x c - <<'OBJECT'
+unsigned char swift_godot_embed_entry_point(void *a, void *b, void *c) { (void)a; (void)b; (void)c; return 1; }
+OBJECT
+}
+expect_packaging_failure "a Linux payload is a macOS object" substitute_macos_object
+
+substitute_wrong_architecture() {
+    local case_shim=$1
+    cp "$case_shim/linux_arm64/libSwiftGodotEmbed.so" "$case_shim/linux_x86_64/libSwiftGodotEmbed.so"
+}
+expect_packaging_failure "a Linux x86_64 payload targets arm64" substitute_wrong_architecture
+
+# lld's MinGW driver exports every global symbol when it is handed no export
+# list, which is why the shim build supplies a generated .def. A DLL whose export
+# table names something else must not reach a release.
+strip_windows_export() {
+    local case_shim=$1
+    local decoy_source="$case_shim/decoy.c"
+    local decoy_exports="$case_shim/decoy.def"
+
+    printf 'unsigned char unrelated_entry_point(void) { return 1; }\n' > "$decoy_source"
+    printf 'EXPORTS\nunrelated_entry_point\n' > "$decoy_exports"
+    zig cc -target x86_64-windows-gnu -shared -O2 -std=c11 -s \
+        -o "$case_shim/windows_x86_64/SwiftGodotEmbed.dll" \
+        "$decoy_source" "$decoy_exports"
+    rm -f "$decoy_source" "$decoy_exports" "$case_shim/windows_x86_64/SwiftGodotEmbed.lib"
+}
+expect_packaging_failure "the DLL does not export the entry symbol" strip_windows_export
+
+remove_aar_abi() {
+    local case_shim=$1
+    local case_aar=$2
+    zip -qd "$case_aar" 'jni/x86_64/libSwiftGodotEmbed.so'
+}
+expect_packaging_failure "an android.* entry has no payload in the AAR" remove_aar_abi
+
+# The validator must catch the class of defect, not just the three instances
+# fixed here: a [libraries] entry for a platform with nothing staged fails.
+undeclared_platform_dir=$(mktemp -d "$work_dir/undeclared.XXXXXX")
+undeclared_addon="$undeclared_platform_dir/addons/SwiftGodot"
+mkdir -p "$undeclared_addon"
+cp -R "$stage_root/bin" "$undeclared_addon/bin"
+sed 's#^linux\.arm64 = .*$#&\nlinux.riscv64 = "res://addons/SwiftGodot/bin/linux_riscv64/libSwiftGodotEmbed.so"#' \
+    "$stage_root/SwiftGodotEmbed.gdextension" > "$undeclared_addon/SwiftGodotEmbed.gdextension"
+if scripts/validate-godot-addon-libraries "$undeclared_addon" "$undeclared_addon/bin/android/SwiftGodot.aar" >/dev/null 2>&1; then
+    fail "validation must fail for a [libraries] entry whose payload was never staged"
+fi
+
+# And the mirror image: a payload the shim builds but the addon never declares.
+undeclared_entry_dir=$(mktemp -d "$work_dir/undeclared-entry.XXXXXX")
+undeclared_entry_addon="$undeclared_entry_dir/addons/SwiftGodot"
+mkdir -p "$undeclared_entry_addon"
+cp -R "$stage_root/bin" "$undeclared_entry_addon/bin"
+rg -v '^windows\.x86_64 = ' "$stage_root/SwiftGodotEmbed.gdextension" > "$undeclared_entry_addon/SwiftGodotEmbed.gdextension"
+if scripts/validate-godot-addon-libraries "$undeclared_entry_addon" "$undeclared_entry_addon/bin/android/SwiftGodot.aar" >/dev/null 2>&1; then
+    fail "validation must fail when a built shim platform has no [libraries] entry"
+fi
+
+# Apple and Android output is unchanged by the shim work: repackaging with the
+# same Apple and Android inputs reproduces an identical tree for those slices.
+rerun_dir="$work_dir/rerun"
+"$script" "v1.2.3-rc.1" "$xcframework" "$embed_xcframework" "$android_aar" "$shim_dir" "$rerun_dir" >/dev/null
+rerun_root="$rerun_dir/dist/addons/SwiftGodot"
+for slice in bin/ios bin/macos_arm64 bin/android; do
+    diff -r "$stage_root/$slice" "$rerun_root/$slice" >/dev/null ||
+        fail "repackaging changed $slice"
+done
+diff -r "$stage_root" "$rerun_root" >/dev/null || fail "repackaging is not idempotent"
 
 echo "Godot addon packaging tests passed"

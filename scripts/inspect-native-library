@@ -1,0 +1,182 @@
+#!/usr/bin/env python3
+"""Report the container, architecture and exported symbols of a native library.
+
+The packaging validator has to prove that a staged payload really is a shared
+library for the platform it is declared under and that it really exports the
+entry symbol Godot will resolve. Neither `file` nor Apple's cctools `nm` can
+read ELF or PE, and the release packaging job runs on macOS, so the headers are
+parsed here directly.
+
+Prints one `key=value` line per fact:
+
+    container=elf|pe
+    machine=x86_64|aarch64|...
+    type=shared|executable|relocatable|...
+    exports=<space-separated symbol names>
+
+Exits non-zero when the file cannot be parsed as a supported container.
+"""
+
+import struct
+import sys
+
+ELF_MAGIC = b"\x7fELF"
+PE_MAGIC = b"PE\0\0"
+
+# ELF e_machine
+ELF_MACHINES = {0x03: "i386", 0x28: "arm", 0x3E: "x86_64", 0xB7: "aarch64", 0xF3: "riscv64"}
+# ELF e_type
+ELF_TYPES = {1: "relocatable", 2: "executable", 3: "shared", 4: "core"}
+# COFF Machine
+COFF_MACHINES = {0x014C: "i386", 0x8664: "x86_64", 0xAA64: "aarch64", 0x01C4: "arm"}
+
+SHT_DYNSYM = 11
+SHN_UNDEF = 0
+STB_GLOBAL = 1
+STB_WEAK = 2
+IMAGE_FILE_DLL = 0x2000
+
+
+class UnsupportedLibrary(Exception):
+    pass
+
+
+def read_cstring(data, offset):
+    end = data.find(b"\0", offset)
+    if end < 0:
+        raise UnsupportedLibrary(f"unterminated string at offset {offset}")
+    return data[offset:end].decode("utf-8", "replace")
+
+
+def inspect_elf(data):
+    if data[4] != 2:
+        raise UnsupportedLibrary("only 64-bit ELF is supported")
+    endian = "<" if data[5] == 1 else ">"
+
+    (e_type, e_machine) = struct.unpack_from(endian + "HH", data, 16)
+    (e_shoff,) = struct.unpack_from(endian + "Q", data, 40)
+    (e_shentsize, e_shnum) = struct.unpack_from(endian + "HH", data, 58)
+
+    sections = []
+    for index in range(e_shnum):
+        offset = e_shoff + index * e_shentsize
+        if offset + 64 > len(data):
+            raise UnsupportedLibrary("section header table extends past end of file")
+        sections.append(struct.unpack_from(endian + "IIQQQQIIQQ", data, offset))
+
+    exports = []
+    for section in sections:
+        (_name, sh_type, _flags, _addr, sh_offset, sh_size, sh_link, _info, _align, sh_entsize) = section
+        if sh_type != SHT_DYNSYM or sh_entsize == 0:
+            continue
+        if sh_link >= len(sections):
+            raise UnsupportedLibrary("dynamic symbol table links to a missing string table")
+        strtab_offset = sections[sh_link][4]
+        strtab_size = sections[sh_link][5]
+        strtab = data[strtab_offset : strtab_offset + strtab_size]
+        for entry in range(sh_size // sh_entsize):
+            offset = sh_offset + entry * sh_entsize
+            (st_name, st_info, _other, st_shndx, _value, _size) = struct.unpack_from(
+                endian + "IBBHQQ", data, offset
+            )
+            # A symbol is exported only when it is bound globally (or weakly)
+            # and defined in this object rather than imported from another.
+            if st_name == 0 or st_shndx == SHN_UNDEF:
+                continue
+            if (st_info >> 4) not in (STB_GLOBAL, STB_WEAK):
+                continue
+            exports.append(read_cstring(strtab, st_name))
+
+    return {
+        "container": "elf",
+        "machine": ELF_MACHINES.get(e_machine, f"unknown-0x{e_machine:x}"),
+        "type": ELF_TYPES.get(e_type, f"unknown-{e_type}"),
+        "exports": exports,
+    }
+
+
+def inspect_pe(data):
+    (pe_offset,) = struct.unpack_from("<I", data, 0x3C)
+    if data[pe_offset : pe_offset + 4] != PE_MAGIC:
+        raise UnsupportedLibrary("missing PE signature")
+
+    coff = pe_offset + 4
+    (machine, section_count) = struct.unpack_from("<HH", data, coff)
+    (optional_size, characteristics) = struct.unpack_from("<HH", data, coff + 16)
+
+    optional = coff + 20
+    (magic,) = struct.unpack_from("<H", data, optional)
+    if magic == 0x20B:
+        directories = optional + 112
+    elif magic == 0x10B:
+        directories = optional + 96
+    else:
+        raise UnsupportedLibrary(f"unrecognized PE optional header magic 0x{magic:x}")
+
+    sections = []
+    section_table = optional + optional_size
+    for index in range(section_count):
+        offset = section_table + index * 40
+        (virtual_size, virtual_address, raw_size, raw_offset) = struct.unpack_from(
+            "<IIII", data, offset + 8
+        )
+        sections.append((virtual_address, max(virtual_size, raw_size), raw_offset))
+
+    def file_offset(rva):
+        for (virtual_address, size, raw_offset) in sections:
+            if virtual_address <= rva < virtual_address + size:
+                return raw_offset + (rva - virtual_address)
+        raise UnsupportedLibrary(f"RVA 0x{rva:x} falls outside every section")
+
+    exports = []
+    (export_rva, export_size) = struct.unpack_from("<II", data, directories)
+    if export_rva and export_size:
+        export_table = file_offset(export_rva)
+        (name_count,) = struct.unpack_from("<I", data, export_table + 0x18)
+        (names_rva,) = struct.unpack_from("<I", data, export_table + 0x20)
+        names_table = file_offset(names_rva)
+        for index in range(name_count):
+            (name_rva,) = struct.unpack_from("<I", data, names_table + index * 4)
+            exports.append(read_cstring(data, file_offset(name_rva)))
+
+    return {
+        "container": "pe",
+        "machine": COFF_MACHINES.get(machine, f"unknown-0x{machine:x}"),
+        "type": "shared" if characteristics & IMAGE_FILE_DLL else "executable",
+        "exports": exports,
+    }
+
+
+def main(argv):
+    if len(argv) != 2:
+        print("Usage: scripts/inspect-native-library LIBRARY", file=sys.stderr)
+        return 2
+
+    path = argv[1]
+    try:
+        with open(path, "rb") as handle:
+            data = handle.read()
+    except OSError as error:
+        print(f"Error: cannot read {path}: {error}", file=sys.stderr)
+        return 1
+
+    try:
+        if data[:4] == ELF_MAGIC:
+            facts = inspect_elf(data)
+        elif data[:2] == b"MZ":
+            facts = inspect_pe(data)
+        else:
+            raise UnsupportedLibrary("not an ELF or PE/COFF file")
+    except (UnsupportedLibrary, struct.error, IndexError) as error:
+        print(f"Error: {path}: {error}", file=sys.stderr)
+        return 1
+
+    print(f"container={facts['container']}")
+    print(f"machine={facts['machine']}")
+    print(f"type={facts['type']}")
+    print("exports=" + " ".join(sorted(facts["exports"])))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

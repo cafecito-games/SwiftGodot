@@ -1,0 +1,146 @@
+#!/usr/bin/env bash
+# Contract tests for the Linux/Windows GDExtension shim cross-compile.
+#
+# Asserts that each declared platform gets a loadable shared library of the
+# right container, architecture and shared-object type, that it exports the
+# entry symbol Godot resolves, that a failed or skipped target leaves no
+# partial file behind, and that re-running is idempotent.
+set -euo pipefail
+
+repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+cd "$repo_root"
+
+fail() {
+    echo "FAIL: $*" >&2
+    exit 1
+}
+
+build_script="scripts/build-gdextension-shim"
+inspect_script="scripts/inspect-native-library"
+config_script="scripts/gdextension-shim-config"
+
+[[ -x "$build_script" ]] || fail "$build_script must exist and be executable"
+[[ -x "$inspect_script" ]] || fail "$inspect_script must exist and be executable"
+[[ -f "$config_script" ]] || fail "$config_script must exist"
+
+# shellcheck source=gdextension-shim-config
+source "$config_script"
+
+entry_symbol=$(gdextension_shim_entry_symbol)
+[[ -n "$entry_symbol" ]] || fail "could not read the entry symbol from $GDEXTENSION_SHIM_SOURCE"
+
+work_dir=$(mktemp -d)
+trap 'rm -rf "$work_dir"' EXIT
+
+shim_dir="$work_dir/shim"
+"$build_script" "$shim_dir" >/dev/null
+
+for entry in "${GDEXTENSION_SHIM_TARGETS[@]}"; do
+    IFS='|' read -r platform_tag payload_dir payload_name _zig_target container machine <<<"$entry"
+    payload="$shim_dir/$payload_dir/$payload_name"
+
+    [[ -s "$payload" ]] || fail "$platform_tag payload was not built: $payload_dir/$payload_name"
+
+    facts=$("$inspect_script" "$payload") || fail "could not inspect $payload_dir/$payload_name"
+    actual_container=$(printf '%s\n' "$facts" | sed -n 's/^container=//p')
+    actual_machine=$(printf '%s\n' "$facts" | sed -n 's/^machine=//p')
+    actual_type=$(printf '%s\n' "$facts" | sed -n 's/^type=//p')
+    exports=$(printf '%s\n' "$facts" | sed -n 's/^exports=//p')
+
+    [[ "$actual_container" == "$container" ]] ||
+        fail "$payload_dir/$payload_name container is $actual_container, want $container"
+    [[ "$actual_machine" == "$machine" ]] ||
+        fail "$payload_dir/$payload_name machine is $actual_machine, want $machine"
+    [[ "$actual_type" == "shared" ]] ||
+        fail "$payload_dir/$payload_name is a $actual_type, want a shared library"
+    printf '%s\n' "$exports" | tr ' ' '\n' | grep -qx "$entry_symbol" ||
+        fail "$payload_dir/$payload_name does not export $entry_symbol"
+
+    # lld's MinGW driver exports every global symbol when handed no export list,
+    # which would put mingw internals like _CRT_INIT and atexit in the DLL's
+    # export table. The generated .def narrows it to the one symbol Godot asks
+    # for; assert that rather than trusting it.
+    [[ "$exports" == "$entry_symbol" ]] ||
+        fail "$payload_dir/$payload_name exports more than $entry_symbol: $exports"
+done
+
+# Only the three payloads ship. zig cc also emits an import library and debug
+# symbols beside the Windows DLL; neither belongs in the addon.
+expected_payloads=$(
+    for entry in "${GDEXTENSION_SHIM_TARGETS[@]}"; do
+        IFS='|' read -r _tag payload_dir payload_name _rest <<<"$entry"
+        printf '%s/%s\n' "$payload_dir" "$payload_name"
+    done | sort
+)
+actual_payloads=$(cd "$shim_dir" && find . -type f -print | sed 's|^\./||' | sort)
+[[ "$expected_payloads" == "$actual_payloads" ]] || {
+    echo "Expected payloads:" >&2
+    printf '%s\n' "$expected_payloads" >&2
+    echo "Actual payloads:" >&2
+    printf '%s\n' "$actual_payloads" >&2
+    fail "the shim output directory must contain exactly the declared payloads"
+}
+
+# Re-running over a populated directory is idempotent: same payload set, and
+# each payload is still a valid library rather than an appended-to file.
+before=$(cd "$shim_dir" && find . -type f -print0 | sort -z | xargs -0 shasum -a 256)
+"$build_script" "$shim_dir" >/dev/null
+after=$(cd "$shim_dir" && find . -type f -print0 | sort -z | xargs -0 shasum -a 256)
+[[ "$before" == "$after" ]] || fail "re-running the shim build is not idempotent"
+
+# A stale payload from an earlier run must be replaced, not left in place.
+stale_entry=${GDEXTENSION_SHIM_TARGETS[0]}
+IFS='|' read -r _tag stale_dir stale_name _rest <<<"$stale_entry"
+printf 'not a library\n' > "$shim_dir/$stale_dir/$stale_name"
+"$build_script" "$shim_dir" >/dev/null
+"$inspect_script" "$shim_dir/$stale_dir/$stale_name" >/dev/null ||
+    fail "a stale payload must be overwritten with a freshly built library"
+
+# A compile failure must not leave a partial or stale object behind.
+broken_dir="$work_dir/broken"
+broken_source="$work_dir/broken-source.c"
+printf 'this is not valid C\n' > "$broken_source"
+if GDEXTENSION_SHIM_SOURCE="$broken_source" "$build_script" "$broken_dir" >/dev/null 2>&1; then
+    fail "the shim build must fail when its source does not compile"
+fi
+if find "$broken_dir" -type f -print 2>/dev/null | grep -q .; then
+    find "$broken_dir" -type f -print >&2
+    fail "a failed shim build must leave no payload behind"
+fi
+
+# The pinned toolchain version is enforced; a mismatched zig must never fall
+# back to the host compiler and emit a macOS object under a Linux path.
+fake_bin="$work_dir/fake-bin"
+mkdir -p "$fake_bin"
+cat > "$fake_bin/zig" <<'FAKE'
+#!/usr/bin/env bash
+if [[ "${1:-}" == "version" ]]; then
+    echo "0.0.0-not-the-pin"
+    exit 0
+fi
+echo "fake zig should never be asked to compile" >&2
+exit 1
+FAKE
+chmod +x "$fake_bin/zig"
+version_check_output=$(PATH="$fake_bin:$PATH" "$build_script" "$work_dir/mismatched" 2>&1 && echo UNEXPECTED_SUCCESS || true)
+printf '%s\n' "$version_check_output" | grep -q UNEXPECTED_SUCCESS &&
+    fail "the shim build must reject a zig whose version does not match the pin"
+printf '%s\n' "$version_check_output" | grep -Fq "$GDEXTENSION_SHIM_ZIG_VERSION" ||
+    fail "the version mismatch message must name the required zig version"
+
+# A missing zig is a hard failure, not a silent skip.
+empty_bin="$work_dir/empty-bin"
+mkdir -p "$empty_bin"
+if PATH="$empty_bin" "$build_script" "$work_dir/no-zig" >/dev/null 2>&1; then
+    fail "the shim build must fail when zig is absent"
+fi
+
+# The entry symbol has exactly one definition; the build must read it from
+# there rather than from a second string literal.
+definition_count=$(grep -c "^uint8_t $entry_symbol(" "$GDEXTENSION_SHIM_SOURCE")
+[[ "$definition_count" == 1 ]] ||
+    fail "expected exactly one definition of $entry_symbol in $GDEXTENSION_SHIM_SOURCE"
+grep -q "$entry_symbol" "$build_script" &&
+    fail "$build_script must derive the entry symbol from its source, not hardcode it"
+
+echo "GDExtension shim build tests passed"

@@ -1,0 +1,52 @@
+# shellcheck shell=bash
+# Shared configuration for the Linux/Windows SwiftGodotEmbed shim.
+#
+# This is the one place the shim's platform set is declared. It drives the
+# cross-compile, the `bin/` directories staged into the addon, the `[libraries]`
+# entries the addon declares, and the packaging-time validator. Adding a
+# platform means adding a row here; a platform declared in the addon with no row
+# here fails validation rather than shipping unresolvable.
+
+# Pinned toolchain. zig cc bundles lld plus libc headers for every target below,
+# so the shim cross-compiles from a macOS or Linux host with no sysroot. The pin
+# is enforced at build time so a different zig can never silently produce a
+# differently-targeted object.
+GDEXTENSION_SHIM_ZIG_VERSION=0.16.0
+
+# Checksum-verified download per host, the same treatment the Android NDK, the
+# Swift Android SDK and the pinned Godot editor get. scripts/install-zig consumes
+# these; nothing else may fetch a toolchain.
+# host_os|host_arch|url|sha256
+GDEXTENSION_SHIM_ZIG_ARCHIVES=(
+    "macos|aarch64|https://ziglang.org/download/0.16.0/zig-aarch64-macos-0.16.0.tar.xz|b23d70deaa879b5c2d486ed3316f7eaa53e84acf6fc9cc747de152450d401489"
+    "macos|x86_64|https://ziglang.org/download/0.16.0/zig-x86_64-macos-0.16.0.tar.xz|0387557ed1877bc6a2e1802c8391953baddba76081876301c522f52977b52ba7"
+    "linux|x86_64|https://ziglang.org/download/0.16.0/zig-x86_64-linux-0.16.0.tar.xz|70e49664a74374b48b51e6f3fdfbf437f6395d42509050588bd49abe52ba3d00"
+    "linux|aarch64|https://ziglang.org/download/0.16.0/zig-aarch64-linux-0.16.0.tar.xz|ea4b09bfb22ec6f6c6ceac57ab63efb6b46e17ab08d21f69f3a48b38e1534f17"
+)
+
+# The only definition of the entry point and of the GDExtensionInitialization
+# layout. The shim is compiled from this file directly; a vendored copy would be
+# a second place to get the struct layout wrong.
+GDEXTENSION_SHIM_SOURCE=${GDEXTENSION_SHIM_SOURCE:-Sources/SwiftGodotEmbed/SwiftGodotEmbed.c}
+
+# platform_tag|payload_dir|payload_name|zig_target|container|machine
+GDEXTENSION_SHIM_TARGETS=(
+    "linux.x86_64|linux_x86_64|libSwiftGodotEmbed.so|x86_64-linux-gnu|elf|x86_64"
+    "linux.arm64|linux_arm64|libSwiftGodotEmbed.so|aarch64-linux-gnu|elf|aarch64"
+    "windows.x86_64|windows_x86_64|SwiftGodotEmbed.dll|x86_64-windows-gnu|pe|x86_64"
+)
+
+# Reads the entry symbol out of its single definition in the C source. Every
+# consumer — the emitted `entry_symbol` line, the Windows export list and the
+# validator's symbol check — derives it from here instead of retyping it.
+gdextension_shim_entry_symbol() {
+    local symbol
+    symbol=$(sed -n 's/^uint8_t \([A-Za-z_][A-Za-z0-9_]*\)(.*$/\1/p' "$GDEXTENSION_SHIM_SOURCE")
+
+    if [[ $(printf '%s\n' "$symbol" | grep -c .) -ne 1 ]]; then
+        echo "Expected exactly one entry-point definition in $GDEXTENSION_SHIM_SOURCE" >&2
+        return 1
+    fi
+
+    printf '%s\n' "$symbol"
+}

@@ -1,0 +1,168 @@
+#!/usr/bin/env bash
+# Proves every [libraries] entry in the staged addon resolves to a real payload.
+#
+# The byte-exact .gdextension fixture in scripts/test-package-godot-addon is a
+# change detector: it catches an unintended edit but says nothing about whether a
+# declared platform can actually be loaded. This script is the authority on
+# resolvability, and it fails closed — a platform it does not recognise is an
+# error, never a warning.
+set -euo pipefail
+
+usage() {
+    cat <<'EOF'
+Usage: scripts/validate-godot-addon-libraries ADDON_DIR ANDROID_AAR
+
+ADDON_DIR is a staged addons/SwiftGodot tree containing
+SwiftGodotEmbed.gdextension. ANDROID_AAR is the AAR staged into that tree, whose
+jni/ contents back the android.* entries.
+EOF
+}
+
+if [[ $# -ne 2 ]]; then
+    usage
+    exit 2
+fi
+
+repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+
+# shellcheck source=gdextension-shim-config
+source "$repo_root/scripts/gdextension-shim-config"
+
+addon_dir=$1
+android_aar=$2
+inspect_script="$repo_root/scripts/inspect-native-library"
+
+die() {
+    echo "Error: $*" >&2
+    exit 1
+}
+
+[[ -d "$addon_dir" ]] || die "staged addon directory does not exist: $addon_dir"
+[[ -f "$android_aar" ]] || die "Android AAR does not exist: $android_aar"
+[[ -x "$inspect_script" ]] || die "missing scripts/inspect-native-library"
+
+gdextension="$addon_dir/SwiftGodotEmbed.gdextension"
+[[ -f "$gdextension" ]] || die "staged addon has no SwiftGodotEmbed.gdextension"
+
+resource_prefix="res://addons/SwiftGodot/"
+
+# The entry symbol Godot resolves has exactly one definition, in the C source.
+# The emitted entry_symbol line is asserted against it rather than trusted.
+entry_symbol=$(cd "$repo_root" && gdextension_shim_entry_symbol) || exit 1
+declared_entry_symbol=$(sed -n 's/^entry_symbol[[:space:]]*=[[:space:]]*"\(.*\)"[[:space:]]*$/\1/p' "$gdextension")
+[[ -n "$declared_entry_symbol" ]] || die "the staged .gdextension declares no entry_symbol"
+[[ "$declared_entry_symbol" == "$entry_symbol" ]] ||
+    die "declared entry_symbol \"$declared_entry_symbol\" does not match $GDEXTENSION_SHIM_SOURCE's \"$entry_symbol\""
+
+# Only the [libraries] block, as emitted. The platform set is read back out of
+# the file rather than reiterated here, so an entry added for a platform with no
+# payload behind it is caught by the same rule as a missing payload.
+libraries=$(awk '
+    /^\[libraries\]$/ { inside = 1; next }
+    /^\[/ { inside = 0 }
+    inside && /=/ { print }
+' "$gdextension")
+[[ -n "$libraries" ]] || die "the staged .gdextension has an empty [libraries] block"
+
+aar_entries=$(unzip -Z1 "$android_aar" 2>/dev/null) || die "unable to list the staged Android AAR: $android_aar"
+
+expected_container_for() {
+    local tag=$1
+    for entry in "${GDEXTENSION_SHIM_TARGETS[@]}"; do
+        IFS='|' read -r platform_tag _dir _name _target container _machine <<<"$entry"
+        if [[ "$platform_tag" == "$tag" ]]; then
+            printf '%s\n' "$container"
+            return 0
+        fi
+    done
+    return 1
+}
+
+expected_machine_for() {
+    local tag=$1
+    for entry in "${GDEXTENSION_SHIM_TARGETS[@]}"; do
+        IFS='|' read -r platform_tag _dir _name _target _container machine <<<"$entry"
+        if [[ "$platform_tag" == "$tag" ]]; then
+            printf '%s\n' "$machine"
+            return 0
+        fi
+    done
+    return 1
+}
+
+validated_tags=()
+
+while IFS= read -r line; do
+    [[ -n "$line" ]] || continue
+
+    tag=$(printf '%s\n' "$line" | sed -n 's/^\([^[:space:]=]*\)[[:space:]]*=.*$/\1/p')
+    resource=$(printf '%s\n' "$line" | sed -n 's/^[^=]*=[[:space:]]*"\(.*\)"[[:space:]]*$/\1/p')
+    [[ -n "$tag" && -n "$resource" ]] || die "cannot parse [libraries] entry: $line"
+    [[ "$resource" == "$resource_prefix"* ]] ||
+        die "$tag points outside the addon: $resource"
+
+    relative=${resource#"$resource_prefix"}
+    validated_tags+=("$tag")
+
+    # Android is the one asymmetry. With android_aar_plugin = true Godot resolves
+    # these paths out of the exported APK, so bin/android/<abi>/ deliberately
+    # does NOT exist in the addon tree; the real objects live inside
+    # bin/android/SwiftGodot.aar at jni/<abi>/. A flat "every path must exist on
+    # disk" rule would fail these entries. Do not "fix" this branch away.
+    if [[ "$tag" == android.* ]]; then
+        abi=$(printf '%s\n' "$relative" | sed -n 's#^bin/android/\([^/]*\)/.*$#\1#p')
+        library_name=${relative##*/}
+        [[ -n "$abi" ]] || die "$tag does not name an ABI directory under bin/android: $resource"
+        printf '%s\n' "$aar_entries" | grep -Fxq "jni/$abi/$library_name" ||
+            die "$tag has no jni/$abi/$library_name in the staged AAR"
+        continue
+    fi
+
+    payload="$addon_dir/$relative"
+    [[ -e "$payload" ]] || die "$tag resolves to a path absent from the staged addon: $relative"
+
+    # Apple slices are framework and xcframework bundles, staged and checked as
+    # whole directories by scripts/make-swiftgodot-framework. A plain file is a
+    # native library and must prove its format, architecture and export.
+    if [[ -d "$payload" ]]; then
+        continue
+    fi
+
+    [[ -s "$payload" ]] || die "$tag resolves to an empty payload: $relative"
+
+    expected_container=$(expected_container_for "$tag") ||
+        die "$tag declares a native library payload but no row in scripts/gdextension-shim-config describes it"
+    expected_machine=$(expected_machine_for "$tag")
+
+    facts=$("$inspect_script" "$payload") ||
+        die "$tag payload is not a loadable native library: $relative"
+    actual_container=$(printf '%s\n' "$facts" | sed -n 's/^container=//p')
+    actual_machine=$(printf '%s\n' "$facts" | sed -n 's/^machine=//p')
+    actual_type=$(printf '%s\n' "$facts" | sed -n 's/^type=//p')
+    exports=$(printf '%s\n' "$facts" | sed -n 's/^exports=//p')
+
+    [[ "$actual_container" == "$expected_container" ]] ||
+        die "$tag payload $relative is $actual_container, expected $expected_container"
+    [[ "$actual_machine" == "$expected_machine" ]] ||
+        die "$tag payload $relative targets $actual_machine, expected $expected_machine"
+    [[ "$actual_type" == "shared" ]] ||
+        die "$tag payload $relative is a $actual_type, expected a shared library"
+    printf '%s\n' "$exports" | tr ' ' '\n' | grep -qx "$entry_symbol" ||
+        die "$tag payload $relative does not export $entry_symbol"
+done < <(printf '%s\n' "$libraries")
+
+# Every platform the shim builds must also be declared. A staged payload with no
+# [libraries] entry is dead weight nobody would notice going stale.
+for entry in "${GDEXTENSION_SHIM_TARGETS[@]}"; do
+    IFS='|' read -r platform_tag _dir _name _target _container _machine <<<"$entry"
+    declared=
+    for tag in "${validated_tags[@]}"; do
+        if [[ "$tag" == "$platform_tag" ]]; then
+            declared=1
+        fi
+    done
+    [[ -n "$declared" ]] ||
+        die "scripts/gdextension-shim-config declares $platform_tag but the addon has no [libraries] entry for it"
+done
+
+echo "Godot addon library validation passed: $addon_dir"
