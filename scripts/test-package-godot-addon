@@ -56,6 +56,9 @@ embed_xcframework=$(make_fake_xcframework SwiftGodotEmbed)
 source scripts/gdextension-shim-config
 entry_symbol=$(gdextension_shim_entry_symbol)
 
+# shellcheck source=gpm-slice-config
+source scripts/gpm-slice-config
+
 # The android.* [libraries] entries point at bin/android/<abi>/ paths that
 # deliberately do not exist in the addon tree; Godot resolves them from the
 # exported APK, and the real objects live inside the AAR. The fixture therefore
@@ -226,6 +229,90 @@ for module in SwiftGodot SwiftGodotEmbed; do
     [[ -d "$framework/Modules" ]] || fail "macOS $module.framework must materialize root Modules directory"
 done
 
+# --- gpm slices -------------------------------------------------------------
+# The same staged tree is published as slices so a project installing through gpm
+# downloads only the platforms it ships to. package-godot-addon validates its own
+# cut; these assertions pin the contract that validation checks against.
+slices_dir="$output_dir/$GPM_SLICE_OUTPUT_SUBDIR"
+[[ -d "$slices_dir" ]] || fail "expected gpm slices at $slices_dir"
+
+slice_index="$slices_dir/gpm-index.toml"
+[[ -f "$slice_index" ]] || fail "gpm package wrote no gpm-index.toml"
+
+slice_facts=$(scripts/inspect-gpm-index "$slice_index") || fail "cannot read $slice_index"
+
+slice_fact() {
+    printf '%s\n' "$slice_facts" | sed -n "s/^$1=//p"
+}
+
+[[ "$(slice_fact format)" == "2" ]] ||
+    fail "the index must be format 2, which is what carries the shared Android artifact"
+[[ "$(slice_fact version)" == "1.2.3-rc.1" ]] ||
+    fail "the index version must be the plugin.cfg version, without the tag's v prefix"
+
+published_slices=$(printf '%s\n' "$slice_facts" | sed -n 's/^slice=\([^ ]*\) .*$/\1/p' | sort)
+expected_slices=$(printf '%s\n' "${GPM_SLICE_EXPECTED_SLICES[@]}" | sort)
+[[ "$published_slices" == "$expected_slices" ]] || {
+    echo "Expected slices:" >&2
+    printf '%s\n' "$expected_slices" >&2
+    echo "Published slices:" >&2
+    printf '%s\n' "$published_slices" >&2
+    fail "published slice set differs from scripts/gpm-slice-config"
+}
+
+# Read back out of the shim config rather than restated, so adding a shim
+# platform without publishing its slice fails here.
+for entry in "${GDEXTENSION_SHIM_TARGETS[@]}"; do
+    IFS='|' read -r platform_tag _dir _name _target _container _machine <<<"$entry"
+    grep -qx "$platform_tag" <<<"$published_slices" ||
+        fail "scripts/gdextension-shim-config declares $platform_tag but no slice publishes it"
+done
+
+# core is downloaded by every consumer on every platform, so a binary reaching it
+# is a size regression for projects that will never load it.
+core_listing=$(unzip -Z1 "$slices_dir/$(printf '%s\n' "$slice_facts" | sed -n 's/^slice=core \([^ ]*\) .*$/\1/p')")
+if grep -q '^bin/' <<<"$core_listing"; then
+    grep '^bin/' <<<"$core_listing" >&2
+    fail "the core slice must carry no binaries"
+fi
+
+# The AAR is one file for every ABI. It must be stored once as a shared artifact
+# both per-ABI slices pull, not copied into each.
+android_artifact="$slices_dir/$(printf '%s\n' "$slice_facts" | sed -n 's/^artifact=android \([^ ]*\) .*$/\1/p')"
+[[ -f "$android_artifact" ]] || fail "no shared android artifact was published"
+[[ "$(unzip -Z1 "$android_artifact")" == "bin/android/SwiftGodot.aar" ]] ||
+    fail "the shared android artifact must carry exactly bin/android/SwiftGodot.aar"
+for slice_id in android.arm64 android.x86_64; do
+    grep -qw android <<<"$(printf '%s\n' "$slice_facts" | sed -n "s/^slice_artifacts=$slice_id //p")" ||
+        fail "slice $slice_id must reference the shared android artifact"
+done
+
+# The android.* [libraries] keys name paths Godot resolves from the exported APK,
+# so their slices carry no files of their own. They still have to publish the
+# keys, or a consumer reassembles a .gdextension with no Android library at all.
+rg -q '"android\.debug\.arm64" = "res://addons/SwiftGodot/bin/android/arm64-v8a/libSwiftGodotEmbed\.so"' "$slice_index" ||
+    fail "the index must record the android.arm64 library key for reassembly"
+
+scripts/validate-addon-slices "$slices_dir" "1.2.3-rc.1" "$addon/bin/android/SwiftGodot.aar" >/dev/null ||
+    fail "the published cut must pass scripts/validate-addon-slices"
+
+# Fail closed: the validator is the authority on the published set, so it must
+# reject a cut short an archive, and one carrying an archive the index does not
+# name.
+missing_archive_dir=$(mktemp -d "$work_dir/missing-archive.XXXXXX")
+cp -R "$slices_dir/." "$missing_archive_dir/"
+rm -f "$missing_archive_dir/$(printf '%s\n' "$slice_facts" | sed -n 's/^slice=ios \([^ ]*\) .*$/\1/p')"
+if scripts/validate-addon-slices "$missing_archive_dir" "1.2.3-rc.1" "$addon/bin/android/SwiftGodot.aar" >/dev/null 2>&1; then
+    fail "slice validation must fail when an archive the index names is absent"
+fi
+
+stray_archive_dir=$(mktemp -d "$work_dir/stray-archive.XXXXXX")
+cp -R "$slices_dir/." "$stray_archive_dir/"
+printf 'stray\n' > "$stray_archive_dir/SwiftGodot-1.2.3-rc.1-haiku.zip"
+if scripts/validate-addon-slices "$stray_archive_dir" "1.2.3-rc.1" "$addon/bin/android/SwiftGodot.aar" >/dev/null 2>&1; then
+    fail "slice validation must fail on an archive the index does not name"
+fi
+
 rg -q 'scripts/package-godot-addon "\$tag" "\$output_dir/SwiftGodot\.xcframework" "\$output_dir/SwiftGodotEmbed\.xcframework" "\$android_aar" "\$shim_dir" "\$output_dir"' "$release_script" || fail "release script must package the Godot addon from Apple artifacts, the Android AAR, and the GDExtension shim"
 rg -q 'scripts/build-gdextension-shim "\$shim_dir"' "$release_script" || fail "release script must build the GDExtension shim before packaging the addon"
 rg -q '! -x scripts/build-gdextension-shim' "$release_script" || fail "release script must require scripts/build-gdextension-shim up front"
@@ -239,6 +326,29 @@ rg -q 'scripts/package-godot-addon "\$\$tag" "\$\$xcframework" "\$\$embed_xcfram
 rg -q 'scripts/build-gdextension-shim "\$\$shim_dir"' Makefile || fail "Makefile must build the GDExtension shim before packaging the addon"
 rg -q 'scripts/test-package-godot-addon' "$swift_workflow" || fail "CI must run package-godot-addon regression tests"
 rg -q 'scripts/test-build-gdextension-shim' "$swift_workflow" || fail "CI must run the GDExtension shim build tests"
+
+# The slice cut is part of the release, not an optional extra: the release script
+# has to upload the archives and their index beside the addon zip, and must
+# refuse to start without the validator.
+rg -q 'source scripts/gpm-slice-config' "$release_script" || fail "release script must read the slice configuration"
+rg -q '! -x scripts/validate-addon-slices' "$release_script" || fail "release script must require scripts/validate-addon-slices up front"
+rg -q 'addon_slice_assets=\("\$addon_slices_dir"/\*\)' "$release_script" || fail "release script must collect the slice archives for upload"
+rg -q '"\$\{addon_slice_assets\[@\]\}"' "$release_script" || fail "release script must upload the slice archives and their index"
+rg -q 'gpm-index\.toml' "$release_script" || fail "release script must assert the index was written before uploading"
+
+# A release must not be publishable with the slices silently missing, and a
+# developer's floating Homebrew gpm must not be able to cut one either.
+rg -q 'GPM_SLICE_MINIMUM_VERSION' "$script" || fail "packaging must enforce the gpm version floor"
+rg -q 'scripts/validate-addon-slices' "$script" || fail "packaging must validate its own slice cut"
+for workflow in "$release_workflow" "$swift_workflow"; do
+    rg -q 'scripts/install-gpm' "$workflow" ||
+        fail "$workflow must install the pinned gpm via scripts/install-gpm"
+done
+# The packager pin lives only in scripts/gpm-slice-config; a workflow naming a
+# gpm version of its own would be a second place to update.
+if rg -q 'gpm-version|GPM_VERSION|brew install --cask cafecito-games/tap/gpm' "$release_workflow" "$swift_workflow"; then
+    fail "workflows must not pin a gpm version separately from scripts/gpm-slice-config"
+fi
 
 # A release must not be publishable with the shim build skipped. scripts/release
 # builds the shim itself and package-godot-addon re-validates every payload, so
@@ -282,6 +392,17 @@ expect_packaging_failure() {
         fail "a failed packaging run must publish no zip: $description"
     fi
 }
+
+# A release with no slices is a silent regression for every project that
+# installs this addon through gpm, so a missing packager must fail the run rather
+# than quietly producing the zip alone. The check is a preflight, so a stripped
+# PATH never reaches the staging work.
+no_gpm_dir=$(mktemp -d "$work_dir/no-gpm.XXXXXX")
+if PATH=/usr/bin:/bin "$script" "v1.2.3-rc.1" "$xcframework" "$embed_xcframework" "$android_aar" "$shim_dir" "$no_gpm_dir" >/dev/null 2>&1; then
+    fail "packaging must fail when gpm is not installed"
+fi
+[[ ! -f "$no_gpm_dir/SwiftGodot-v1.2.3-rc.1.zip" ]] ||
+    fail "a run without gpm must publish no zip"
 
 delete_linux_payload() { rm -f "$1/linux_x86_64/libSwiftGodotEmbed.so"; }
 expect_packaging_failure "a shim payload is missing" delete_linux_payload
@@ -401,5 +522,11 @@ for slice in bin/ios bin/macos_arm64 bin/android; do
         fail "repackaging changed $slice"
 done
 diff -r "$stage_root" "$rerun_root" >/dev/null || fail "repackaging is not idempotent"
+
+# gpm guarantees reproducible archives — sorted entries, fixed timestamps,
+# normalized modes — so two cuts of an unchanged tree must be byte-identical. A
+# cut that is not reproducible is a gpm bug worth reporting rather than tolerating.
+diff -r "$slices_dir" "$rerun_dir/$GPM_SLICE_OUTPUT_SUBDIR" >/dev/null ||
+    fail "repackaging produced different slice archives for an unchanged tree"
 
 echo "Godot addon packaging tests passed"

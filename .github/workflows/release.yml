@@ -636,6 +636,12 @@ jobs:
       - name: Install pinned Zig
         run: scripts/install-zig "$RUNNER_TEMP/zig" >> "$GITHUB_PATH"
 
+      # scripts/package-godot-addon cuts the addon's gpm slices and refuses to
+      # run with a gpm older than the floor in scripts/gpm-slice-config, so a
+      # release can never be published with the slices silently missing.
+      - name: Install pinned gpm
+        run: scripts/install-gpm "$RUNNER_TEMP/gpm" >> "$GITHUB_PATH"
+
       - name: Configure git identity
         run: |
           git config --global user.name "github-actions[bot]"

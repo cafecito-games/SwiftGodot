@@ -46,7 +46,7 @@ if [[ ! -f "$release_notes" ]]; then
     exit 1
 fi
 
-if [[ ! -x scripts/build-distribution-products || ! -x scripts/make-swiftgodot-framework || ! -x scripts/build-macro-artifactbundle || ! -x scripts/package-godot-addon || ! -x scripts/build-gdextension-shim ]]; then
+if [[ ! -x scripts/build-distribution-products || ! -x scripts/make-swiftgodot-framework || ! -x scripts/build-macro-artifactbundle || ! -x scripts/package-godot-addon || ! -x scripts/build-gdextension-shim || ! -x scripts/validate-addon-slices ]]; then
     echo "Expected this to run from the SwiftGodot directory"
     exit 1
 fi
@@ -205,6 +205,21 @@ shim_dir="$output_dir/gdextension-shim"
 scripts/build-gdextension-shim "$shim_dir"
 scripts/package-godot-addon "$tag" "$output_dir/SwiftGodot.xcframework" "$output_dir/SwiftGodotEmbed.xcframework" "$android_aar" "$shim_dir" "$output_dir" >/dev/null
 
+# shellcheck source=gpm-slice-config
+source scripts/gpm-slice-config
+
+# The slice archives and their gpm-index.toml are uploaded as individual assets
+# beside the addon zip, because a consumer resolves each archive by joining the
+# name the index gives it to the directory the index came from. A gpm-index.toml
+# asset is also how a github-release announces itself as sliced, so this upload
+# is what makes `gpm install` download per platform.
+addon_slices_dir="$output_dir/$GPM_SLICE_OUTPUT_SUBDIR"
+addon_slice_assets=("$addon_slices_dir"/*)
+if [[ ! -f "$addon_slices_dir/gpm-index.toml" ]]; then
+    echo "scripts/package-godot-addon wrote no gpm-index.toml in $addon_slices_dir"
+    exit 1
+fi
+
 if [[ -n "${SWIFT_GODOT_NODEPLOY:-}" ]]; then
     echo "Skipping deployment stage."
     exit
@@ -307,7 +322,7 @@ rsync -a "$output_dir/GDExtensionC.xcframework" "$binary_repo_dir/Binaries/"
 rsync -a "$output_dir/SwiftGodotMacros.artifactbundle" "$binary_repo_dir/Binaries/"
 scripts/test-binary-package-consumer "$binary_repo_dir"
 
-gh release create "$tag" "$zip_path" "$gdextension_zip_path" "$macro_zip_path" "$android_aar" "$addon_zip_path" -R "$source_repo" -F "$release_notes" --target "$commit"
+gh release create "$tag" "$zip_path" "$gdextension_zip_path" "$macro_zip_path" "$android_aar" "$addon_zip_path" "${addon_slice_assets[@]}" -R "$source_repo" -F "$release_notes" --target "$commit"
 
 (
     cd "$binary_repo_dir"

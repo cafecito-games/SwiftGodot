@@ -62,13 +62,32 @@ The `SwiftGodot` product carries the prebuilt runtime *and* the prebuilt macro c
 Godot projects that use Swift-based addons can install the shared SwiftGodot binary addon with gpm:
 
 ```toml
+[project]
+platforms = ["ios", "macos.arm64", "android.arm64", "android.x86_64"]
+
 [addons.SwiftGodot]
-source      = "github-release"
-repo        = "cafecito-games/SwiftGodot"
-version     = "v<X.Y.Z>"
-asset       = "SwiftGodot-v<X.Y.Z>.zip"
-source_path = "addons/SwiftGodot"
+source  = "github-release"
+repo    = "cafecito-games/SwiftGodot"
+version = "v<X.Y.Z>"
 ```
+
+The release publishes the addon twice over: as the single `SwiftGodot-v<X.Y.Z>.zip`, and as
+gpm slices — one archive per platform plus a mandatory `core`, listed by a `gpm-index.toml`
+asset. gpm discovers the slices from that asset and downloads only `core`, the platforms
+declared above, and the host's own, which matters here because the whole addon unpacks to
+well over a gigabyte of Apple frameworks: a Linux or Windows machine, or an Android CI job,
+needs `core` plus a few kilobytes of it.
+
+This requires **gpm 0.5.1 or newer**, and the manifest must declare neither `asset` nor
+`source_path`:
+
+- `asset` selects one archive of a set that is only complete together, so a sliced addon
+  ignores it and reports that it did.
+- `source_path` is resolved against the merged slice tree, which is already the addon
+  subtree, so `addons/SwiftGodot` resolves to nothing and the install fails.
+
+Projects pinned to a release from before slicing keep using the older form, with `asset` and
+`source_path` naming the zip.
 
 Starting with 0.2.0, the addon registers a single no-op GDExtension named **SwiftGodotEmbed** whose only job is to own embedding `SwiftGodot.framework` / `SwiftGodot.xcframework` into iOS and macOS exports. Its `[dependencies]` block points at the bundled SwiftGodot binary, so Godot's exporter copies SwiftGodot into `App.app/Frameworks/` exactly once regardless of how many downstream Swift GDExtensions are installed alongside it.
 

@@ -1,0 +1,169 @@
+#!/usr/bin/env bash
+# Proves a gpm slice cut is the one the release promises, before it is published.
+#
+# A consumer verifies every byte against the index and fails closed on a slice it
+# declared but the addon does not publish, so a wrong cut fails on their machine
+# rather than ours. This script is the authority on the published set and it
+# fails closed in both directions: a missing slice and an unexpected one are both
+# errors, never warnings.
+set -euo pipefail
+
+usage() {
+    cat <<'EOF'
+Usage: scripts/validate-addon-slices SLICES_DIR VERSION ANDROID_AAR
+
+SLICES_DIR is the directory `gpm package --out` wrote, holding gpm-index.toml and
+one archive per slice. VERSION is the version the cut was made under. ANDROID_AAR
+is the AAR staged into the addon, which the shared Android artifact must carry
+byte for byte.
+EOF
+}
+
+if [[ $# -ne 3 ]]; then
+    usage
+    exit 2
+fi
+
+repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+
+# shellcheck source=gpm-slice-config
+source "$repo_root/scripts/gpm-slice-config"
+
+slices_dir=$1
+version=$2
+android_aar=$3
+inspect_script="$repo_root/scripts/inspect-gpm-index"
+
+die() {
+    echo "Error: $*" >&2
+    exit 1
+}
+
+[[ -d "$slices_dir" ]] || die "slice output directory does not exist: $slices_dir"
+[[ -f "$android_aar" ]] || die "Android AAR does not exist: $android_aar"
+[[ -x "$inspect_script" ]] || die "missing scripts/inspect-gpm-index"
+
+index="$slices_dir/gpm-index.toml"
+[[ -f "$index" ]] || die "gpm package wrote no gpm-index.toml in $slices_dir"
+
+facts=$("$inspect_script" "$index") || die "cannot read $index as a gpm index"
+
+fact_value() {
+    printf '%s\n' "$facts" | sed -n "s/^$1=//p"
+}
+
+# Format 2 is not incidental: it is what carries [artifacts], and the Android AAR
+# is shared across the per-ABI slices. A cut that came out as format 1 means the
+# AAR was copied into each slice or fell into core, so the format is asserted
+# rather than merely read.
+index_format=$(fact_value format)
+[[ "$index_format" == "2" ]] ||
+    die "index declares format $index_format, expected 2; the Android AAR must be a shared artifact"
+
+index_name=$(fact_value name)
+[[ "$index_name" == "SwiftGodot" ]] || die "index names the addon \"$index_name\", expected SwiftGodot"
+
+index_version=$(fact_value version)
+[[ "$index_version" == "$version" ]] ||
+    die "index declares version \"$index_version\", expected \"$version\""
+
+# Compare the published set against the declared one in both directions. An
+# unexpected slice is as much a packaging defect as a missing one: it means the
+# .gdextension grew a platform nobody decided to support.
+published_slices=$(printf '%s\n' "$facts" | sed -n 's/^slice=\([^ ]*\) .*$/\1/p' | sort)
+expected_slices=$(printf '%s\n' "${GPM_SLICE_EXPECTED_SLICES[@]}" | sort)
+if [[ "$published_slices" != "$expected_slices" ]]; then
+    echo "Expected slices:" >&2
+    printf '%s\n' "$expected_slices" >&2
+    echo "Published slices:" >&2
+    printf '%s\n' "$published_slices" >&2
+    die "the published slice set does not match scripts/gpm-slice-config"
+fi
+
+published_artifacts=$(printf '%s\n' "$facts" | sed -n 's/^artifact=\([^ ]*\) .*$/\1/p' | sort)
+expected_artifacts=$(printf '%s\n' "${GPM_SLICE_EXPECTED_ARTIFACTS[@]}" | sort)
+if [[ "$published_artifacts" != "$expected_artifacts" ]]; then
+    echo "Expected shared artifacts:" >&2
+    printf '%s\n' "$expected_artifacts" >&2
+    echo "Published shared artifacts:" >&2
+    printf '%s\n' "$published_artifacts" >&2
+    die "the published shared artifact set does not match scripts/gpm-slice-config"
+fi
+
+sha256_of() {
+    if command -v shasum >/dev/null 2>&1; then
+        shasum -a 256 "$1" | awk '{print $1}'
+    else
+        sha256sum "$1" | awk '{print $1}'
+    fi
+}
+
+# A consumer joins each archive's name to the directory the index came from, so
+# every named file has to be there with the bytes the index claims. Checking it
+# here is what makes "uploaded the index without its archives" a packaging
+# failure instead of a download failure in someone else's project.
+named_files=()
+while IFS= read -r line; do
+    [[ -n "$line" ]] || continue
+    read -r kind identifier file checksum size <<<"$line"
+    archive="$slices_dir/$file"
+    [[ -f "$archive" ]] || die "$kind $identifier names $file, which is not in $slices_dir"
+    actual_checksum=$(sha256_of "$archive")
+    [[ "$actual_checksum" == "$checksum" ]] ||
+        die "$kind $identifier: $file has sha256 $actual_checksum, index claims $checksum"
+    actual_size=$(wc -c < "$archive" | tr -d ' ')
+    [[ "$actual_size" == "$size" ]] ||
+        die "$kind $identifier: $file is $actual_size bytes, index claims $size"
+    named_files+=("$file")
+done < <(printf '%s\n' "$facts" | sed -n -e 's/^slice=/slice /p' -e 's/^artifact=/artifact /p')
+
+# Nothing may sit beside the index that it does not name: the release uploads the
+# whole directory, and an unreferenced archive would publish bytes no consumer
+# can verify.
+while IFS= read -r present; do
+    [[ "$present" != "gpm-index.toml" ]] || continue
+    named=
+    for file in ${named_files[@]+"${named_files[@]}"}; do
+        [[ "$file" != "$present" ]] || named=1
+    done
+    [[ -n "$named" ]] || die "$present sits in $slices_dir but the index names no such file"
+done < <(find "$slices_dir" -mindepth 1 -maxdepth 1 -type f -exec basename {} \;)
+
+# Listings are materialized before being searched. Piping unzip into grep under
+# `set -o pipefail` reports the writer's SIGPIPE as a failure whenever the match
+# comes early in a long listing, which fails intermittently on exactly the
+# archives that should pass.
+listing_of() {
+    unzip -Z1 "$1" 2>/dev/null || die "cannot list $1"
+}
+
+core_file=$(printf '%s\n' "$facts" | sed -n 's/^slice=core \([^ ]*\) .*$/\1/p')
+core_listing=$(listing_of "$slices_dir/$core_file")
+if grep -q '^bin/' <<<"$core_listing"; then
+    grep '^bin/' <<<"$core_listing" >&2
+    die "the core slice carries binaries; every consumer downloads core on every platform"
+fi
+grep -qx 'SwiftGodotEmbed.gdextension' <<<"$core_listing" ||
+    die "the core slice does not carry SwiftGodotEmbed.gdextension; consumers reassemble it from core"
+
+# The AAR is the whole point of the shared artifact: one file for every ABI,
+# stored once and pulled by both per-ABI slices rather than copied into each.
+android_artifact_file=$(printf '%s\n' "$facts" | sed -n 's/^artifact=android \([^ ]*\) .*$/\1/p')
+android_listing=$(listing_of "$slices_dir/$android_artifact_file")
+[[ "$android_listing" == "bin/android/SwiftGodot.aar" ]] ||
+    die "the shared android artifact must carry exactly bin/android/SwiftGodot.aar, got: $android_listing"
+
+extracted_aar=$(mktemp -d)
+trap 'rm -rf "$extracted_aar"' EXIT
+unzip -q "$slices_dir/$android_artifact_file" -d "$extracted_aar"
+cmp -s "$android_aar" "$extracted_aar/bin/android/SwiftGodot.aar" ||
+    die "the shared android artifact's AAR does not match the one staged into the addon"
+
+for slice_id in "${GPM_SLICE_EXPECTED_SLICES[@]}"; do
+    [[ "$slice_id" == android.* ]] || continue
+    referenced=$(printf '%s\n' "$facts" | sed -n "s/^slice_artifacts=$slice_id //p")
+    grep -qw android <<<"$referenced" ||
+        die "slice $slice_id does not reference the shared android artifact; it would install without the AAR"
+done
+
+echo "Godot addon slice validation passed: $slices_dir"

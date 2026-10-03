@@ -1,0 +1,69 @@
+#!/usr/bin/env python3
+"""Report the contents of a gpm-index.toml as flat facts.
+
+The packaging validator has to prove that the published slice set is the one the
+release promises and that every archive the index names is present with the
+bytes it claims. gpm's index is strict TOML, so it is read here with tomllib
+rather than pattern-matched out of the file in shell, where a nested
+[slices.<id>.libraries] table is easy to mistake for a slice.
+
+Prints one `key=value` line per fact:
+
+    format=<integer>
+    name=<addon name>
+    version=<version>
+    slice=<id> <file> <sha256> <size>
+    artifact=<id> <file> <sha256> <size>
+    slice_artifacts=<id> <space-separated artifact ids>
+
+Slices and artifacts are emitted in sorted order so a caller can compare the set
+without sorting again. Exits non-zero when the file cannot be read as an index.
+"""
+
+import sys
+import tomllib
+
+
+def fail(message):
+    print(f"Error: {message}", file=sys.stderr)
+    raise SystemExit(1)
+
+
+def main():
+    if len(sys.argv) != 2:
+        print("Usage: scripts/inspect-gpm-index GPM_INDEX_TOML", file=sys.stderr)
+        raise SystemExit(2)
+
+    path = sys.argv[1]
+    try:
+        with open(path, "rb") as handle:
+            index = tomllib.load(handle)
+    except OSError as error:
+        fail(f"cannot read {path}: {error}")
+    except tomllib.TOMLDecodeError as error:
+        fail(f"{path} is not valid TOML: {error}")
+
+    for key in ("format", "name", "version"):
+        if key not in index:
+            fail(f"{path} declares no {key}")
+        print(f"{key}={index[key]}")
+
+    if "slices" not in index:
+        fail(f"{path} declares no [slices]")
+
+    for section, label in (("slices", "slice"), ("artifacts", "artifact")):
+        for identifier in sorted(index.get(section, {})):
+            entry = index[section][identifier]
+            for key in ("file", "sha256", "size"):
+                if key not in entry:
+                    fail(f"{path} {label} {identifier!r} declares no {key}")
+            print(f"{label}={identifier} {entry['file']} {entry['sha256']} {entry['size']}")
+
+    for identifier in sorted(index["slices"]):
+        artifacts = index["slices"][identifier].get("artifacts", [])
+        if artifacts:
+            print(f"slice_artifacts={identifier} {' '.join(artifacts)}")
+
+
+if __name__ == "__main__":
+    main()

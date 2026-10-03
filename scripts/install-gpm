@@ -1,0 +1,84 @@
+#!/usr/bin/env bash
+# Installs the pinned gpm used to package the Godot addon into slices.
+#
+# The version and the per-host archive checksums live in
+# scripts/gpm-slice-config, so CI never names a packager version of its own.
+# Prints the directory to put on PATH.
+set -euo pipefail
+
+usage() {
+    cat <<'EOF'
+Usage: scripts/install-gpm INSTALL_DIR
+
+Downloads the pinned gpm release for this host, verifies its SHA-256, unpacks it
+under INSTALL_DIR and prints the directory containing the gpm binary.
+EOF
+}
+
+if [[ $# -ne 1 ]]; then
+    usage
+    exit 2
+fi
+
+repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+
+# shellcheck source=gpm-slice-config
+source "$repo_root/scripts/gpm-slice-config"
+
+install_dir=$1
+
+die() {
+    echo "Error: $*" >&2
+    exit 1
+}
+
+case "$(uname -s)" in
+    Darwin) host_os=darwin ;;
+    Linux) host_os=linux ;;
+    *) die "unsupported host OS for the pinned gpm: $(uname -s)" ;;
+esac
+
+case "$(uname -m)" in
+    arm64|aarch64) host_arch=arm64 ;;
+    x86_64) host_arch=amd64 ;;
+    *) die "unsupported host architecture for the pinned gpm: $(uname -m)" ;;
+esac
+
+archive_url=
+archive_sha256=
+for entry in "${GPM_SLICE_ARCHIVES[@]}"; do
+    IFS='|' read -r entry_os entry_arch entry_url entry_sha256 <<<"$entry"
+    if [[ "$entry_os" == "$host_os" && "$entry_arch" == "$host_arch" ]]; then
+        archive_url=$entry_url
+        archive_sha256=$entry_sha256
+    fi
+done
+[[ -n "$archive_url" ]] ||
+    die "scripts/gpm-slice-config pins no gpm $GPM_SLICE_PINNED_VERSION archive for $host_os/$host_arch"
+
+mkdir -p "$install_dir"
+install_dir=$(cd "$install_dir" && pwd)
+archive="$install_dir/${archive_url##*/}"
+
+curl -fsSL --retry 3 -o "$archive" "$archive_url"
+# The checksum report goes to stderr: stdout carries only the directory to put
+# on PATH, which a caller appends straight to $GITHUB_PATH.
+if command -v shasum >/dev/null 2>&1; then
+    echo "$archive_sha256  $archive" | shasum -a 256 --check >&2
+else
+    echo "$archive_sha256  $archive" | sha256sum --check >&2
+fi
+
+# The release tarball holds the binary at its root beside its docs, so it
+# unpacks into a per-version directory rather than over INSTALL_DIR itself.
+unpacked="$install_dir/gpm-$GPM_SLICE_PINNED_VERSION"
+rm -rf "$unpacked"
+mkdir -p "$unpacked"
+tar -xzf "$archive" -C "$unpacked"
+[[ -x "$unpacked/gpm" ]] || die "the pinned gpm archive did not unpack a gpm binary at $unpacked/gpm"
+
+installed_version=$("$unpacked/gpm" --version)
+[[ "$installed_version" == "gpm version $GPM_SLICE_PINNED_VERSION" ]] ||
+    die "downloaded gpm reports \"$installed_version\", expected the pinned gpm version $GPM_SLICE_PINNED_VERSION"
+
+printf '%s\n' "$unpacked"
