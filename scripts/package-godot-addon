@@ -23,6 +23,11 @@ The addon ships:
 SHIM_DIR is the directory produced by scripts/build-gdextension-shim; it supplies
 the three Linux and Windows payloads above.
 
+It also publishes the same tree as gpm slices under
+OUTPUT_DIR/gpm-slices, so a project using gpm downloads only the platforms it
+ships to instead of the whole zip. Both outputs describe one addon; the zip stays
+for consumers who install by hand.
+
 The export plugin adds the AAR to Android exports. The .gdextension declares
 SwiftGodot under `[dependencies]` so Godot's iOS/macOS exporters embed
 SwiftGodot.framework into the exported app exactly once. Downstream
@@ -105,6 +110,37 @@ fi
 
 # shellcheck source=gdextension-shim-config
 source scripts/gdextension-shim-config
+
+# shellcheck source=gpm-slice-config
+source scripts/gpm-slice-config
+
+[[ -f "$GPM_SLICE_MANIFEST" ]] || {
+    echo "Missing the gpm packaging manifest: $GPM_SLICE_MANIFEST"
+    exit 1
+}
+
+# Checked before anything is staged, because a cut without slices is a silent
+# regression for every project that installs this addon through gpm. The floor is
+# a floor rather than the pin so a newer local gpm is accepted; CI installs the
+# pinned build with scripts/install-gpm.
+if ! command -v gpm >/dev/null 2>&1; then
+    echo "gpm $GPM_SLICE_MINIMUM_VERSION or newer is required to publish the addon's slices."
+    echo "Install it with 'scripts/install-gpm DIR' and put the printed directory on PATH,"
+    echo "or with 'brew install --cask cafecito-games/tap/gpm'."
+    exit 1
+fi
+
+gpm_version=$(gpm_slice_installed_version) || gpm_version=
+if [[ -z "$gpm_version" ]]; then
+    echo "Cannot read a version out of 'gpm --version'; refusing to package with an unidentified gpm."
+    exit 1
+fi
+if ! gpm_slice_version_at_least "$gpm_version" "$GPM_SLICE_MINIMUM_VERSION"; then
+    echo "gpm $gpm_version is older than the required $GPM_SLICE_MINIMUM_VERSION."
+    echo "0.5.1 is the floor: earlier versions cannot store the Android AAR as a shared"
+    echo "artifact, and reject the android.* [libraries] keys Godot resolves from the APK."
+    exit 1
+fi
 
 # Refuse before staging anything if the shim build was skipped or soft-failed
 # upstream: never emit a [libraries] entry for a payload that is not there.
@@ -264,5 +300,20 @@ rm -f "$zip_path"
     cd "$dist_dir"
     zip -qryX "$zip_path" addons/SwiftGodot
 )
+
+# gpm has no exclusion mechanism, so it packages the staged tree rather than the
+# working tree: everything under addons/SwiftGodot that no .gdextension key and
+# no [package.slices] rule claims lands in core, which every consumer downloads
+# on every platform. The manifest is copied in beside the staged tree because
+# `gpm package --dir` reads it from there.
+slices_dir="$output_dir/$GPM_SLICE_OUTPUT_SUBDIR"
+cp "$GPM_SLICE_MANIFEST" "$dist_dir/gpm-package.toml"
+rm -rf "$slices_dir"
+gpm package --dir "$dist_dir" --out "$slices_dir" --version "$plugin_version" >&2
+
+# Proven before the caller can publish it, for the same reason the library
+# validation runs before zipping: a wrong cut is only discovered in someone
+# else's project, where it fails as a download error.
+scripts/validate-addon-slices "$slices_dir" "$plugin_version" "$addon_dir/bin/android/SwiftGodot.aar" >&2
 
 printf '%s\n' "$zip_path"

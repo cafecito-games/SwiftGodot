@@ -78,6 +78,11 @@ jobs:
     - name: Install pinned Zig
       run: scripts/install-zig "$RUNNER_TEMP/zig" >> "$GITHUB_PATH"
 
+    # scripts/test-package-godot-addon runs the real packaging script, which cuts
+    # the addon's gpm slices and validates them.
+    - name: Install pinned gpm
+      run: scripts/install-gpm "$RUNNER_TEMP/gpm" >> "$GITHUB_PATH"
+
     - name: Build
       run: swift build --build-tests --quiet
 

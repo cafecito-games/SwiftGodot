@@ -1,0 +1,77 @@
+# shellcheck shell=bash
+# Shared configuration for publishing the Godot addon as gpm slices.
+#
+# A consumer resolves the addon through gpm by the gpm-index.toml asset beside
+# the slice archives on the release, so the slice set and the pinned packager are
+# a release contract rather than a build detail. This is the one place both are
+# declared; scripts/install-gpm, scripts/package-godot-addon and
+# scripts/validate-addon-slices all read them from here.
+
+# The lowest gpm that can package this addon. 0.5.1 is the floor rather than a
+# preference: 0.5.0 added the shared artifact that lets the per-ABI Android
+# slices share one AAR, and 0.5.1 stopped rejecting the android.* [libraries]
+# keys this addon resolves out of the exported APK rather than from its own tree.
+# A Homebrew cask floats and a developer's gpm is usually older than CI's, so the
+# floor is enforced at package time and not only here.
+GPM_SLICE_MINIMUM_VERSION=0.5.1
+
+# The version scripts/install-gpm fetches, which CI pins so a release is never
+# cut with whatever gpm happened to be on the runner.
+GPM_SLICE_PINNED_VERSION=0.5.1
+
+# Checksum-verified download per host, the same treatment the pinned Zig, the
+# Android NDK and the Swift Android SDK get. scripts/install-gpm consumes these;
+# nothing else may fetch the packager.
+# host_os|host_arch|url|sha256
+GPM_SLICE_ARCHIVES=(
+    "darwin|arm64|https://github.com/cafecito-games/godot-package-manager/releases/download/v0.5.1/gpm_0.5.1_darwin_arm64.tar.gz|8ffabb157b18fb11483f4e1c209ab171a6172313cfd0e6358e5d3ff4f2416cdc"
+    "darwin|amd64|https://github.com/cafecito-games/godot-package-manager/releases/download/v0.5.1/gpm_0.5.1_darwin_amd64.tar.gz|566a8e85ac7891339fe3f812c29b6c87b93ce80ab0bfb420b35b18cd68c1a59b"
+    "linux|arm64|https://github.com/cafecito-games/godot-package-manager/releases/download/v0.5.1/gpm_0.5.1_linux_arm64.tar.gz|eb807f6326bf038cf7b2b23f80ef43724196eecb8cecd507e8b55019a448948a"
+    "linux|amd64|https://github.com/cafecito-games/godot-package-manager/releases/download/v0.5.1/gpm_0.5.1_linux_amd64.tar.gz|beaba7bc7aa2d05dba09989530fda8240ca53ce2202a63c58f682a8de3527299"
+)
+
+# The packaging manifest, kept out of the repository root so a bare
+# `gpm package` fails loudly instead of publishing the working tree.
+GPM_SLICE_MANIFEST=packaging/gpm-package.toml
+
+# Where scripts/package-godot-addon writes the cut, relative to its output
+# directory. scripts/release uploads this directory wholesale, so both read the
+# name from here rather than each spelling it.
+GPM_SLICE_OUTPUT_SUBDIR=gpm-slices
+
+# Every slice the release must publish. A consumer declaring a platform this set
+# omits is refused by gpm at install time, so the set is asserted after packaging
+# rather than taken from whatever the cut happened to produce. core is mandatory
+# and carries the platform-independent tree plus the partitioned .gdextension
+# body.
+GPM_SLICE_EXPECTED_SLICES=(
+    core
+    android.arm64
+    android.x86_64
+    ios
+    linux.arm64
+    linux.x86_64
+    macos.arm64
+    windows.x86_64
+)
+
+# Archives shared by two or more slices, which gpm stores once and every slice
+# that needs them pulls. The Android AAR is one file for every ABI, so it is
+# shared by the per-ABI slices instead of being copied into each.
+GPM_SLICE_EXPECTED_ARTIFACTS=(
+    android
+)
+
+# Compares two dotted versions, returning 0 when $1 is at least $2. Used for the
+# floor check, which must accept a newer gpm rather than demanding the pin.
+gpm_slice_version_at_least() {
+    local have=$1 want=$2
+    [[ "$(printf '%s\n%s\n' "$want" "$have" | sort -V | head -1)" == "$want" ]]
+}
+
+# Reads the version out of `gpm --version`, whose output is "gpm version X.Y.Z".
+gpm_slice_installed_version() {
+    local reported
+    reported=$(gpm --version 2>/dev/null) || return 1
+    printf '%s\n' "$reported" | sed -n 's/^gpm version \([^[:space:]]*\).*$/\1/p'
+}

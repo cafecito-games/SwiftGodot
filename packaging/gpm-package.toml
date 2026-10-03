@@ -1,0 +1,30 @@
+# gpm slice packaging manifest.
+#
+# This file is NOT at the repository root on purpose. gpm has no exclusion
+# mechanism: every file under addon_path that no .gdextension key claims lands in
+# the core slice, which every consumer downloads on every platform. The addon
+# tree is synthesized by scripts/package-godot-addon rather than committed, so
+# packaging runs against that staged copy with this manifest copied in beside it.
+# Keeping the manifest out of the root makes a bare `gpm package` fail loudly
+# instead of publishing a wrong package quietly.
+#
+# The emitted index is format 2, because the Android AAR is a shared artifact
+# across the per-ABI slices. Consumers therefore need gpm 0.5.0 or newer.
+
+[package]
+name       = "SwiftGodot"
+addon_path = "addons/SwiftGodot"
+# Always overridden by scripts/package-godot-addon with the release tag, which is
+# the single source of truth for the version the addon ships under.
+version    = "0.0.0"
+
+# bin/android/SwiftGodot.aar is one file for every ABI, and no [libraries] or
+# [dependencies] key references it: export_plugin.gd adds it as an Android export
+# plugin dependency instead. Naming the platform generically fans it out across
+# the per-ABI slices the .gdextension declares, and gpm stores it once as a
+# shared artifact both slices pull.
+#
+# The Apple slices need no rule: every artifact they carry is named by a
+# [libraries] or [dependencies] key.
+[package.slices]
+android = ["bin/android/SwiftGodot.aar"]
