@@ -303,8 +303,8 @@ EOF
 
 scripts/generate-binary-package-manifest "$binary_repo_dir/binaries.json" "$binary_repo_dir/Package.swift"
 
-gh release create "$tag" "$zip_path" "$gdextension_zip_path" "$macro_zip_path" "$android_aar" "$addon_zip_path" "${addon_slice_assets[@]}" -R "$source_repo" -F "$release_notes" --target "$commit"
 release_created=1
+gh release create "$tag" "$zip_path" "$gdextension_zip_path" "$macro_zip_path" "$android_aar" "$addon_zip_path" "${addon_slice_assets[@]}" -R "$source_repo" -F "$release_notes" --target "$commit"
 
 # Exercise the URL/checksum package only after the immutable public assets are
 # reachable at the exact URLs written to Package.swift.
