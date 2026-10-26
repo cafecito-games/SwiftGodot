@@ -13,11 +13,50 @@ rg -q '"checksum": "\$swiftgodot_checksum"' scripts/release || fail "SwiftGodot 
 rg -q '"checksum": "\$gdextension_checksum"' scripts/release || fail "GDExtensionC manifest entry must include checksum"
 rg -q '"checksum": "\$macro_checksum"' scripts/release || fail "macro manifest entry must include checksum"
 rg -q '"name": "GDExtensionC"' scripts/release || fail "binaries.json must include GDExtensionC"
-rg -q 'path: "Binaries/GDExtensionC\.xcframework"' scripts/release || fail "binary package must use the GDExtensionC xcframework"
-if rg -q 'name: "GDExtensionC",[[:space:]]*path: "Sources/GDExtension"' scripts/release; then
-    fail "binary package must not fall back to the source GDExtensionC target"
+rg -q 'scripts/generate-binary-package-manifest' scripts/release || fail "release must generate the remote binary package from binaries.json"
+rg -q 'artifact\["url"\]' scripts/generate-binary-package-manifest || fail "binary targets must use release URLs"
+rg -q 'artifact\["checksum"\]' scripts/generate-binary-package-manifest || fail "binary targets must use computed checksums"
+if rg -q 'path: "Binaries/' scripts/release scripts/generate-binary-package-manifest; then
+    fail "remote binary package must not reference hydrated local Binaries paths"
 fi
 rg -q 'scripts/test-binary-package-consumer "\$binary_repo_dir"' scripts/release || fail "release must clean-build a binary-package consumer before publishing"
+release_line=$(rg -n 'gh release create' scripts/release | cut -d: -f1)
+consumer_line=$(rg -n 'scripts/test-binary-package-consumer "\$binary_repo_dir"' scripts/release | cut -d: -f1)
+[[ -n "$release_line" && -n "$consumer_line" && "$consumer_line" -gt "$release_line" ]] || fail "remote consumer test must run after release assets exist"
+
+work_dir=$(mktemp -d)
+trap 'rm -rf "$work_dir"' EXIT
+
+cat > "$work_dir/binaries.json" <<'EOF'
+{
+  "version": "v9.8.7",
+  "sourceRepo": "cafecito-games/SwiftGodot",
+  "artifacts": [
+    {"name":"SwiftGodot","file":"SwiftGodot.xcframework.zip","url":"https://github.com/cafecito-games/SwiftGodot/releases/download/v9.8.7/SwiftGodot.xcframework.zip","checksum":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+    {"name":"GDExtensionC","file":"GDExtensionC.xcframework.zip","url":"https://github.com/cafecito-games/SwiftGodot/releases/download/v9.8.7/GDExtensionC.xcframework.zip","checksum":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},
+    {"name":"SwiftGodotMacroLibrary","file":"SwiftGodotMacros.artifactbundle.zip","url":"https://github.com/cafecito-games/SwiftGodot/releases/download/v9.8.7/SwiftGodotMacros.artifactbundle.zip","checksum":"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"}
+  ]
+}
+EOF
+
+scripts/generate-binary-package-manifest "$work_dir/binaries.json" "$work_dir/Package.swift"
+rg -q 'url: "https://github.com/cafecito-games/SwiftGodot/releases/download/v9.8.7/SwiftGodot.xcframework.zip"' "$work_dir/Package.swift" || fail "generated manifest must contain the SwiftGodot URL"
+rg -q 'checksum: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"' "$work_dir/Package.swift" || fail "generated manifest must contain the SwiftGodot checksum"
+
+jq 'del(.artifacts[1])' "$work_dir/binaries.json" > "$work_dir/missing.json"
+if scripts/generate-binary-package-manifest "$work_dir/missing.json" "$work_dir/missing.swift" 2>/dev/null; then
+    fail "generator must reject a missing artifact"
+fi
+
+jq '.artifacts[0].checksum = "wrong"' "$work_dir/binaries.json" > "$work_dir/checksum.json"
+if scripts/generate-binary-package-manifest "$work_dir/checksum.json" "$work_dir/checksum.swift" 2>/dev/null; then
+    fail "generator must reject a malformed checksum"
+fi
+
+printf '{not json}\n' > "$work_dir/malformed.json"
+if scripts/generate-binary-package-manifest "$work_dir/malformed.json" "$work_dir/malformed.swift" 2>/dev/null; then
+    fail "generator must reject malformed metadata"
+fi
 
 # The runtime ships inside SwiftGodot.xcframework; it must not be released or
 # referenced as a separate binary artifact (duplicate class registration).

@@ -53,6 +53,7 @@ fi
 
 git rev-parse --verify "$commit^{commit}" >/dev/null
 
+local_tag_created=0
 if [[ -z "${SWIFT_GODOT_NODEPLOY:-}" ]]; then
     if [[ ! -d "$binary_repo_dir/.git" ]]; then
         echo "Expected a checkout of $binary_repo at $binary_repo_dir"
@@ -74,12 +75,38 @@ if [[ -z "${SWIFT_GODOT_NODEPLOY:-}" ]]; then
         fi
     )
 
-    if git rev-parse --verify "$tag" >/dev/null 2>&1; then
+    if git rev-parse --verify "refs/tags/$tag" >/dev/null 2>&1; then
         echo "Source tag already exists locally: $tag"
-    else
-        git tag "$tag" "$commit"
+        exit 1
     fi
+    if gh release view "$tag" --repo "$source_repo" >/dev/null 2>&1 ||
+        git ls-remote --exit-code --tags "https://github.com/$source_repo.git" "refs/tags/$tag" >/dev/null 2>&1; then
+        echo "Source release or tag already exists: $source_repo@$tag"
+        exit 1
+    fi
+    if git ls-remote --exit-code --tags "https://github.com/$binary_repo.git" "refs/tags/$tag" >/dev/null 2>&1; then
+        echo "Binary tag already exists: $binary_repo@$tag"
+        exit 1
+    fi
+
+    git tag "$tag" "$commit"
+    local_tag_created=1
 fi
+
+release_created=0
+rollback_release() {
+    status=$?
+    trap - EXIT
+    if [[ $status -ne 0 && $release_created == 1 ]]; then
+        echo "Release failed after publishing assets; rolling back $source_repo@$tag" >&2
+        gh release delete "$tag" --repo "$source_repo" --cleanup-tag --yes || true
+    fi
+    if [[ $status -ne 0 && $local_tag_created == 1 ]]; then
+        git tag -d "$tag" >/dev/null || true
+    fi
+    exit "$status"
+}
+trap rollback_release EXIT
 
 arch=$(uname -m)
 build_dir="$output_dir/$$-build"
@@ -244,8 +271,9 @@ macro_checksum=$(swift package compute-checksum "$macro_zip_path")
 # prebuilt compiler plugin via SwiftGodotMacros.artifactbundle.zip.
 rm -rf "$binary_repo_dir/Sources/SwiftGodotMacroLibrary"
 
-# Write binaries.json so consumers can download artifacts with `gh release download`
-# and place them under Binaries/ where the path-based Package.swift expects them.
+# Write binaries.json as the provenance source for the remotely consumable
+# SwiftPM package. The generated Package.swift derives its URLs and checksums
+# from this exact metadata.
 cat > "$binary_repo_dir/binaries.json" <<EOF
 {
   "version": "$tag",
@@ -255,74 +283,32 @@ cat > "$binary_repo_dir/binaries.json" <<EOF
       "name": "SwiftGodot",
       "file": "SwiftGodot.xcframework.zip",
       "url": "$asset_url",
-      "checksum": "$swiftgodot_checksum",
-      "localPath": "Binaries/SwiftGodot.xcframework"
+      "checksum": "$swiftgodot_checksum"
     },
     {
       "name": "GDExtensionC",
       "file": "GDExtensionC.xcframework.zip",
       "url": "$gdextension_asset_url",
-      "checksum": "$gdextension_checksum",
-      "localPath": "Binaries/GDExtensionC.xcframework"
+      "checksum": "$gdextension_checksum"
     },
     {
       "name": "SwiftGodotMacroLibrary",
       "file": "SwiftGodotMacros.artifactbundle.zip",
       "url": "$macro_asset_url",
-      "checksum": "$macro_checksum",
-      "localPath": "Binaries/SwiftGodotMacros.artifactbundle"
+      "checksum": "$macro_checksum"
     }
   ]
 }
 EOF
 
-# Ensure Binaries/ (where extracted artifacts live) is not tracked in git.
-if ! grep -qxF 'Binaries/' "$binary_repo_dir/.gitignore" 2>/dev/null; then
-    echo 'Binaries/' >> "$binary_repo_dir/.gitignore"
-fi
-
-cat > "$binary_repo_dir/Package.swift" <<EOF
-// swift-tools-version:6.2
-// The swift-tools-version declares the minimum version of Swift required to build this package.
-
-import PackageDescription
-
-let package = Package(
-    name: "SwiftGodot",
-    platforms: [
-        .macOS(.v14),
-        .iOS(.v17),
-    ],
-    products: [
-        .library(
-            name: "SwiftGodot",
-            targets: ["SwiftGodot", "GDExtensionC", "SwiftGodotMacroLibrary"]),
-    ],
-    targets: [
-        .binaryTarget(
-            name: "SwiftGodot",
-            path: "Binaries/SwiftGodot.xcframework"),
-        .binaryTarget(
-            name: "GDExtensionC",
-            path: "Binaries/GDExtensionC.xcframework"),
-        .binaryTarget(
-            name: "SwiftGodotMacroLibrary",
-            path: "Binaries/SwiftGodotMacros.artifactbundle"),
-        .testTarget(name: "SwiftGodotTests", dependencies: ["SwiftGodot", "GDExtensionC"]),
-    ]
-)
-EOF
-
-# Exercise exactly the path-based package shape that downstream repositories
-# consume before creating immutable releases or tags.
-rm -rf "$binary_repo_dir/Binaries"
-mkdir -p "$binary_repo_dir/Binaries"
-rsync -a "$output_dir/SwiftGodot.xcframework" "$binary_repo_dir/Binaries/"
-rsync -a "$output_dir/GDExtensionC.xcframework" "$binary_repo_dir/Binaries/"
-rsync -a "$output_dir/SwiftGodotMacros.artifactbundle" "$binary_repo_dir/Binaries/"
-scripts/test-binary-package-consumer "$binary_repo_dir"
+scripts/generate-binary-package-manifest "$binary_repo_dir/binaries.json" "$binary_repo_dir/Package.swift"
 
 gh release create "$tag" "$zip_path" "$gdextension_zip_path" "$macro_zip_path" "$android_aar" "$addon_zip_path" "${addon_slice_assets[@]}" -R "$source_repo" -F "$release_notes" --target "$commit"
+release_created=1
+
+# Exercise the URL/checksum package only after the immutable public assets are
+# reachable at the exact URLs written to Package.swift.
+scripts/test-binary-package-consumer "$binary_repo_dir"
 
 (
     cd "$binary_repo_dir"
@@ -335,9 +321,10 @@ gh release create "$tag" "$zip_path" "$gdextension_zip_path" "$macro_zip_path" "
     fi
     git commit -m "Update to $tag"
     git tag "$tag"
-    git push -u origin "$binary_branch"
-    git push origin "$tag"
+    git push --atomic -u origin "$binary_branch" "$tag"
 )
+
+release_created=0
 
 echo "Started at: $start"
 echo "Ended at: $(date)"
