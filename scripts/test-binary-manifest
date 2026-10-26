@@ -20,11 +20,16 @@ if rg -q 'path: "Binaries/' scripts/release scripts/generate-binary-package-mani
     fail "remote binary package must not reference hydrated local Binaries paths"
 fi
 rg -q 'scripts/test-binary-package-consumer "\$binary_repo_dir"' scripts/release || fail "release must clean-build a binary-package consumer before publishing"
+rg -q 'SWIFTPM_MAX_CONCURRENT_OPERATIONS=1 swift build' scripts/test-binary-package-consumer || fail "binary consumer must serialize SwiftPM artifact downloads"
+rg -q -- '--jobs 1' scripts/test-binary-package-consumer || fail "binary consumer build must use one worker"
+rg -q -- '--verbose' scripts/test-binary-package-consumer || fail "binary consumer build must emit diagnostic progress"
 release_line=$(rg -n 'gh release create' scripts/release | cut -d: -f1)
 consumer_line=$(rg -n 'scripts/test-binary-package-consumer "\$binary_repo_dir"' scripts/release | cut -d: -f1)
 [[ -n "$release_line" && -n "$consumer_line" && "$consumer_line" -gt "$release_line" ]] || fail "remote consumer test must run after release assets exist"
 flag_line=$(rg -n '^release_created=1$' scripts/release | cut -d: -f1)
 [[ -n "$flag_line" && "$flag_line" -lt "$release_line" ]] || fail "release rollback must be armed before gh release create can partially succeed"
+rg -q 'timeout-minutes: 45' .github/workflows/release.yml || fail "release publication job must have a hard timeout"
+rg -q 'timeout-minutes: 30' .github/workflows/release.yml || fail "release script step must have a hard timeout"
 
 work_dir=$(mktemp -d)
 trap 'rm -rf "$work_dir"' EXIT

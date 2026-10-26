@@ -304,11 +304,14 @@ EOF
 scripts/generate-binary-package-manifest "$binary_repo_dir/binaries.json" "$binary_repo_dir/Package.swift"
 
 release_created=1
+echo "Creating public source release $source_repo@$tag..."
 gh release create "$tag" "$zip_path" "$gdextension_zip_path" "$macro_zip_path" "$android_aar" "$addon_zip_path" "${addon_slice_assets[@]}" -R "$source_repo" -F "$release_notes" --target "$commit"
 
 # Exercise the URL/checksum package only after the immutable public assets are
 # reachable at the exact URLs written to Package.swift.
+echo "Validating the published URL/checksum binary package..."
 scripts/test-binary-package-consumer "$binary_repo_dir"
+echo "Published binary package consumer validation passed."
 
 (
     cd "$binary_repo_dir"
@@ -321,8 +324,10 @@ scripts/test-binary-package-consumer "$binary_repo_dir"
     fi
     git commit -m "Update to $tag"
     git tag "$tag"
+    echo "Atomically publishing the binary branch and $tag..."
     git push --atomic -u origin "$binary_branch" "$tag"
 )
+echo "Published $binary_repo@$tag."
 
 release_created=0
 

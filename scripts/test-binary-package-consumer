@@ -43,10 +43,13 @@ public enum BinaryConsumerProbe {
 }
 EOF
 
-swift build \
+echo "Resolving and building the remote binary package with serialized SwiftPM operations..."
+SWIFTPM_MAX_CONCURRENT_OPERATIONS=1 swift build \
     --package-path "$work_dir" \
     --product BinaryConsumerProbe \
     --configuration release \
+    --jobs 1 \
+    --verbose \
     --scratch-path "$work_dir/.build"
 
 if otool -L "$work_dir/.build/release/libBinaryConsumerProbe.dylib" | rg -q 'GDExtensionC'; then
