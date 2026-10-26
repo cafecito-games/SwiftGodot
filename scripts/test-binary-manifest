@@ -28,8 +28,14 @@ consumer_line=$(rg -n 'scripts/test-binary-package-consumer "\$binary_repo_dir"'
 [[ -n "$release_line" && -n "$consumer_line" && "$consumer_line" -gt "$release_line" ]] || fail "remote consumer test must run after release assets exist"
 flag_line=$(rg -n '^release_created=1$' scripts/release | cut -d: -f1)
 [[ -n "$flag_line" && "$flag_line" -lt "$release_line" ]] || fail "release rollback must be armed before gh release create can partially succeed"
-rg -q 'timeout-minutes: 45' .github/workflows/release.yml || fail "release publication job must have a hard timeout"
-rg -q 'timeout-minutes: 30' .github/workflows/release.yml || fail "release script step must have a hard timeout"
+release_job=$(awk '
+    /^  release:$/ { in_release = 1 }
+    in_release && /^  [A-Za-z0-9_-]+:$/ && $0 != "  release:" { exit }
+    in_release { print }
+' .github/workflows/release.yml)
+grep -q '^    timeout-minutes: 45$' <<< "$release_job" || fail "release publication job must have a 45-minute hard timeout"
+release_step=$(grep -A1 '^      - name: Run release script$' <<< "$release_job")
+grep -q '^        timeout-minutes: 30$' <<< "$release_step" || fail "release script step must have a 30-minute hard timeout"
 
 work_dir=$(mktemp -d)
 trap 'rm -rf "$work_dir"' EXIT
