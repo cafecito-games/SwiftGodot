@@ -722,7 +722,7 @@ jobs:
           retention-days: 1
 
   release:
-    name: Package and publish binary release
+    name: Package and publish source prerelease
     needs:
       - prepare
       - build-x86
