@@ -319,8 +319,12 @@ rg -q '! -x scripts/build-gdextension-shim' "$release_script" || fail "release s
 rg -q 'SwiftGodot-\$tag\.zip' "$release_script" || fail "release script must name the addon zip SwiftGodot-\$tag.zip"
 rg -q 'release_assets=\("\$zip_path" "\$gdextension_zip_path" "\$macro_zip_path" "\$android_aar" "\$addon_zip_path" "\$\{addon_slice_assets\[@\]\}"\)' "$release_script" ||
     fail "release script must collect the binary artifacts, Android AAR, addon zip, and slice assets for upload"
-rg -q 'gh release create "\$tag" "\$\{release_assets\[@\]\}"' "$release_script" ||
-    fail "release script must upload the complete release asset set"
+stable_release_create_count=$(rg -c '^    gh release create "\$tag" "\$\{release_assets\[@\]\}" -R "\$source_repo" -F "\$release_notes" --target "\$commit"$' "$release_script" || true)
+[[ "$stable_release_create_count" == 1 ]] ||
+    fail "stable release path must upload the complete release asset set exactly once"
+prerelease_create_count=$(rg -c '^    gh release create "\$tag" "\$\{release_assets\[@\]\}" -R "\$source_repo" -F "\$release_notes" --target "\$commit" --prerelease$' "$release_script" || true)
+[[ "$prerelease_create_count" == 1 ]] ||
+    fail "deferred prerelease path must upload the complete release asset set exactly once"
 if rg -q 'no longer using vXXX|v-prefixed tags|\[\[ "\$RELEASE_TAG" == v\* \]\]' "$release_script" .github/workflows/release.yml; then
     fail "release path must allow v-prefixed tags for Godot addon assets"
 fi
