@@ -50,7 +50,6 @@ jobs:
         asset:
           - GDExtensionC.xcframework.zip
           - SwiftGodot.xcframework.zip
-          - SwiftGodotMacros.artifactbundle.zip
 
     steps:
       - name: Checkout SwiftGodot
@@ -76,14 +75,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - label: GDExtensionC + SwiftGodot
-            assets: GDExtensionC.xcframework.zip,SwiftGodot.xcframework.zip
-          - label: GDExtensionC + macros
-            assets: GDExtensionC.xcframework.zip,SwiftGodotMacros.artifactbundle.zip
-          - label: SwiftGodot + macros
-            assets: SwiftGodot.xcframework.zip,SwiftGodotMacros.artifactbundle.zip
           - label: all binary artifacts
-            assets: GDExtensionC.xcframework.zip,SwiftGodot.xcframework.zip,SwiftGodotMacros.artifactbundle.zip
+            assets: GDExtensionC.xcframework.zip,SwiftGodot.xcframework.zip
 
     steps:
       - name: Checkout SwiftGodot
@@ -116,51 +109,6 @@ jobs:
           xcode-version: "${{ env.SWIFT_GODOT_RELEASE_XCODE }}"
 
       - name: Build a clean generated binary-package consumer
-        timeout-minutes: 8
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ inputs.tag }}
-        run: scripts/diagnose-binary-package-consumer "$RELEASE_TAG" "${{ github.repository }}"
-
-  diagnose-binary-consumer-after-macro-build:
-    name: Diagnose consumer after macro build (${{ matrix.mode }})
-    if: ${{ inputs.diagnose_binary_downloads }}
-    runs-on: macos-26
-    timeout-minutes: 25
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - mode: retain macro scratch
-            reclaim: false
-          - mode: reclaim macro scratch
-            reclaim: true
-
-    steps:
-      - name: Checkout SwiftGodot
-        uses: actions/checkout@v6
-
-      - name: Set up Xcode
-        uses: maxim-lobanov/setup-xcode@v1
-        with:
-          xcode-version: "${{ env.SWIFT_GODOT_RELEASE_XCODE }}"
-
-      - name: Build the macro artifact bundle
-        run: scripts/build-macro-artifactbundle "$RUNNER_TEMP/macro-output" v0.0.0
-
-      - name: Measure and optionally reclaim macro build state
-        env:
-          RECLAIM_MACRO_SCRATCH: ${{ matrix.reclaim }}
-        run: |
-          du -sh .build-macro-artifact
-          df -h .
-          if [[ "$RECLAIM_MACRO_SCRATCH" == true ]]; then
-            rm -rf .build-macro-artifact
-            echo "Reclaimed macro scratch."
-            df -h .
-          fi
-
-      - name: Build a clean generated binary-package consumer after macro build
         timeout-minutes: 8
         env:
           GH_TOKEN: ${{ github.token }}
@@ -845,6 +793,7 @@ jobs:
           path: |
             ${{ runner.temp }}/SwiftGodotBinary/Package.swift
             ${{ runner.temp }}/SwiftGodotBinary/binaries.json
+            ${{ runner.temp }}/SwiftGodotBinary/Sources/SwiftGodotMacroLibrary
           if-no-files-found: error
           overwrite: true
           retention-days: 7
