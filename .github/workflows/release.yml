@@ -26,7 +26,7 @@ on:
         type: boolean
         default: false
       consumer_validation_timeout:
-        description: Minutes allowed for the clean consumer validation before it fails with a diagnostic dump.
+        description: Minutes allowed for the clean consumer validation before it fails with a diagnostic dump (minimum 10).
         required: false
         type: number
         default: 25
@@ -148,6 +148,15 @@ jobs:
         run: |
           if [[ -z "$RELEASE_TOKEN" ]]; then
             echo "::error title=Missing secret::Set SWIFT_GODOT_RELEASE_TOKEN to a token with Contents read/write access to cafecito-games/SwiftGodot and cafecito-games/SwiftGodotBinary."
+            exit 1
+          fi
+
+      - name: Validate consumer validation timeout
+        env:
+          CONSUMER_VALIDATION_TIMEOUT: ${{ inputs.consumer_validation_timeout }}
+        run: |
+          if [[ ! $CONSUMER_VALIDATION_TIMEOUT =~ ^[0-9]+$ || $CONSUMER_VALIDATION_TIMEOUT -lt 10 ]]; then
+            echo "::error title=Invalid timeout::consumer_validation_timeout must be at least 10 minutes."
             exit 1
           fi
 

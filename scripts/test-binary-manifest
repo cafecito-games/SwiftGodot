@@ -38,11 +38,13 @@ rg -q 'pgrep -P' scripts/test-binary-package-consumer || fail "binary consumer t
 rg -q 'SWIFT_GODOT_BINARY_CONSUMER_PHASE_TIMEOUT_SECONDS' scripts/test-binary-package-consumer || fail "binary consumer phase timeout must be configurable"
 rg -q 'SWIFT_GODOT_BINARY_CONSUMER_TIMEOUT_MINUTES' scripts/test-binary-package-consumer || fail "binary consumer phase timeout must derive from the total validation budget"
 rg -q 'preflight_reserve_seconds' scripts/test-binary-package-consumer || fail "binary consumer phase timeout must reserve budget for release-asset probing and publication"
+rg -q 'minimum_total_minutes' scripts/test-binary-package-consumer || fail "binary consumer must reject a validation budget too small for its phases"
 rg -q -- '--disable-prefetching' scripts/test-binary-package-consumer || fail "binary consumer validation must support disabling SwiftPM prefetching"
 rg -q -- '--enable-prefetching' scripts/test-binary-package-consumer || fail "binary consumer validation must keep prefetching on by default"
 rg -q 'PHASE BEGIN release-asset-verify' scripts/publish-binary-package || fail "publisher must report reachability/checksum failures separately from resolution"
 rg -q 'consumer_validation_timeout' .github/workflows/release.yml || fail "release workflow must expose a configurable consumer validation timeout"
 rg -q 'SWIFT_GODOT_BINARY_CONSUMER_TIMEOUT_MINUTES' .github/workflows/release.yml || fail "release workflow must propagate the validation budget to the consumer watchdog"
+rg -q 'consumer_validation_timeout must be at least 10 minutes' .github/workflows/release.yml || fail "release workflow must reject a consumer validation timeout below 10 minutes"
 rg -q 'prefetch: \[enabled, disabled\]' .github/workflows/release.yml || fail "download diagnosis must compare prefetching on and off"
 rg -q 'SWIFT_GODOT_BINARY_CONSUMER_PHASE_TIMEOUT_SECONDS: "180"' .github/workflows/release.yml || fail "download diagnosis must bound each phase below half its step deadline"
 release_line=$(rg -n 'gh release create' scripts/release | cut -d: -f1 | tail -n 1)

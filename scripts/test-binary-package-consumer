@@ -34,11 +34,13 @@ if [[ -z $phase_timeout_seconds ]]; then
         echo "SWIFT_GODOT_BINARY_CONSUMER_TIMEOUT_MINUTES must be a positive integer" >&2
         exit 1
     fi
+    minimum_total_minutes=10
+    if [[ $total_minutes -lt $minimum_total_minutes ]]; then
+        echo "SWIFT_GODOT_BINARY_CONSUMER_TIMEOUT_MINUTES must be at least $minimum_total_minutes minutes to leave room for release-asset verification and both consumer phases" >&2
+        exit 1
+    fi
     preflight_reserve_seconds=180
     derived=$(( (total_minutes * 60 - preflight_reserve_seconds) / 2 ))
-    if [[ $derived -lt 60 ]]; then
-        derived=60
-    fi
     if [[ $derived -lt 600 ]]; then
         phase_timeout_seconds=$derived
     else
