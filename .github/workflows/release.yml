@@ -119,6 +119,50 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: scripts/diagnose-binary-package-consumer "${{ inputs.tag }}" "${{ github.repository }}"
 
+  diagnose-binary-consumer-after-macro-build:
+    name: Diagnose consumer after macro build (${{ matrix.mode }})
+    if: ${{ inputs.diagnose_binary_downloads }}
+    runs-on: macos-26
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - mode: retain macro scratch
+            reclaim: false
+          - mode: reclaim macro scratch
+            reclaim: true
+
+    steps:
+      - name: Checkout SwiftGodot
+        uses: actions/checkout@v6
+
+      - name: Set up Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: "${{ env.SWIFT_GODOT_RELEASE_XCODE }}"
+
+      - name: Build the macro artifact bundle
+        run: scripts/build-macro-artifactbundle "$RUNNER_TEMP/macro-output" v0.0.0
+
+      - name: Measure and optionally reclaim macro build state
+        env:
+          RECLAIM_MACRO_SCRATCH: ${{ matrix.reclaim }}
+        run: |
+          du -sh .build-macro-artifact
+          df -h .
+          if [[ "$RECLAIM_MACRO_SCRATCH" == true ]]; then
+            rm -rf .build-macro-artifact
+            echo "Reclaimed macro scratch."
+            df -h .
+          fi
+
+      - name: Build a clean generated binary-package consumer after macro build
+        timeout-minutes: 8
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: scripts/diagnose-binary-package-consumer "${{ inputs.tag }}" "${{ github.repository }}"
+
   prepare:
     name: Prepare release
     if: ${{ !inputs.diagnose_binary_downloads }}
