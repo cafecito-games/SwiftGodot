@@ -201,11 +201,11 @@ pushed and the source release only promoted after the clean consumer build passe
 The clean consumer build (`scripts/test-binary-package-consumer`) separates resolution
 from compilation and timestamps every phase, so a stall is attributable to downloading
 XCFrameworks, compiling `swift-syntax`, compiling the macro target, or
-compiling/linking the consumer. Each phase runs under a watchdog
-(`SWIFT_GODOT_BINARY_CONSUMER_PHASE_TIMEOUT_SECONDS`, default 600) that dumps the
-active Swift toolchain processes and the phase log tail on timeout. The overall
-validation bound is the `consumer_validation_timeout` workflow input (default 25
-minutes).
+compiling/linking the consumer. Each phase runs under a watchdog that terminates the
+whole SwiftPM process tree and dumps the active toolchain processes and the phase log
+tail on timeout. The per-phase bound is derived from the `consumer_validation_timeout`
+workflow input (default 25 minutes) and capped at 600 seconds, so the watchdog always
+fires before the workflow's hard timeout kills the step.
 
 To diagnose a hosted download stall without rebuilding anything, run the `Release`
 workflow with **Diagnose published SwiftPM binary downloads** enabled. It probes each

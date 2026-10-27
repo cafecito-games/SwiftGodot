@@ -17,9 +17,27 @@ fi
 
 # A stalled SwiftPM transport or dependency build must not look like a slow but
 # healthy build, so every phase runs under a watchdog that fails fast and dumps
-# the active toolchain processes plus the tail of that phase's verbose log. The
-# bound is configurable so a measured hosted-run default can replace a guess.
-phase_timeout_seconds=${SWIFT_GODOT_BINARY_CONSUMER_PHASE_TIMEOUT_SECONDS:-600}
+# the active toolchain processes plus the tail of that phase's verbose log.
+#
+# The per-phase bound is derived from the total validation budget when one is
+# supplied, so the watchdog always fires before the workflow's hard timeout can
+# kill the step. An explicit SWIFT_GODOT_BINARY_CONSUMER_PHASE_TIMEOUT_SECONDS
+# always wins; the ceiling keeps the default at a measured hosted-run stall
+# threshold rather than letting a generous budget stretch it out.
+phase_timeout_seconds=${SWIFT_GODOT_BINARY_CONSUMER_PHASE_TIMEOUT_SECONDS:-}
+if [[ -z $phase_timeout_seconds ]]; then
+    total_minutes=${SWIFT_GODOT_BINARY_CONSUMER_TIMEOUT_MINUTES:-25}
+    if [[ ! $total_minutes =~ ^[0-9]+$ || $total_minutes -lt 1 ]]; then
+        echo "SWIFT_GODOT_BINARY_CONSUMER_TIMEOUT_MINUTES must be a positive integer" >&2
+        exit 1
+    fi
+    derived=$(( total_minutes * 60 / 2 ))
+    if [[ $derived -lt 600 ]]; then
+        phase_timeout_seconds=$derived
+    else
+        phase_timeout_seconds=600
+    fi
+fi
 if [[ ! $phase_timeout_seconds =~ ^[0-9]+$ || $phase_timeout_seconds -lt 1 ]]; then
     echo "SWIFT_GODOT_BINARY_CONSUMER_PHASE_TIMEOUT_SECONDS must be a positive integer" >&2
     exit 1
@@ -90,6 +108,20 @@ dump_process_state() {
     ps -axo pid,ppid,etime,command 2>/dev/null | grep -Ei '[s]wift|[s]wiftc|[c]lang|[g]it|[c]url' >&2 || true
 }
 
+# Terminates a background pipeline and its whole descendant tree. Killing only
+# the recorded subshell PID would orphan SwiftPM, swiftc, and clang children,
+# which could keep mutating the cache/scratch directory and race a retry.
+kill_process_tree() {
+    local pid=$1
+    local children
+    children=$(pgrep -P "$pid" 2>/dev/null || true)
+    local child
+    for child in $children; do
+        kill_process_tree "$child"
+    done
+    kill "$pid" 2>/dev/null || true
+}
+
 # Runs one validation phase in the background, streaming timestamped verbose
 # output to both the job log and a capture file. If the phase exceeds
 # phase_timeout_seconds the watchdog dumps the toolchain process table and the
@@ -117,7 +149,7 @@ run_phase() {
             dump_process_state "$phase"
             echo "--- $phase log tail ---" >&2
             tail -n 200 "$log_file" >&2 || true
-            kill "$pid" 2>/dev/null || true
+            kill_process_tree "$pid"
             wait "$pid" 2>/dev/null || true
             return 124
         fi

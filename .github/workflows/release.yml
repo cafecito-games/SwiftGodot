@@ -867,6 +867,7 @@ jobs:
           SWIFT_GODOT_SOURCE_REPO: ${{ github.repository }}
           SWIFT_GODOT_BINARY_REPO: cafecito-games/SwiftGodotBinary
           SWIFT_GODOT_BINARY_REPO_DIR: ${{ runner.temp }}/SwiftGodotBinary
+          SWIFT_GODOT_BINARY_CONSUMER_TIMEOUT_MINUTES: ${{ inputs.consumer_validation_timeout }}
         run: |
           scripts/publish-binary-package \
             "$RELEASE_TAG" \
