@@ -15,6 +15,54 @@ else
     trap 'rm -rf "$work_dir"' EXIT
 fi
 
+# A stalled SwiftPM transport or dependency build must not look like a slow but
+# healthy build, so every phase runs under a watchdog that fails fast and dumps
+# the active toolchain processes plus the tail of that phase's verbose log.
+#
+# The per-phase bound is derived from the total validation budget when one is
+# supplied, so the watchdog always fires before the workflow's hard timeout can
+# kill the step. The publisher step also probes the release assets and pushes
+# the binary tag, so a bounded slice of the budget is reserved for that pre/post
+# work before the remainder is split between the two consumer phases. An
+# explicit SWIFT_GODOT_BINARY_CONSUMER_PHASE_TIMEOUT_SECONDS always wins; the
+# ceiling keeps the default at a measured hosted-run stall threshold rather than
+# letting a generous budget stretch it out.
+phase_timeout_seconds=${SWIFT_GODOT_BINARY_CONSUMER_PHASE_TIMEOUT_SECONDS:-}
+if [[ -z $phase_timeout_seconds ]]; then
+    total_minutes=${SWIFT_GODOT_BINARY_CONSUMER_TIMEOUT_MINUTES:-25}
+    if [[ ! $total_minutes =~ ^[0-9]+$ || $total_minutes -lt 1 ]]; then
+        echo "SWIFT_GODOT_BINARY_CONSUMER_TIMEOUT_MINUTES must be a positive integer" >&2
+        exit 1
+    fi
+    minimum_total_minutes=10
+    if [[ $total_minutes -lt $minimum_total_minutes ]]; then
+        echo "SWIFT_GODOT_BINARY_CONSUMER_TIMEOUT_MINUTES must be at least $minimum_total_minutes minutes to leave room for release-asset verification and both consumer phases" >&2
+        exit 1
+    fi
+    preflight_reserve_seconds=180
+    derived=$(( (total_minutes * 60 - preflight_reserve_seconds) / 2 ))
+    if [[ $derived -lt 600 ]]; then
+        phase_timeout_seconds=$derived
+    else
+        phase_timeout_seconds=600
+    fi
+fi
+if [[ ! $phase_timeout_seconds =~ ^[0-9]+$ || $phase_timeout_seconds -lt 1 ]]; then
+    echo "SWIFT_GODOT_BINARY_CONSUMER_PHASE_TIMEOUT_SECONDS must be a positive integer" >&2
+    exit 1
+fi
+
+# SwiftPM prefetches remote binary artifacts during resolution by default. The
+# prefetch is what has been observed to stall on GitHub-hosted macOS runners,
+# so the consumer validation can toggle it off and defer artifact transfer to
+# the build phase instead. Set SWIFT_GODOT_BINARY_CONSUMER_DISABLE_PREFETCHING
+# to a non-empty value to exercise that path.
+if [[ -n ${SWIFT_GODOT_BINARY_CONSUMER_DISABLE_PREFETCHING:-} ]]; then
+    prefetch_flag=--disable-prefetching
+else
+    prefetch_flag=--enable-prefetching
+fi
+
 rm -rf "$work_dir/Sources/BinaryConsumerProbe"
 mkdir -p "$work_dir/Sources/BinaryConsumerProbe"
 cat > "$work_dir/Package.swift" <<EOF
@@ -52,15 +100,102 @@ public enum BinaryConsumerProbe {
 }
 EOF
 
+# Prefix every line of verbose toolchain output with a UTC timestamp so a
+# blocked phase can be attributed to downloading XCFrameworks, compiling
+# swift-syntax, compiling the macro target, or compiling/linking the consumer.
+timestamped() {
+    while IFS= read -r line || [[ -n $line ]]; do
+        printf '%s  %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$line"
+    done
+}
+
+dump_process_state() {
+    local phase=$1
+    echo "--- active Swift toolchain processes during $phase ---" >&2
+    # pgrep cannot report ppid/etime, so dump the process table and filter it.
+    # shellcheck disable=SC2009
+    ps -axo pid,ppid,etime,command 2>/dev/null | grep -Ei '[s]wift|[s]wiftc|[c]lang|[g]it|[c]url' >&2 || true
+}
+
+# Terminates a background pipeline and its whole descendant tree. Killing only
+# the recorded subshell PID would orphan SwiftPM, swiftc, and clang children,
+# which could keep mutating the cache/scratch directory and race a retry.
+kill_process_tree() {
+    local pid=$1
+    local children
+    children=$(pgrep -P "$pid" 2>/dev/null || true)
+    local child
+    for child in $children; do
+        kill_process_tree "$child"
+    done
+    kill "$pid" 2>/dev/null || true
+}
+
+# Runs one validation phase in the background, streaming timestamped verbose
+# output to both the job log and a capture file. If the phase exceeds
+# phase_timeout_seconds the watchdog dumps the toolchain process table and the
+# captured log tail and returns 124 so the failure names the blocked phase.
+run_phase() {
+    local phase=$1
+    shift
+    local log_file="$work_dir/phase-$phase.log"
+
+    echo "PHASE BEGIN $phase: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    (
+        set -o pipefail
+        "$@" 2>&1 | timestamped | tee "$log_file"
+        exit "${PIPESTATUS[0]}"
+    ) &
+    local pid=$!
+
+    local elapsed=0
+    local interval=5
+    while kill -0 "$pid" 2>/dev/null; do
+        sleep "$interval"
+        elapsed=$((elapsed + interval))
+        # Re-check liveness after the sleep: a phase that completed during the
+        # interval has succeeded and must not be reported as a timeout.
+        if kill -0 "$pid" 2>/dev/null && [[ $elapsed -ge $phase_timeout_seconds ]]; then
+            echo "PHASE TIMEOUT $phase after ${elapsed}s: $(date -u +%Y-%m-%dT%H:%M:%SZ)" >&2
+            dump_process_state "$phase"
+            echo "--- $phase log tail ---" >&2
+            tail -n 200 "$log_file" >&2 || true
+            kill_process_tree "$pid"
+            wait "$pid" 2>/dev/null || true
+            return 124
+        fi
+    done
+
+    local status=0
+    wait "$pid" || status=$?
+
+    echo "PHASE END $phase: $(date -u +%Y-%m-%dT%H:%M:%SZ) (exit $status)"
+    if [[ $status -ne 0 ]]; then
+        echo "--- $phase log tail ---" >&2
+        tail -n 200 "$log_file" >&2 || true
+    fi
+    return "$status"
+}
+
 echo "Resolving and building the remote binary package with a fresh SwiftPM cache..."
-swift build \
+run_phase "resolve" \
+    swift package resolve \
+    --package-path "$work_dir" \
+    --cache-path "$work_dir/cache" \
+    --scratch-path "$work_dir/.build" \
+    "$prefetch_flag" \
+    --verbose
+
+run_phase "build" \
+    swift build \
     --package-path "$work_dir" \
     --product BinaryConsumerProbe \
     --configuration debug \
     --jobs 4 \
-    --verbose \
     --cache-path "$work_dir/cache" \
-    --scratch-path "$work_dir/.build"
+    --scratch-path "$work_dir/.build" \
+    "$prefetch_flag" \
+    --verbose
 
 if otool -L "$work_dir/.build/debug/libBinaryConsumerProbe.dylib" | grep -q 'GDExtensionC'; then
     echo "GDExtensionC must remain a static build-only dependency" >&2

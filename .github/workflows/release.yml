@@ -25,6 +25,11 @@ on:
         required: false
         type: boolean
         default: false
+      consumer_validation_timeout:
+        description: Minutes allowed for the clean consumer validation before it fails with a diagnostic dump (minimum 10).
+        required: false
+        type: number
+        default: 25
 
 permissions:
   contents: write
@@ -94,10 +99,14 @@ jobs:
         run: scripts/diagnose-binary-artifact-set "$RELEASE_TAG" "${{ matrix.assets }}" "${{ github.repository }}"
 
   diagnose-binary-consumer:
-    name: Diagnose full binary consumer
+    name: Diagnose full binary consumer (prefetch ${{ matrix.prefetch }})
     if: ${{ inputs.diagnose_binary_downloads }}
     runs-on: macos-26
     timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        prefetch: [enabled, disabled]
 
     steps:
       - name: Checkout SwiftGodot
@@ -113,6 +122,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ inputs.tag }}
+          # 3 minutes per phase keeps the diagnostic quick while leaving room for
+          # package generation and polling inside the 8-minute step, so a stalled
+          # phase always reaches the watchdog's timeout dump before the step ends.
+          SWIFT_GODOT_BINARY_CONSUMER_PHASE_TIMEOUT_SECONDS: "180"
+          SWIFT_GODOT_BINARY_CONSUMER_DISABLE_PREFETCHING: ${{ matrix.prefetch == 'disabled' && '1' || '' }}
         run: scripts/diagnose-binary-package-consumer "$RELEASE_TAG" "${{ github.repository }}"
 
   prepare:
@@ -134,6 +148,15 @@ jobs:
         run: |
           if [[ -z "$RELEASE_TOKEN" ]]; then
             echo "::error title=Missing secret::Set SWIFT_GODOT_RELEASE_TOKEN to a token with Contents read/write access to cafecito-games/SwiftGodot and cafecito-games/SwiftGodotBinary."
+            exit 1
+          fi
+
+      - name: Validate consumer validation timeout
+        env:
+          CONSUMER_VALIDATION_TIMEOUT: ${{ inputs.consumer_validation_timeout }}
+        run: |
+          if [[ ! $CONSUMER_VALIDATION_TIMEOUT =~ ^[0-9]+$ || $CONSUMER_VALIDATION_TIMEOUT -lt 10 ]]; then
+            echo "::error title=Invalid timeout::consumer_validation_timeout must be at least 10 minutes."
             exit 1
           fi
 
@@ -808,7 +831,9 @@ jobs:
       && needs.prepare.result == 'success'
       && needs.release.result == 'success' }}
     runs-on: macos-26
-    timeout-minutes: 15
+    # Fixed backstop for runner setup plus the configurable validation step
+    # below; the validation step timeout is the value that bounds the work.
+    timeout-minutes: 30
 
     steps:
       - name: Checkout SwiftGodot
@@ -847,13 +872,14 @@ jobs:
           path: ${{ runner.temp }}/binary-package-metadata
 
       - name: Validate public URLs, publish the binary tag, and promote the release
-        timeout-minutes: 12
+        timeout-minutes: ${{ inputs.consumer_validation_timeout }}
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ inputs.tag }}
           SWIFT_GODOT_SOURCE_REPO: ${{ github.repository }}
           SWIFT_GODOT_BINARY_REPO: cafecito-games/SwiftGodotBinary
           SWIFT_GODOT_BINARY_REPO_DIR: ${{ runner.temp }}/SwiftGodotBinary
+          SWIFT_GODOT_BINARY_CONSUMER_TIMEOUT_MINUTES: ${{ inputs.consumer_validation_timeout }}
         run: |
           scripts/publish-binary-package \
             "$RELEASE_TAG" \
