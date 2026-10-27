@@ -64,7 +64,8 @@ jobs:
       - name: Diagnose one published binary artifact
         env:
           GH_TOKEN: ${{ github.token }}
-        run: scripts/diagnose-binary-artifact-download "${{ inputs.tag }}" "${{ matrix.asset }}" "${{ github.repository }}"
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: scripts/diagnose-binary-artifact-download "$RELEASE_TAG" "${{ matrix.asset }}" "${{ github.repository }}"
 
   diagnose-binary-download-set:
     name: Diagnose ${{ matrix.label }}
@@ -96,7 +97,8 @@ jobs:
       - name: Diagnose a published binary artifact set
         env:
           GH_TOKEN: ${{ github.token }}
-        run: scripts/diagnose-binary-artifact-set "${{ inputs.tag }}" "${{ matrix.assets }}" "${{ github.repository }}"
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: scripts/diagnose-binary-artifact-set "$RELEASE_TAG" "${{ matrix.assets }}" "${{ github.repository }}"
 
   diagnose-binary-consumer:
     name: Diagnose full binary consumer
@@ -117,7 +119,8 @@ jobs:
         timeout-minutes: 8
         env:
           GH_TOKEN: ${{ github.token }}
-        run: scripts/diagnose-binary-package-consumer "${{ inputs.tag }}" "${{ github.repository }}"
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: scripts/diagnose-binary-package-consumer "$RELEASE_TAG" "${{ github.repository }}"
 
   diagnose-binary-consumer-after-macro-build:
     name: Diagnose consumer after macro build (${{ matrix.mode }})
@@ -161,7 +164,8 @@ jobs:
         timeout-minutes: 8
         env:
           GH_TOKEN: ${{ github.token }}
-        run: scripts/diagnose-binary-package-consumer "${{ inputs.tag }}" "${{ github.repository }}"
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: scripts/diagnose-binary-package-consumer "$RELEASE_TAG" "${{ github.repository }}"
 
   prepare:
     name: Prepare release
@@ -820,6 +824,7 @@ jobs:
         timeout-minutes: 30
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
           SWIFT_GODOT_SOURCE_REPO: ${{ github.repository }}
           SWIFT_GODOT_BINARY_REPO: cafecito-games/SwiftGodotBinary
           SWIFT_GODOT_BINARY_REPO_DIR: ${{ runner.temp }}/SwiftGodotBinary
@@ -831,7 +836,7 @@ jobs:
           SWIFT_GODOT_INCLUDE_MACOS_X86: ${{ inputs.include_macos_x86 && '1' || '' }}
           SWIFT_GODOT_ANDROID_AAR: ${{ runner.temp }}/release-products/swiftgodot-android/SwiftGodot-release.aar
         run: |
-          scripts/release "${{ inputs.tag }}" "$RUNNER_TEMP/release-notes.md" "${{ needs.prepare.outputs.commit }}"
+          scripts/release "$RELEASE_TAG" "$RUNNER_TEMP/release-notes.md" "${{ needs.prepare.outputs.commit }}"
 
       - name: Upload generated binary-package metadata
         uses: actions/upload-artifact@v4
@@ -892,12 +897,13 @@ jobs:
         timeout-minutes: 12
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
           SWIFT_GODOT_SOURCE_REPO: ${{ github.repository }}
           SWIFT_GODOT_BINARY_REPO: cafecito-games/SwiftGodotBinary
           SWIFT_GODOT_BINARY_REPO_DIR: ${{ runner.temp }}/SwiftGodotBinary
         run: |
           scripts/publish-binary-package \
-            "${{ inputs.tag }}" \
+            "$RELEASE_TAG" \
             "$RUNNER_TEMP/binary-package-metadata" \
             "$RUNNER_TEMP/SwiftGodotBinary" \
             "${{ needs.prepare.outputs.commit }}"

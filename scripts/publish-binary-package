@@ -122,7 +122,11 @@ scripts/test-binary-package-consumer "$metadata_dir"
 
 echo "Promoting $source_repo@$tag from prerelease to stable..."
 gh release edit "$tag" --repo "$source_repo" --prerelease=false --latest
-gh release view "$tag" --repo "$source_repo" --json isDraft,isPrerelease --jq \
-    'select(.isDraft == false and .isPrerelease == false)' >/dev/null
+final_release_state=$(gh release view "$tag" --repo "$source_repo" --json isDraft,isPrerelease --jq \
+    '[.isDraft, .isPrerelease] | @tsv')
+if [[ $final_release_state != $'false\tfalse' ]]; then
+    echo "Source release $source_repo@$tag was not promoted to a public stable release" >&2
+    exit 1
+fi
 
 echo "Published and promoted $source_repo@$tag with $binary_repo@$tag."

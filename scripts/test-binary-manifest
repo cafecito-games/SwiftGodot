@@ -27,7 +27,7 @@ rg -q 'otool .* \| grep -q' scripts/test-binary-package-consumer || fail "binary
 release_line=$(rg -n 'gh release create' scripts/release | cut -d: -f1 | tail -n 1)
 consumer_line=$(rg -n 'scripts/test-binary-package-consumer "\$binary_repo_dir"' scripts/release | cut -d: -f1)
 [[ -n "$release_line" && -n "$consumer_line" && "$consumer_line" -gt "$release_line" ]] || fail "remote consumer test must run after release assets exist"
-flag_line=$(rg -n '^release_created=1$' scripts/release | cut -d: -f1)
+flag_line=$(rg -n '^[[:space:]]*release_created=1$' scripts/release | cut -d: -f1 | tail -n 1)
 [[ -n "$flag_line" && "$flag_line" -lt "$release_line" ]] || fail "release rollback must be armed before gh release create can partially succeed"
 release_job=$(awk '
     /^  release:$/ { in_release = 1 }
