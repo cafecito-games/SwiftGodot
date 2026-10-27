@@ -20,6 +20,11 @@ on:
         required: false
         type: boolean
         default: false
+      diagnose_binary_downloads:
+        description: Diagnose published SwiftPM binary downloads without building or publishing a release.
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -34,8 +39,36 @@ env:
   SWIFT_ANDROID_SDK_SHA256: d160cc3206dd1886dae3fef2337af5e25ec034692cd0ec225721c56cc69da7f5
 
 jobs:
+  diagnose-binary-download:
+    name: Diagnose ${{ matrix.asset }}
+    if: ${{ inputs.diagnose_binary_downloads }}
+    runs-on: macos-26
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        asset:
+          - GDExtensionC.xcframework.zip
+          - SwiftGodot.xcframework.zip
+          - SwiftGodotMacros.artifactbundle.zip
+
+    steps:
+      - name: Checkout SwiftGodot
+        uses: actions/checkout@v6
+
+      - name: Set up Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: "${{ env.SWIFT_GODOT_RELEASE_XCODE }}"
+
+      - name: Diagnose one published binary artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: scripts/diagnose-binary-artifact-download "${{ inputs.tag }}" "${{ matrix.asset }}" "${{ github.repository }}"
+
   prepare:
     name: Prepare release
+    if: ${{ !inputs.diagnose_binary_downloads }}
     runs-on: ubuntu-24.04
     outputs:
       commit: ${{ steps.release.outputs.commit }}
