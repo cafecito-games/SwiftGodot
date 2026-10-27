@@ -1,0 +1,93 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ $# -lt 2 || $# -gt 3 ]]; then
+    echo "Usage: scripts/diagnose-binary-artifact-download TAG ASSET [SOURCE_REPO]" >&2
+    exit 1
+fi
+
+tag=$1
+asset=$2
+source_repo=${3:-cafecito-games/SwiftGodot}
+
+case "$asset" in
+    SwiftGodot.xcframework.zip)
+        target_name=SwiftGodot
+        ;;
+    GDExtensionC.xcframework.zip)
+        target_name=GDExtensionC
+        ;;
+    SwiftGodotMacros.artifactbundle.zip)
+        target_name=SwiftGodotMacroLibrary
+        ;;
+    *)
+        echo "Unsupported diagnostic asset: $asset" >&2
+        exit 1
+        ;;
+esac
+
+asset_record=$(gh release view "$tag" --repo "$source_repo" --json assets --jq \
+    ".assets[] | select(.name == \"$asset\") | [.digest, .size] | @tsv")
+if [[ -z $asset_record ]]; then
+    echo "Release $source_repo@$tag has no $asset" >&2
+    exit 1
+fi
+
+IFS=$'\t' read -r digest expected_size <<< "$asset_record"
+checksum=${digest#sha256:}
+if [[ $checksum == "$digest" || ! $checksum =~ ^[0-9a-f]{64}$ ]]; then
+    echo "Release $source_repo@$tag has no usable SHA-256 digest for $asset" >&2
+    exit 1
+fi
+
+asset_url="https://github.com/$source_repo/releases/download/$tag/$asset"
+work_dir=$(mktemp -d)
+trap 'rm -rf "$work_dir"' EXIT
+mkdir -p "$work_dir/Sources"
+
+cat > "$work_dir/Package.swift" <<EOF
+// swift-tools-version: 6.2
+import PackageDescription
+
+let package = Package(
+    name: "BinaryArtifactDownloadProbe",
+    platforms: [.macOS(.v14)],
+    targets: [
+        .binaryTarget(
+            name: "$target_name",
+            url: "$asset_url",
+            checksum: "$checksum"
+        ),
+    ]
+)
+EOF
+
+echo "Diagnostic asset: $asset"
+echo "Expected bytes: $expected_size"
+echo "Expected SHA-256: $checksum"
+echo "URL: $asset_url"
+echo "Reachability check started: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+curl --fail --location --silent --show-error \
+    --connect-timeout 10 \
+    --max-time 60 \
+    --range 0-0 \
+    --output /dev/null \
+    --write-out 'HTTP %{http_code}; first-byte %{time_starttransfer}s; total %{time_total}s; downloaded %{size_download} bytes\n' \
+    "$asset_url"
+
+echo "Fresh SwiftPM resolve started: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+swift package resolve \
+    --package-path "$work_dir" \
+    --cache-path "$work_dir/cache" \
+    --scratch-path "$work_dir/.build" \
+    --verbose
+echo "Fresh SwiftPM resolve completed: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+artifact_path=$(find "$work_dir/.build/artifacts" -type d -path "*/$target_name" -print -quit 2>/dev/null || true)
+if [[ -z $artifact_path ]]; then
+    echo "SwiftPM reported success but staged no binary artifact" >&2
+    exit 1
+fi
+
+echo "Staged artifact root: $work_dir/.build/artifacts"
+echo "Binary artifact diagnostic passed for $asset"

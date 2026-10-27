@@ -16,6 +16,7 @@ usage() {
     echo "  SWIFT_GODOT_NODEPLOY          Build the xcframework but skip GitHub release publishing"
     echo "  SWIFT_GODOT_INCLUDE_MACOS_X86 Also build a macOS x86_64 (Intel) slice"
     echo "  SWIFT_GODOT_ANDROID_AAR       Prebuilt SwiftGodot-release.aar (required)"
+    echo "  SWIFT_GODOT_DEFER_BINARY_PUBLISH Create a public prerelease and defer consumer validation/binary publication"
 }
 
 if [[ $# -ne 3 ]]; then
@@ -35,6 +36,7 @@ output_dir=${SWIFT_GODOT_OUTPUT_DIR:-$HOME/sg-builds}
 configuration=${SWIFT_GODOT_CONFIGURATION:-Release}
 include_macos_x86=${SWIFT_GODOT_INCLUDE_MACOS_X86:-}
 android_aar=${SWIFT_GODOT_ANDROID_AAR:-}
+defer_binary_publish=${SWIFT_GODOT_DEFER_BINARY_PUBLISH:-}
 
 if [[ -z "$android_aar" || ! -f "$android_aar" ]]; then
     echo "Expected SWIFT_GODOT_ANDROID_AAR to name a prebuilt SwiftGodot-release.aar"
@@ -54,6 +56,7 @@ fi
 git rev-parse --verify "$commit^{commit}" >/dev/null
 
 local_tag_created=0
+resume_deferred_release=0
 if [[ -z "${SWIFT_GODOT_NODEPLOY:-}" ]]; then
     if [[ ! -d "$binary_repo_dir/.git" ]]; then
         echo "Expected a checkout of $binary_repo at $binary_repo_dir"
@@ -75,22 +78,79 @@ if [[ -z "${SWIFT_GODOT_NODEPLOY:-}" ]]; then
         fi
     )
 
-    if git rev-parse --verify "refs/tags/$tag" >/dev/null 2>&1; then
-        echo "Source tag already exists locally: $tag"
-        exit 1
-    fi
-    if gh release view "$tag" --repo "$source_repo" >/dev/null 2>&1 ||
-        git ls-remote --exit-code --tags "https://github.com/$source_repo.git" "refs/tags/$tag" >/dev/null 2>&1; then
-        echo "Source release or tag already exists: $source_repo@$tag"
-        exit 1
+    if [[ -n $defer_binary_publish ]] && gh release view "$tag" --repo "$source_repo" >/dev/null 2>&1; then
+        existing_release_state=$(gh release view "$tag" --repo "$source_repo" --json isDraft,isPrerelease --jq '[.isDraft, .isPrerelease] | @tsv')
+        existing_tag_commit=$(gh api "repos/$source_repo/git/ref/tags/$tag" --jq '.object.sha')
+        if [[ $existing_release_state != $'false\ttrue' || $existing_tag_commit != "$commit" ]]; then
+            echo "Existing source release $source_repo@$tag is not the expected prerelease at $commit" >&2
+            exit 1
+        fi
+        resume_deferred_release=1
+        echo "Resuming deferred source prerelease $source_repo@$tag."
+    else
+        if git rev-parse --verify "refs/tags/$tag" >/dev/null 2>&1; then
+            echo "Source tag already exists locally: $tag"
+            exit 1
+        fi
+        if gh release view "$tag" --repo "$source_repo" >/dev/null 2>&1 ||
+            git ls-remote --exit-code --tags "https://github.com/$source_repo.git" "refs/tags/$tag" >/dev/null 2>&1; then
+            echo "Source release or tag already exists: $source_repo@$tag"
+            exit 1
+        fi
+        git tag "$tag" "$commit"
+        local_tag_created=1
     fi
     if git ls-remote --exit-code --tags "https://github.com/$binary_repo.git" "refs/tags/$tag" >/dev/null 2>&1; then
         echo "Binary tag already exists: $binary_repo@$tag"
         exit 1
     fi
 
-    git tag "$tag" "$commit"
-    local_tag_created=1
+    if [[ $resume_deferred_release == 1 ]]; then
+        existing_release_json=$(gh release view "$tag" --repo "$source_repo" --json isDraft,isPrerelease,assets)
+        published_checksum() {
+            local asset_name=$1
+            local digest
+            digest=$(jq -r --arg asset "$asset_name" '.assets[] | select(.name == $asset) | .digest' <<< "$existing_release_json")
+            if [[ ! $digest =~ ^sha256:[0-9a-f]{64}$ ]]; then
+                echo "Existing prerelease has no usable SHA-256 digest for $asset_name" >&2
+                exit 1
+            fi
+            printf '%s\n' "${digest#sha256:}"
+        }
+
+        swiftgodot_checksum=$(published_checksum SwiftGodot.xcframework.zip)
+        gdextension_checksum=$(published_checksum GDExtensionC.xcframework.zip)
+        macro_checksum=$(published_checksum SwiftGodotMacros.artifactbundle.zip)
+        cat > "$binary_repo_dir/binaries.json" <<EOF
+{
+  "version": "$tag",
+  "sourceRepo": "$source_repo",
+  "artifacts": [
+    {
+      "name": "SwiftGodot",
+      "file": "SwiftGodot.xcframework.zip",
+      "url": "https://github.com/$source_repo/releases/download/$tag/SwiftGodot.xcframework.zip",
+      "checksum": "$swiftgodot_checksum"
+    },
+    {
+      "name": "GDExtensionC",
+      "file": "GDExtensionC.xcframework.zip",
+      "url": "https://github.com/$source_repo/releases/download/$tag/GDExtensionC.xcframework.zip",
+      "checksum": "$gdextension_checksum"
+    },
+    {
+      "name": "SwiftGodotMacroLibrary",
+      "file": "SwiftGodotMacros.artifactbundle.zip",
+      "url": "https://github.com/$source_repo/releases/download/$tag/SwiftGodotMacros.artifactbundle.zip",
+      "checksum": "$macro_checksum"
+    }
+  ]
+}
+EOF
+        scripts/generate-binary-package-manifest "$binary_repo_dir/binaries.json" "$binary_repo_dir/Package.swift"
+        echo "Regenerated binary-package metadata from the existing immutable prerelease assets."
+        exit 0
+    fi
 fi
 
 release_created=0
@@ -303,9 +363,19 @@ EOF
 
 scripts/generate-binary-package-manifest "$binary_repo_dir/binaries.json" "$binary_repo_dir/Package.swift"
 
-release_created=1
-echo "Creating public source release $source_repo@$tag..."
-gh release create "$tag" "$zip_path" "$gdextension_zip_path" "$macro_zip_path" "$android_aar" "$addon_zip_path" "${addon_slice_assets[@]}" -R "$source_repo" -F "$release_notes" --target "$commit"
+release_assets=("$zip_path" "$gdextension_zip_path" "$macro_zip_path" "$android_aar" "$addon_zip_path" "${addon_slice_assets[@]}")
+if [[ -n $defer_binary_publish ]]; then
+    release_created=1
+    echo "Creating public source prerelease $source_repo@$tag..."
+    gh release create "$tag" "${release_assets[@]}" -R "$source_repo" -F "$release_notes" --target "$commit" --prerelease
+    echo "Deferring remote consumer validation and binary-repository publication to a clean runner."
+    release_created=0
+    exit 0
+else
+    release_created=1
+    echo "Creating public source release $source_repo@$tag..."
+    gh release create "$tag" "${release_assets[@]}" -R "$source_repo" -F "$release_notes" --target "$commit"
+fi
 
 # Exercise the URL/checksum package only after the immutable public assets are
 # reachable at the exact URLs written to Package.swift.

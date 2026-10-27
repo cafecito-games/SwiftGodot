@@ -20,6 +20,11 @@ on:
         required: false
         type: boolean
         default: false
+      diagnose_binary_downloads:
+        description: Diagnose published SwiftPM binary downloads without building or publishing a release.
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -34,8 +39,137 @@ env:
   SWIFT_ANDROID_SDK_SHA256: d160cc3206dd1886dae3fef2337af5e25ec034692cd0ec225721c56cc69da7f5
 
 jobs:
+  diagnose-binary-download:
+    name: Diagnose ${{ matrix.asset }}
+    if: ${{ inputs.diagnose_binary_downloads }}
+    runs-on: macos-26
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        asset:
+          - GDExtensionC.xcframework.zip
+          - SwiftGodot.xcframework.zip
+          - SwiftGodotMacros.artifactbundle.zip
+
+    steps:
+      - name: Checkout SwiftGodot
+        uses: actions/checkout@v6
+
+      - name: Set up Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: "${{ env.SWIFT_GODOT_RELEASE_XCODE }}"
+
+      - name: Diagnose one published binary artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: scripts/diagnose-binary-artifact-download "$RELEASE_TAG" "${{ matrix.asset }}" "${{ github.repository }}"
+
+  diagnose-binary-download-set:
+    name: Diagnose ${{ matrix.label }}
+    if: ${{ inputs.diagnose_binary_downloads }}
+    runs-on: macos-26
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: GDExtensionC + SwiftGodot
+            assets: GDExtensionC.xcframework.zip,SwiftGodot.xcframework.zip
+          - label: GDExtensionC + macros
+            assets: GDExtensionC.xcframework.zip,SwiftGodotMacros.artifactbundle.zip
+          - label: SwiftGodot + macros
+            assets: SwiftGodot.xcframework.zip,SwiftGodotMacros.artifactbundle.zip
+          - label: all binary artifacts
+            assets: GDExtensionC.xcframework.zip,SwiftGodot.xcframework.zip,SwiftGodotMacros.artifactbundle.zip
+
+    steps:
+      - name: Checkout SwiftGodot
+        uses: actions/checkout@v6
+
+      - name: Set up Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: "${{ env.SWIFT_GODOT_RELEASE_XCODE }}"
+
+      - name: Diagnose a published binary artifact set
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: scripts/diagnose-binary-artifact-set "$RELEASE_TAG" "${{ matrix.assets }}" "${{ github.repository }}"
+
+  diagnose-binary-consumer:
+    name: Diagnose full binary consumer
+    if: ${{ inputs.diagnose_binary_downloads }}
+    runs-on: macos-26
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout SwiftGodot
+        uses: actions/checkout@v6
+
+      - name: Set up Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: "${{ env.SWIFT_GODOT_RELEASE_XCODE }}"
+
+      - name: Build a clean generated binary-package consumer
+        timeout-minutes: 8
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: scripts/diagnose-binary-package-consumer "$RELEASE_TAG" "${{ github.repository }}"
+
+  diagnose-binary-consumer-after-macro-build:
+    name: Diagnose consumer after macro build (${{ matrix.mode }})
+    if: ${{ inputs.diagnose_binary_downloads }}
+    runs-on: macos-26
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - mode: retain macro scratch
+            reclaim: false
+          - mode: reclaim macro scratch
+            reclaim: true
+
+    steps:
+      - name: Checkout SwiftGodot
+        uses: actions/checkout@v6
+
+      - name: Set up Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: "${{ env.SWIFT_GODOT_RELEASE_XCODE }}"
+
+      - name: Build the macro artifact bundle
+        run: scripts/build-macro-artifactbundle "$RUNNER_TEMP/macro-output" v0.0.0
+
+      - name: Measure and optionally reclaim macro build state
+        env:
+          RECLAIM_MACRO_SCRATCH: ${{ matrix.reclaim }}
+        run: |
+          du -sh .build-macro-artifact
+          df -h .
+          if [[ "$RECLAIM_MACRO_SCRATCH" == true ]]; then
+            rm -rf .build-macro-artifact
+            echo "Reclaimed macro scratch."
+            df -h .
+          fi
+
+      - name: Build a clean generated binary-package consumer after macro build
+        timeout-minutes: 8
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: scripts/diagnose-binary-package-consumer "$RELEASE_TAG" "${{ github.repository }}"
+
   prepare:
     name: Prepare release
+    if: ${{ !inputs.diagnose_binary_downloads }}
     runs-on: ubuntu-24.04
     outputs:
       commit: ${{ steps.release.outputs.commit }}
@@ -592,7 +726,7 @@ jobs:
           retention-days: 1
 
   release:
-    name: Package and publish binary release
+    name: Package and publish source prerelease
     needs:
       - prepare
       - build-x86
@@ -690,6 +824,7 @@ jobs:
         timeout-minutes: 30
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
           SWIFT_GODOT_SOURCE_REPO: ${{ github.repository }}
           SWIFT_GODOT_BINARY_REPO: cafecito-games/SwiftGodotBinary
           SWIFT_GODOT_BINARY_REPO_DIR: ${{ runner.temp }}/SwiftGodotBinary
@@ -697,7 +832,78 @@ jobs:
           SWIFT_GODOT_DERIVED_DATA: ${{ runner.temp }}/sg-builds/release/derived
           SWIFT_GODOT_CONFIGURATION: Release
           SWIFT_GODOT_SKIP_BUILD: 1
+          SWIFT_GODOT_DEFER_BINARY_PUBLISH: 1
           SWIFT_GODOT_INCLUDE_MACOS_X86: ${{ inputs.include_macos_x86 && '1' || '' }}
           SWIFT_GODOT_ANDROID_AAR: ${{ runner.temp }}/release-products/swiftgodot-android/SwiftGodot-release.aar
         run: |
-          scripts/release "${{ inputs.tag }}" "$RUNNER_TEMP/release-notes.md" "${{ needs.prepare.outputs.commit }}"
+          scripts/release "$RELEASE_TAG" "$RUNNER_TEMP/release-notes.md" "${{ needs.prepare.outputs.commit }}"
+
+      - name: Upload generated binary-package metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: swiftgodot-binary-package-metadata
+          path: |
+            ${{ runner.temp }}/SwiftGodotBinary/Package.swift
+            ${{ runner.temp }}/SwiftGodotBinary/binaries.json
+          if-no-files-found: error
+          overwrite: true
+          retention-days: 7
+
+  publish-binary-package:
+    name: Validate and publish binary package
+    needs:
+      - prepare
+      - release
+    runs-on: macos-26
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout SwiftGodot
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.prepare.outputs.commit }}
+
+      - name: Set up Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: "${{ env.SWIFT_GODOT_RELEASE_XCODE }}"
+
+      - name: Show clean validation environment
+        run: |
+          uname -m
+          xcodebuild -version
+          swift --version
+          df -h .
+          vm_stat
+
+      - name: Configure git identity
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Clone SwiftGodotBinary
+        env:
+          RELEASE_TOKEN: ${{ secrets.SWIFT_GODOT_RELEASE_TOKEN }}
+        run: |
+          git clone "https://x-access-token:${RELEASE_TOKEN}@github.com/cafecito-games/SwiftGodotBinary.git" "$RUNNER_TEMP/SwiftGodotBinary"
+
+      - name: Download generated binary-package metadata
+        uses: actions/download-artifact@v4
+        with:
+          name: swiftgodot-binary-package-metadata
+          path: ${{ runner.temp }}/binary-package-metadata
+
+      - name: Validate public URLs, publish the binary tag, and promote the release
+        timeout-minutes: 12
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          SWIFT_GODOT_SOURCE_REPO: ${{ github.repository }}
+          SWIFT_GODOT_BINARY_REPO: cafecito-games/SwiftGodotBinary
+          SWIFT_GODOT_BINARY_REPO_DIR: ${{ runner.temp }}/SwiftGodotBinary
+        run: |
+          scripts/publish-binary-package \
+            "$RELEASE_TAG" \
+            "$RUNNER_TEMP/binary-package-metadata" \
+            "$RUNNER_TEMP/SwiftGodotBinary" \
+            "${{ needs.prepare.outputs.commit }}"

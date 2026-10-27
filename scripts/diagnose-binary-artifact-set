@@ -1,0 +1,86 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ $# -lt 2 || $# -gt 3 ]]; then
+    echo "Usage: scripts/diagnose-binary-artifact-set TAG COMMA_SEPARATED_ASSETS [SOURCE_REPO]" >&2
+    exit 1
+fi
+
+tag=$1
+asset_list=$2
+source_repo=${3:-cafecito-games/SwiftGodot}
+work_dir=$(mktemp -d)
+trap 'rm -rf "$work_dir"' EXIT
+mkdir -p "$work_dir/Sources"
+
+cat > "$work_dir/Package.swift" <<'EOF'
+// swift-tools-version: 6.2
+import PackageDescription
+
+let package = Package(
+    name: "BinaryArtifactSetProbe",
+    platforms: [.macOS(.v14)],
+    targets: [
+EOF
+
+IFS=',' read -r -a assets <<< "$asset_list"
+target_names=()
+for asset in "${assets[@]}"; do
+    case "$asset" in
+        SwiftGodot.xcframework.zip)
+            target_name=SwiftGodot
+            ;;
+        GDExtensionC.xcframework.zip)
+            target_name=GDExtensionC
+            ;;
+        SwiftGodotMacros.artifactbundle.zip)
+            target_name=SwiftGodotMacroLibrary
+            ;;
+        *)
+            echo "Unsupported diagnostic asset: $asset" >&2
+            exit 1
+            ;;
+    esac
+    target_names+=("$target_name")
+
+    digest=$(gh release view "$tag" --repo "$source_repo" --json assets --jq \
+        ".assets[] | select(.name == \"$asset\") | .digest")
+    checksum=${digest#sha256:}
+    if [[ $checksum == "$digest" || ! $checksum =~ ^[0-9a-f]{64}$ ]]; then
+        echo "Release $source_repo@$tag has no usable SHA-256 digest for $asset" >&2
+        exit 1
+    fi
+
+    asset_url="https://github.com/$source_repo/releases/download/$tag/$asset"
+    cat >> "$work_dir/Package.swift" <<EOF
+        .binaryTarget(
+            name: "$target_name",
+            url: "$asset_url",
+            checksum: "$checksum"
+        ),
+EOF
+done
+
+cat >> "$work_dir/Package.swift" <<'EOF'
+    ]
+)
+EOF
+
+echo "Diagnostic asset set: $asset_list"
+echo "Fresh combined SwiftPM resolve started: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+swift package resolve \
+    --package-path "$work_dir" \
+    --cache-path "$work_dir/cache" \
+    --scratch-path "$work_dir/.build" \
+    --verbose
+echo "Fresh combined SwiftPM resolve completed: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+for target_name in "${target_names[@]}"; do
+    if ! find "$work_dir/.build/artifacts" -type d -path "*/$target_name" -print -quit 2>/dev/null | grep -q .; then
+        echo "SwiftPM reported success but staged no $target_name artifact" >&2
+        find "$work_dir/.build/artifacts" -maxdepth 4 -print 2>/dev/null || true
+        exit 1
+    fi
+done
+
+echo "Combined binary artifact diagnostic passed for $asset_list"

@@ -43,8 +43,8 @@ jobs:
         repositories: custom-godot
         permission-contents: read
 
-    - name: Install ripgrep
-      run: brew install ripgrep
+    - name: Install workflow validation tools
+      run: brew install ripgrep actionlint
 
     - name: Install custom Godot
       env:
@@ -75,6 +75,9 @@ jobs:
       run: |
         rg --version
 
+    - name: Validate GitHub Actions workflows
+      run: actionlint
+
     - name: Install pinned Zig
       run: scripts/install-zig "$RUNNER_TEMP/zig" >> "$GITHUB_PATH"
 
@@ -100,6 +103,7 @@ jobs:
         scripts/test-make-swiftgodot-framework
         scripts/test-release-build-configuration
         scripts/test-binary-manifest
+        scripts/test-deferred-release-resume
         scripts/test-package-resolution
         scripts/test-distribution-package-staging
         scripts/test-android-ci-topology
