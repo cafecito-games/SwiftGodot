@@ -45,6 +45,13 @@ publish_job=$(awk '
     in_publish && /^  [A-Za-z0-9_-]+:$/ && $0 != "  publish-binary-package:" { exit }
     in_publish { print }
 ' .github/workflows/release.yml)
+publish_if=$(awk '
+    /^    if: >-$/ { in_if = 1 }
+    in_if { print }
+    in_if && /}}$/ { exit }
+' <<< "$publish_job")
+expected_publish_if=$'    if: >-\n      ${{ !cancelled()\n      && needs.prepare.result == \'success\'\n      && needs.release.result == \'success\' }}'
+[[ "$publish_if" == "$expected_publish_if" ]] || fail "clean binary publication job must use the exact cancellation and required-dependency guard"
 grep -q '^    timeout-minutes: 15$' <<< "$publish_job" || fail "clean binary publication job must have a 15-minute hard timeout"
 publish_step=$(grep -A1 '^      - name: Validate public URLs, publish the binary tag, and promote the release$' <<< "$publish_job")
 grep -q '^        timeout-minutes: 12$' <<< "$publish_step" || fail "clean binary publication step must have a 12-minute hard timeout"
