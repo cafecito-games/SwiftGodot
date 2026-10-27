@@ -44,6 +44,7 @@ rg -q 'PHASE BEGIN release-asset-verify' scripts/publish-binary-package || fail 
 rg -q 'consumer_validation_timeout' .github/workflows/release.yml || fail "release workflow must expose a configurable consumer validation timeout"
 rg -q 'SWIFT_GODOT_BINARY_CONSUMER_TIMEOUT_MINUTES' .github/workflows/release.yml || fail "release workflow must propagate the validation budget to the consumer watchdog"
 rg -q 'prefetch: \[enabled, disabled\]' .github/workflows/release.yml || fail "download diagnosis must compare prefetching on and off"
+rg -q 'SWIFT_GODOT_BINARY_CONSUMER_PHASE_TIMEOUT_SECONDS: "180"' .github/workflows/release.yml || fail "download diagnosis must bound each phase below half its step deadline"
 release_line=$(rg -n 'gh release create' scripts/release | cut -d: -f1 | tail -n 1)
 consumer_line=$(rg -n 'scripts/test-binary-package-consumer "\$binary_repo_dir"' scripts/release | cut -d: -f1)
 [[ -n "$release_line" && -n "$consumer_line" && "$consumer_line" -gt "$release_line" ]] || fail "remote consumer test must run after release assets exist"

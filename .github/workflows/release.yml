@@ -122,7 +122,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ inputs.tag }}
-          SWIFT_GODOT_BINARY_CONSUMER_PHASE_TIMEOUT_SECONDS: "240"
+          # 3 minutes per phase keeps the diagnostic quick while leaving room for
+          # package generation and polling inside the 8-minute step, so a stalled
+          # phase always reaches the watchdog's timeout dump before the step ends.
+          SWIFT_GODOT_BINARY_CONSUMER_PHASE_TIMEOUT_SECONDS: "180"
           SWIFT_GODOT_BINARY_CONSUMER_DISABLE_PREFETCHING: ${{ matrix.prefetch == 'disabled' && '1' || '' }}
         run: scripts/diagnose-binary-package-consumer "$RELEASE_TAG" "${{ github.repository }}"
 
