@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ $# -lt 1 || $# -gt 2 ]]; then
+    echo "Usage: scripts/diagnose-binary-package-consumer TAG [SOURCE_REPO]" >&2
+    exit 1
+fi
+
+tag=$1
+source_repo=${2:-cafecito-games/SwiftGodot}
+work_dir=$(mktemp -d)
+trap 'rm -rf "$work_dir"' EXIT
+
+artifact_record() {
+    local name=$1
+    local file=$2
+    local digest checksum url
+    digest=$(gh release view "$tag" --repo "$source_repo" --json assets --jq \
+        ".assets[] | select(.name == \"$file\") | .digest")
+    checksum=${digest#sha256:}
+    if [[ $checksum == "$digest" || ! $checksum =~ ^[0-9a-f]{64}$ ]]; then
+        echo "Release $source_repo@$tag has no usable SHA-256 digest for $file" >&2
+        exit 1
+    fi
+    url="https://github.com/$source_repo/releases/download/$tag/$file"
+    jq -n \
+        --arg name "$name" \
+        --arg file "$file" \
+        --arg url "$url" \
+        --arg checksum "$checksum" \
+        '{name: $name, file: $file, url: $url, checksum: $checksum}'
+}
+
+artifacts=$(jq -s '.' < <(
+    artifact_record SwiftGodot SwiftGodot.xcframework.zip
+    artifact_record GDExtensionC GDExtensionC.xcframework.zip
+    artifact_record SwiftGodotMacroLibrary SwiftGodotMacros.artifactbundle.zip
+))
+
+jq -n \
+    --arg version "$tag" \
+    --arg source_repo "$source_repo" \
+    --argjson artifacts "$artifacts" \
+    '{version: $version, sourceRepo: $source_repo, artifacts: $artifacts}' \
+    > "$work_dir/binaries.json"
+
+scripts/generate-binary-package-manifest "$work_dir/binaries.json" "$work_dir/Package.swift"
+
+echo "Full binary consumer diagnostic started: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+scripts/test-binary-package-consumer "$work_dir"
+echo "Full binary consumer diagnostic completed: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
