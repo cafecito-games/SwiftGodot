@@ -8,6 +8,10 @@ fi
 
 tag=$1
 source_repo=${2:-cafecito-games/SwiftGodot}
+metadata_version=$tag
+if [[ ! $metadata_version =~ ^v?[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    metadata_version=v0.0.0
+fi
 work_dir=$(mktemp -d)
 trap 'rm -rf "$work_dir"' EXIT
 
@@ -38,7 +42,7 @@ artifacts=$(jq -s '.' < <(
 ))
 
 jq -n \
-    --arg version "$tag" \
+    --arg version "$metadata_version" \
     --arg source_repo "$source_repo" \
     --argjson artifacts "$artifacts" \
     '{version: $version, sourceRepo: $source_repo, artifacts: $artifacts}' \
