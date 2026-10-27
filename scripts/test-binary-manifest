@@ -45,6 +45,8 @@ publish_job=$(awk '
     in_publish && /^  [A-Za-z0-9_-]+:$/ && $0 != "  publish-binary-package:" { exit }
     in_publish { print }
 ' .github/workflows/release.yml)
+grep -q "needs.prepare.result == 'success'" <<< "$publish_job" || fail "clean binary publication job must explicitly require prepare success"
+grep -q "needs.release.result == 'success'" <<< "$publish_job" || fail "clean binary publication job must explicitly require release success despite intentionally skipped matrix ancestors"
 grep -q '^    timeout-minutes: 15$' <<< "$publish_job" || fail "clean binary publication job must have a 15-minute hard timeout"
 publish_step=$(grep -A1 '^      - name: Validate public URLs, publish the binary tag, and promote the release$' <<< "$publish_job")
 grep -q '^        timeout-minutes: 12$' <<< "$publish_step" || fail "clean binary publication step must have a 12-minute hard timeout"

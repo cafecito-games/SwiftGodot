@@ -854,6 +854,10 @@ jobs:
     needs:
       - prepare
       - release
+    if: >-
+      ${{ !cancelled()
+      && needs.prepare.result == 'success'
+      && needs.release.result == 'success' }}
     runs-on: macos-26
     timeout-minutes: 15
 
