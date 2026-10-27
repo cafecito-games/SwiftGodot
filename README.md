@@ -177,6 +177,42 @@ The development machine must have a compatible Swift runtime installed. Linux re
 
 Clone and open in Xcode via `Package.swift`. If you only need to work on the binding generator, open the `Generator` project and edit the `okList` variable to reduce build times.
 
+## Release validation and diagnosis
+
+Releases publish the source release and the `SwiftGodotBinary` metadata in two
+stages so a transport hang in the final consumer check cannot poison already-built
+platform artifacts:
+
+1. The `release` job builds and uploads every platform artifact, then publishes the
+   source release as a **prerelease** and defers binary-package publication
+   (`SWIFT_GODOT_DEFER_BINARY_PUBLISH=1`).
+2. The `publish-binary-package` job clones `SwiftGodotBinary`, verifies the public
+   asset URLs and checksums, and builds a clean consumer against the exact published
+   package before promoting the source release to stable.
+
+A failed final validation leaves the prerelease and all release inputs intact, so
+the failed `publish-binary-package` job can be re-run to retry validation without
+rebuilding platform artifacts: it re-downloads the preserved binary-package metadata
+and re-runs the clean consumer build. `scripts/release` can also regenerate that
+metadata from an existing prerelease's published asset digests instead of recomputing
+checksums from a local rebuild. Publication stays fail-closed: the binary tag is only
+pushed and the source release only promoted after the clean consumer build passes.
+
+The clean consumer build (`scripts/test-binary-package-consumer`) separates resolution
+from compilation and timestamps every phase, so a stall is attributable to downloading
+XCFrameworks, compiling `swift-syntax`, compiling the macro target, or
+compiling/linking the consumer. Each phase runs under a watchdog
+(`SWIFT_GODOT_BINARY_CONSUMER_PHASE_TIMEOUT_SECONDS`, default 600) that dumps the
+active Swift toolchain processes and the phase log tail on timeout. The overall
+validation bound is the `consumer_validation_timeout` workflow input (default 25
+minutes).
+
+To diagnose a hosted download stall without rebuilding anything, run the `Release`
+workflow with **Diagnose published SwiftPM binary downloads** enabled. It probes each
+published artifact, then builds a clean consumer twice — once with SwiftPM
+prefetching enabled and once with `--disable-prefetching` — so the two paths can be
+compared on a GitHub-hosted macOS runner.
+
 ## License
 
 MIT — see [LICENSE](LICENSE).

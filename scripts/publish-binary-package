@@ -68,6 +68,9 @@ jq -e '.isDraft == false' <<< "$release_json" >/dev/null || {
     exit 1
 }
 
+# Reachability and checksum verification are reported separately from SwiftPM
+# resolution so a transport hang is distinguishable from a metadata mismatch.
+echo "PHASE BEGIN release-asset-verify: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
 while IFS=$'\t' read -r name url checksum; do
     asset_name=${url##*/}
     published_digest=$(jq -r --arg asset "$asset_name" '.assets[] | select(.name == $asset) | .digest' <<< "$release_json")
@@ -85,6 +88,7 @@ while IFS=$'\t' read -r name url checksum; do
         --write-out "$name: HTTP %{http_code}; first-byte %{time_starttransfer}s; total %{time_total}s; downloaded %{size_download} bytes\n" \
         "$url"
 done < <(jq -r '.artifacts[] | [.name, .url, .checksum] | @tsv' "$metadata_dir/binaries.json")
+echo "PHASE END release-asset-verify: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
 echo "Validating the exact public URL/checksum package on a clean runner..."
 scripts/test-binary-package-consumer "$metadata_dir"
