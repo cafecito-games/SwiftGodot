@@ -21,9 +21,12 @@ fi
 #
 # The per-phase bound is derived from the total validation budget when one is
 # supplied, so the watchdog always fires before the workflow's hard timeout can
-# kill the step. An explicit SWIFT_GODOT_BINARY_CONSUMER_PHASE_TIMEOUT_SECONDS
-# always wins; the ceiling keeps the default at a measured hosted-run stall
-# threshold rather than letting a generous budget stretch it out.
+# kill the step. The publisher step also probes the release assets and pushes
+# the binary tag, so a bounded slice of the budget is reserved for that pre/post
+# work before the remainder is split between the two consumer phases. An
+# explicit SWIFT_GODOT_BINARY_CONSUMER_PHASE_TIMEOUT_SECONDS always wins; the
+# ceiling keeps the default at a measured hosted-run stall threshold rather than
+# letting a generous budget stretch it out.
 phase_timeout_seconds=${SWIFT_GODOT_BINARY_CONSUMER_PHASE_TIMEOUT_SECONDS:-}
 if [[ -z $phase_timeout_seconds ]]; then
     total_minutes=${SWIFT_GODOT_BINARY_CONSUMER_TIMEOUT_MINUTES:-25}
@@ -31,7 +34,11 @@ if [[ -z $phase_timeout_seconds ]]; then
         echo "SWIFT_GODOT_BINARY_CONSUMER_TIMEOUT_MINUTES must be a positive integer" >&2
         exit 1
     fi
-    derived=$(( total_minutes * 60 / 2 ))
+    preflight_reserve_seconds=180
+    derived=$(( (total_minutes * 60 - preflight_reserve_seconds) / 2 ))
+    if [[ $derived -lt 60 ]]; then
+        derived=60
+    fi
     if [[ $derived -lt 600 ]]; then
         phase_timeout_seconds=$derived
     else
@@ -144,7 +151,9 @@ run_phase() {
     while kill -0 "$pid" 2>/dev/null; do
         sleep "$interval"
         elapsed=$((elapsed + interval))
-        if [[ $elapsed -ge $phase_timeout_seconds ]]; then
+        # Re-check liveness after the sleep: a phase that completed during the
+        # interval has succeeded and must not be reported as a timeout.
+        if kill -0 "$pid" 2>/dev/null && [[ $elapsed -ge $phase_timeout_seconds ]]; then
             echo "PHASE TIMEOUT $phase after ${elapsed}s: $(date -u +%Y-%m-%dT%H:%M:%SZ)" >&2
             dump_process_state "$phase"
             echo "--- $phase log tail ---" >&2

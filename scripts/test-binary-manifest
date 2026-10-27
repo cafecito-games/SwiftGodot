@@ -37,6 +37,7 @@ rg -q 'ps -axo' scripts/test-binary-package-consumer || fail "binary consumer ti
 rg -q 'pgrep -P' scripts/test-binary-package-consumer || fail "binary consumer timeout must terminate the whole SwiftPM process tree"
 rg -q 'SWIFT_GODOT_BINARY_CONSUMER_PHASE_TIMEOUT_SECONDS' scripts/test-binary-package-consumer || fail "binary consumer phase timeout must be configurable"
 rg -q 'SWIFT_GODOT_BINARY_CONSUMER_TIMEOUT_MINUTES' scripts/test-binary-package-consumer || fail "binary consumer phase timeout must derive from the total validation budget"
+rg -q 'preflight_reserve_seconds' scripts/test-binary-package-consumer || fail "binary consumer phase timeout must reserve budget for release-asset probing and publication"
 rg -q -- '--disable-prefetching' scripts/test-binary-package-consumer || fail "binary consumer validation must support disabling SwiftPM prefetching"
 rg -q -- '--enable-prefetching' scripts/test-binary-package-consumer || fail "binary consumer validation must keep prefetching on by default"
 rg -q 'PHASE BEGIN release-asset-verify' scripts/publish-binary-package || fail "publisher must report reachability/checksum failures separately from resolution"
