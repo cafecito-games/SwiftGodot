@@ -1,0 +1,133 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+fail() {
+    echo "FAIL: $*" >&2
+    exit 1
+}
+
+repo_root=$(pwd)
+real_git=$(command -v git)
+work_dir=$(mktemp -d)
+trap 'rm -rf "$work_dir"' EXIT
+mkdir -p "$work_dir/bin"
+
+cat > "$work_dir/bin/gh" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "$*" >> "$MOCK_GH_LOG"
+if [[ $1 == release && $2 == view ]]; then
+    if [[ " $* " == *" --json isDraft,isPrerelease,assets "* ]]; then
+        printf '%s\n' "$MOCK_RELEASE_ASSETS"
+    elif [[ " $* " == *" --json isDraft,isPrerelease "* ]]; then
+        printf '%s\n' "$MOCK_RELEASE_STATE"
+    fi
+    exit 0
+fi
+if [[ $1 == api && $2 == repos/*/git/ref/tags/* ]]; then
+    printf '%s\n' "$MOCK_TAG_COMMIT"
+    exit 0
+fi
+echo "Unexpected gh invocation: $*" >&2
+exit 1
+EOF
+
+cat > "$work_dir/bin/git" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ $1 == ls-remote ]]; then
+    exit 2
+fi
+exec "$REAL_GIT" "$@"
+EOF
+chmod +x "$work_dir/bin/gh" "$work_dir/bin/git"
+
+tag=v9.8.7
+commit=$(git rev-parse HEAD)
+notes="$work_dir/release-notes.md"
+android_aar="$work_dir/SwiftGodot-release.aar"
+printf 'resume test\n' > "$notes"
+printf 'test aar\n' > "$android_aar"
+
+good_assets=$(jq -cn '{
+    isDraft: false,
+    isPrerelease: true,
+    assets: [
+        {name:"SwiftGodot.xcframework.zip", digest:("sha256:" + ("a" * 64))},
+        {name:"GDExtensionC.xcframework.zip", digest:("sha256:" + ("b" * 64))},
+        {name:"SwiftGodotMacros.artifactbundle.zip", digest:("sha256:" + ("c" * 64))}
+    ]
+}')
+
+make_binary_repo() {
+    local path=$1
+    "$real_git" init -q -b main "$path"
+    "$real_git" -C "$path" config user.name test
+    "$real_git" -C "$path" config user.email test@example.com
+    printf 'Binaries/\n' > "$path/.gitignore"
+    "$real_git" -C "$path" add .gitignore
+    "$real_git" -C "$path" commit -q -m initial
+}
+
+run_resume() {
+    local binary_repo=$1
+    local state=$2
+    local tag_commit=$3
+    local assets=$4
+    MOCK_GH_LOG="$work_dir/gh.log" \
+    MOCK_RELEASE_STATE="$state" \
+    MOCK_TAG_COMMIT="$tag_commit" \
+    MOCK_RELEASE_ASSETS="$assets" \
+    REAL_GIT="$real_git" \
+    PATH="$work_dir/bin:$PATH" \
+    SWIFT_GODOT_SOURCE_REPO=owner/source \
+    SWIFT_GODOT_BINARY_REPO=owner/binary \
+    SWIFT_GODOT_BINARY_REPO_DIR="$binary_repo" \
+    SWIFT_GODOT_OUTPUT_DIR="$work_dir/output" \
+    SWIFT_GODOT_ANDROID_AAR="$android_aar" \
+    SWIFT_GODOT_DEFER_BINARY_PUBLISH=1 \
+        scripts/release "$tag" "$notes" "$commit"
+}
+
+binary_repo="$work_dir/binary-good"
+make_binary_repo "$binary_repo"
+: > "$work_dir/gh.log"
+run_resume "$binary_repo" $'false\ttrue' "$commit" "$good_assets"
+jq -e --arg tag "$tag" '
+    .version == $tag
+    and .artifacts[0].checksum == ("a" * 64)
+    and .artifacts[1].checksum == ("b" * 64)
+    and .artifacts[2].checksum == ("c" * 64)
+' "$binary_repo/binaries.json" >/dev/null || fail "resume metadata did not use published digests"
+rg -q "releases/download/$tag/SwiftGodot.xcframework.zip" "$binary_repo/Package.swift" || fail "resume manifest has the wrong release URL"
+if rg -q '^release create ' "$work_dir/gh.log"; then
+    fail "resume path attempted to recreate the source release"
+fi
+if [[ -d "$work_dir/output" ]]; then
+    fail "resume path rebuilt release products"
+fi
+
+binary_repo="$work_dir/binary-state-mismatch"
+make_binary_repo "$binary_repo"
+if run_resume "$binary_repo" $'false\tfalse' "$commit" "$good_assets" >/dev/null 2>&1; then
+    fail "resume accepted a stable source release"
+fi
+[[ ! -f "$binary_repo/binaries.json" ]] || fail "state mismatch mutated binary metadata"
+
+binary_repo="$work_dir/binary-commit-mismatch"
+make_binary_repo "$binary_repo"
+if run_resume "$binary_repo" $'false\ttrue' deadbeef "$good_assets" >/dev/null 2>&1; then
+    fail "resume accepted the wrong source commit"
+fi
+[[ ! -f "$binary_repo/binaries.json" ]] || fail "commit mismatch mutated binary metadata"
+
+bad_assets=$(jq -c '.assets[2].digest = null' <<< "$good_assets")
+binary_repo="$work_dir/binary-digest-mismatch"
+make_binary_repo "$binary_repo"
+if run_resume "$binary_repo" $'false\ttrue' "$commit" "$bad_assets" >/dev/null 2>&1; then
+    fail "resume accepted a missing published digest"
+fi
+[[ ! -f "$binary_repo/binaries.json" ]] || fail "digest mismatch mutated binary metadata"
+
+cd "$repo_root"
+echo "deferred release resume tests passed"

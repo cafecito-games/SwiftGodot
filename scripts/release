@@ -86,7 +86,7 @@ if [[ -z "${SWIFT_GODOT_NODEPLOY:-}" ]]; then
             exit 1
         fi
         resume_deferred_release=1
-        echo "Resuming byte-identical deferred source prerelease $source_repo@$tag."
+        echo "Resuming deferred source prerelease $source_repo@$tag."
     else
         if git rev-parse --verify "refs/tags/$tag" >/dev/null 2>&1; then
             echo "Source tag already exists locally: $tag"
@@ -103,6 +103,53 @@ if [[ -z "${SWIFT_GODOT_NODEPLOY:-}" ]]; then
     if git ls-remote --exit-code --tags "https://github.com/$binary_repo.git" "refs/tags/$tag" >/dev/null 2>&1; then
         echo "Binary tag already exists: $binary_repo@$tag"
         exit 1
+    fi
+
+    if [[ $resume_deferred_release == 1 ]]; then
+        existing_release_json=$(gh release view "$tag" --repo "$source_repo" --json isDraft,isPrerelease,assets)
+        published_checksum() {
+            local asset_name=$1
+            local digest
+            digest=$(jq -r --arg asset "$asset_name" '.assets[] | select(.name == $asset) | .digest' <<< "$existing_release_json")
+            if [[ ! $digest =~ ^sha256:[0-9a-f]{64}$ ]]; then
+                echo "Existing prerelease has no usable SHA-256 digest for $asset_name" >&2
+                exit 1
+            fi
+            printf '%s\n' "${digest#sha256:}"
+        }
+
+        swiftgodot_checksum=$(published_checksum SwiftGodot.xcframework.zip)
+        gdextension_checksum=$(published_checksum GDExtensionC.xcframework.zip)
+        macro_checksum=$(published_checksum SwiftGodotMacros.artifactbundle.zip)
+        cat > "$binary_repo_dir/binaries.json" <<EOF
+{
+  "version": "$tag",
+  "sourceRepo": "$source_repo",
+  "artifacts": [
+    {
+      "name": "SwiftGodot",
+      "file": "SwiftGodot.xcframework.zip",
+      "url": "https://github.com/$source_repo/releases/download/$tag/SwiftGodot.xcframework.zip",
+      "checksum": "$swiftgodot_checksum"
+    },
+    {
+      "name": "GDExtensionC",
+      "file": "GDExtensionC.xcframework.zip",
+      "url": "https://github.com/$source_repo/releases/download/$tag/GDExtensionC.xcframework.zip",
+      "checksum": "$gdextension_checksum"
+    },
+    {
+      "name": "SwiftGodotMacroLibrary",
+      "file": "SwiftGodotMacros.artifactbundle.zip",
+      "url": "https://github.com/$source_repo/releases/download/$tag/SwiftGodotMacros.artifactbundle.zip",
+      "checksum": "$macro_checksum"
+    }
+  ]
+}
+EOF
+        scripts/generate-binary-package-manifest "$binary_repo_dir/binaries.json" "$binary_repo_dir/Package.swift"
+        echo "Regenerated binary-package metadata from the existing immutable prerelease assets."
+        exit 0
     fi
 fi
 
@@ -317,26 +364,7 @@ EOF
 scripts/generate-binary-package-manifest "$binary_repo_dir/binaries.json" "$binary_repo_dir/Package.swift"
 
 release_assets=("$zip_path" "$gdextension_zip_path" "$macro_zip_path" "$android_aar" "$addon_zip_path" "${addon_slice_assets[@]}")
-if [[ $resume_deferred_release == 1 ]]; then
-    existing_release_json=$(gh release view "$tag" --repo "$source_repo" --json isDraft,isPrerelease,assets)
-    expected_asset_count=${#release_assets[@]}
-    published_asset_count=$(jq '.assets | length' <<< "$existing_release_json")
-    if [[ $published_asset_count -ne $expected_asset_count ]]; then
-        echo "Existing prerelease has $published_asset_count assets; expected $expected_asset_count" >&2
-        exit 1
-    fi
-    for asset_path in "${release_assets[@]}"; do
-        asset_name=${asset_path##*/}
-        local_digest=$(shasum -a 256 "$asset_path" | awk '{print $1}')
-        published_digest=$(jq -r --arg asset "$asset_name" '.assets[] | select(.name == $asset) | .digest' <<< "$existing_release_json")
-        if [[ $published_digest != "sha256:$local_digest" ]]; then
-            echo "Existing prerelease asset $asset_name has $published_digest; expected sha256:$local_digest" >&2
-            exit 1
-        fi
-    done
-    echo "Existing deferred source prerelease is byte-identical; reusing it."
-    exit 0
-elif [[ -n $defer_binary_publish ]]; then
+if [[ -n $defer_binary_publish ]]; then
     release_created=1
     echo "Creating public source prerelease $source_repo@$tag..."
     gh release create "$tag" "${release_assets[@]}" -R "$source_repo" -F "$release_notes" --target "$commit" --prerelease

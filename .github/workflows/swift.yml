@@ -103,6 +103,7 @@ jobs:
         scripts/test-make-swiftgodot-framework
         scripts/test-release-build-configuration
         scripts/test-binary-manifest
+        scripts/test-deferred-release-resume
         scripts/test-package-resolution
         scripts/test-distribution-package-staging
         scripts/test-android-ci-topology
