@@ -13,7 +13,7 @@ rg -q '"checksum": "\$gdextension_checksum"' scripts/release || fail "GDExtensio
 rg -q '"name": "GDExtensionC"' scripts/release || fail "binaries.json must include GDExtensionC"
 rg -q '"macroSources"' scripts/release || fail "binaries.json must record macro source provenance"
 rg -q 'Sources/SwiftGodotMacroLibrary' scripts/release || fail "release must stage the macro implementation sources"
-rg -q 'git diff --quiet "\$commit" -- Sources/SwiftGodotMacroLibrary' scripts/release || fail "release must verify macro sources against the release commit"
+rg -q 'git archive "\$commit" Sources/SwiftGodotMacroLibrary' scripts/release || fail "release must extract macro sources from the release commit"
 rg -q 'scripts/generate-binary-package-manifest' scripts/release || fail "release must generate the remote binary package from binaries.json"
 rg -q 'artifact\["url"\]' scripts/generate-binary-package-manifest || fail "binary targets must use release URLs"
 rg -q 'artifact\["checksum"\]' scripts/generate-binary-package-manifest || fail "binary targets must use computed checksums"

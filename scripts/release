@@ -54,19 +54,23 @@ if [[ ! -x scripts/build-distribution-products || ! -x scripts/make-swiftgodot-f
 fi
 
 commit=$(git rev-parse "$commit^{commit}")
-if ! git diff --quiet "$commit" -- Sources/SwiftGodotMacroLibrary; then
-    echo "SwiftGodotMacroLibrary sources do not match release commit $commit" >&2
-    exit 1
-fi
 
 write_binary_package_metadata() {
     local swiftgodot_checksum=$1
     local gdextension_checksum=$2
+    local macro_source_archive
 
+    macro_source_archive=$(mktemp -d)
+    if ! git archive "$commit" Sources/SwiftGodotMacroLibrary | tar -x -C "$macro_source_archive"; then
+        rm -rf "$macro_source_archive"
+        echo "Could not extract SwiftGodotMacroLibrary from release commit $commit" >&2
+        return 1
+    fi
     mkdir -p "$binary_repo_dir/Sources/SwiftGodotMacroLibrary"
     rsync -a --delete \
-        Sources/SwiftGodotMacroLibrary/ \
+        "$macro_source_archive/Sources/SwiftGodotMacroLibrary/" \
         "$binary_repo_dir/Sources/SwiftGodotMacroLibrary/"
+    rm -rf "$macro_source_archive"
 
     cat > "$binary_repo_dir/binaries.json" <<EOF
 {

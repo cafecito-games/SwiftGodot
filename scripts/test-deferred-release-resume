@@ -9,7 +9,8 @@ fail() {
 repo_root=$(pwd)
 real_git=$(command -v git)
 work_dir=$(mktemp -d)
-trap 'rm -rf "$work_dir"' EXIT
+untracked_macro_probe="$repo_root/Sources/SwiftGodotMacroLibrary/.release-untracked-probe"
+trap 'rm -rf "$work_dir"; rm -f "$untracked_macro_probe"' EXIT
 mkdir -p "$work_dir/bin"
 
 cat > "$work_dir/bin/gh" <<'EOF'
@@ -91,6 +92,7 @@ run_resume() {
 binary_repo="$work_dir/binary-good"
 make_binary_repo "$binary_repo"
 : > "$work_dir/gh.log"
+printf 'must not be published\n' > "$untracked_macro_probe"
 run_resume "$binary_repo" $'false\ttrue' "$commit" "$good_assets"
 jq -e --arg tag "$tag" --arg commit "$commit" '
     .version == $tag
@@ -100,6 +102,8 @@ jq -e --arg tag "$tag" --arg commit "$commit" '
 ' "$binary_repo/binaries.json" >/dev/null || fail "resume metadata did not use published digests"
 rg -q "releases/download/$tag/SwiftGodot.xcframework.zip" "$binary_repo/Package.swift" || fail "resume manifest has the wrong release URL"
 [[ -f "$binary_repo/Sources/SwiftGodotMacroLibrary/MacroGodot.swift" ]] || fail "resume did not stage macro sources"
+[[ ! -e "$binary_repo/Sources/SwiftGodotMacroLibrary/.release-untracked-probe" ]] || fail "resume staged an untracked macro source"
+rm -f "$untracked_macro_probe"
 if rg -q '^release create ' "$work_dir/gh.log"; then
     fail "resume path attempted to recreate the source release"
 fi

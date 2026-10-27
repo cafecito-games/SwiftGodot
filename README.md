@@ -39,7 +39,7 @@ let package = Package(
 )
 ```
 
-**Binary (xcframework + prebuilt macro plugin)** — faster iteration, no source compilation, no `swift-syntax` dependency. Published at [cafecito-games/SwiftGodotBinary](https://github.com/cafecito-games/SwiftGodotBinary):
+**Binary runtime (xcframeworks + source macro target)** — avoids compiling SwiftGodot's generated bindings and generators. Published at [cafecito-games/SwiftGodotBinary](https://github.com/cafecito-games/SwiftGodotBinary):
 
 ```swift
 dependencies: [
@@ -55,7 +55,7 @@ targets: [
 ]
 ```
 
-The `SwiftGodot` product carries the prebuilt runtime *and* the prebuilt macro compiler plugin, so `@Godot`, `@Callable`, `@Export`, `#initSwiftExtension`, etc. work without depending on `swift-syntax` or building macros from source. The plugin is shipped as a universal macOS (arm64 + x86_64) artifact bundle; Linux consumers must use the source build above.
+The `SwiftGodot` product downloads prebuilt `SwiftGodot` and `GDExtensionC` XCFrameworks and builds only `SwiftGodotMacroLibrary` from source, so `@Godot`, `@Callable`, `@Export`, `#initSwiftExtension`, and the other macros work through SwiftPM's supported macro-target model. This package therefore depends on `swift-syntax`; a cold build may fetch or compile it when the selected toolchain has no compatible prebuilt SwiftSyntax modules. Subsequent builds reuse SwiftPM's cache. Consumers that must build fully offline need both the binary artifacts and Swift package dependencies cached in advance. The XCFramework package supports Apple platforms; Linux consumers must use the source build above.
 
 ## Using SwiftGodot as a Godot addon
 
