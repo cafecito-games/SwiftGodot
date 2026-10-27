@@ -33,9 +33,6 @@ for asset in "${assets[@]}"; do
         GDExtensionC.xcframework.zip)
             target_name=GDExtensionC
             ;;
-        SwiftGodotMacros.artifactbundle.zip)
-            target_name=SwiftGodotMacroLibrary
-            ;;
         *)
             echo "Unsupported diagnostic asset: $asset" >&2
             exit 1

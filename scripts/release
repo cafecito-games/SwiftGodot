@@ -48,12 +48,53 @@ if [[ ! -f "$release_notes" ]]; then
     exit 1
 fi
 
-if [[ ! -x scripts/build-distribution-products || ! -x scripts/make-swiftgodot-framework || ! -x scripts/build-macro-artifactbundle || ! -x scripts/package-godot-addon || ! -x scripts/build-gdextension-shim || ! -x scripts/validate-addon-slices ]]; then
+if [[ ! -x scripts/build-distribution-products || ! -x scripts/make-swiftgodot-framework || ! -x scripts/package-godot-addon || ! -x scripts/build-gdextension-shim || ! -x scripts/validate-addon-slices ]]; then
     echo "Expected this to run from the SwiftGodot directory"
     exit 1
 fi
 
-git rev-parse --verify "$commit^{commit}" >/dev/null
+commit=$(git rev-parse "$commit^{commit}")
+if ! git diff --quiet "$commit" -- Sources/SwiftGodotMacroLibrary; then
+    echo "SwiftGodotMacroLibrary sources do not match release commit $commit" >&2
+    exit 1
+fi
+
+write_binary_package_metadata() {
+    local swiftgodot_checksum=$1
+    local gdextension_checksum=$2
+
+    mkdir -p "$binary_repo_dir/Sources/SwiftGodotMacroLibrary"
+    rsync -a --delete \
+        Sources/SwiftGodotMacroLibrary/ \
+        "$binary_repo_dir/Sources/SwiftGodotMacroLibrary/"
+
+    cat > "$binary_repo_dir/binaries.json" <<EOF
+{
+  "version": "$tag",
+  "sourceRepo": "$source_repo",
+  "macroSources": {
+    "path": "Sources/SwiftGodotMacroLibrary",
+    "sourceCommit": "$commit"
+  },
+  "artifacts": [
+    {
+      "name": "SwiftGodot",
+      "file": "SwiftGodot.xcframework.zip",
+      "url": "https://github.com/$source_repo/releases/download/$tag/SwiftGodot.xcframework.zip",
+      "checksum": "$swiftgodot_checksum"
+    },
+    {
+      "name": "GDExtensionC",
+      "file": "GDExtensionC.xcframework.zip",
+      "url": "https://github.com/$source_repo/releases/download/$tag/GDExtensionC.xcframework.zip",
+      "checksum": "$gdextension_checksum"
+    }
+  ]
+}
+EOF
+
+    scripts/generate-binary-package-manifest "$binary_repo_dir/binaries.json" "$binary_repo_dir/Package.swift"
+}
 
 local_tag_created=0
 resume_deferred_release=0
@@ -80,7 +121,7 @@ if [[ -z "${SWIFT_GODOT_NODEPLOY:-}" ]]; then
 
     if [[ -n $defer_binary_publish ]] && gh release view "$tag" --repo "$source_repo" >/dev/null 2>&1; then
         existing_release_state=$(gh release view "$tag" --repo "$source_repo" --json isDraft,isPrerelease --jq '[.isDraft, .isPrerelease] | @tsv')
-        existing_tag_commit=$(gh api "repos/$source_repo/git/ref/tags/$tag" --jq '.object.sha')
+        existing_tag_commit=$(gh api "repos/$source_repo/commits/$tag" --jq '.sha')
         if [[ $existing_release_state != $'false\ttrue' || $existing_tag_commit != "$commit" ]]; then
             echo "Existing source release $source_repo@$tag is not the expected prerelease at $commit" >&2
             exit 1
@@ -120,34 +161,7 @@ if [[ -z "${SWIFT_GODOT_NODEPLOY:-}" ]]; then
 
         swiftgodot_checksum=$(published_checksum SwiftGodot.xcframework.zip)
         gdextension_checksum=$(published_checksum GDExtensionC.xcframework.zip)
-        macro_checksum=$(published_checksum SwiftGodotMacros.artifactbundle.zip)
-        cat > "$binary_repo_dir/binaries.json" <<EOF
-{
-  "version": "$tag",
-  "sourceRepo": "$source_repo",
-  "artifacts": [
-    {
-      "name": "SwiftGodot",
-      "file": "SwiftGodot.xcframework.zip",
-      "url": "https://github.com/$source_repo/releases/download/$tag/SwiftGodot.xcframework.zip",
-      "checksum": "$swiftgodot_checksum"
-    },
-    {
-      "name": "GDExtensionC",
-      "file": "GDExtensionC.xcframework.zip",
-      "url": "https://github.com/$source_repo/releases/download/$tag/GDExtensionC.xcframework.zip",
-      "checksum": "$gdextension_checksum"
-    },
-    {
-      "name": "SwiftGodotMacroLibrary",
-      "file": "SwiftGodotMacros.artifactbundle.zip",
-      "url": "https://github.com/$source_repo/releases/download/$tag/SwiftGodotMacros.artifactbundle.zip",
-      "checksum": "$macro_checksum"
-    }
-  ]
-}
-EOF
-        scripts/generate-binary-package-manifest "$binary_repo_dir/binaries.json" "$binary_repo_dir/Package.swift"
+        write_binary_package_metadata "$swiftgodot_checksum" "$gdextension_checksum"
         echo "Regenerated binary-package metadata from the existing immutable prerelease assets."
         exit 0
     fi
@@ -314,56 +328,15 @@ fi
 
 zip_path="$output_dir/SwiftGodot.xcframework.zip"
 (cd "$output_dir"; ditto -c -k --sequesterRsrc --keepParent SwiftGodot.xcframework SwiftGodot.xcframework.zip)
-asset_url="https://github.com/$source_repo/releases/download/$tag/SwiftGodot.xcframework.zip"
 swiftgodot_checksum=$(swift package compute-checksum "$zip_path")
 
 gdextension_zip_path="$output_dir/GDExtensionC.xcframework.zip"
 (cd "$output_dir"; ditto -c -k --sequesterRsrc --keepParent GDExtensionC.xcframework GDExtensionC.xcframework.zip)
-gdextension_asset_url="https://github.com/$source_repo/releases/download/$tag/GDExtensionC.xcframework.zip"
 gdextension_checksum=$(swift package compute-checksum "$gdextension_zip_path")
 
-scripts/build-macro-artifactbundle "$output_dir" "$tag"
-macro_zip_path="$output_dir/SwiftGodotMacros.artifactbundle.zip"
-macro_asset_url="https://github.com/$source_repo/releases/download/$tag/SwiftGodotMacros.artifactbundle.zip"
-macro_checksum=$(swift package compute-checksum "$macro_zip_path")
+write_binary_package_metadata "$swiftgodot_checksum" "$gdextension_checksum"
 
-# Drop any previously vendored SwiftGodotMacroLibrary sources; we now ship a
-# prebuilt compiler plugin via SwiftGodotMacros.artifactbundle.zip.
-rm -rf "$binary_repo_dir/Sources/SwiftGodotMacroLibrary"
-
-# Write binaries.json as the provenance source for the remotely consumable
-# SwiftPM package. The generated Package.swift derives its URLs and checksums
-# from this exact metadata.
-cat > "$binary_repo_dir/binaries.json" <<EOF
-{
-  "version": "$tag",
-  "sourceRepo": "$source_repo",
-  "artifacts": [
-    {
-      "name": "SwiftGodot",
-      "file": "SwiftGodot.xcframework.zip",
-      "url": "$asset_url",
-      "checksum": "$swiftgodot_checksum"
-    },
-    {
-      "name": "GDExtensionC",
-      "file": "GDExtensionC.xcframework.zip",
-      "url": "$gdextension_asset_url",
-      "checksum": "$gdextension_checksum"
-    },
-    {
-      "name": "SwiftGodotMacroLibrary",
-      "file": "SwiftGodotMacros.artifactbundle.zip",
-      "url": "$macro_asset_url",
-      "checksum": "$macro_checksum"
-    }
-  ]
-}
-EOF
-
-scripts/generate-binary-package-manifest "$binary_repo_dir/binaries.json" "$binary_repo_dir/Package.swift"
-
-release_assets=("$zip_path" "$gdextension_zip_path" "$macro_zip_path" "$android_aar" "$addon_zip_path" "${addon_slice_assets[@]}")
+release_assets=("$zip_path" "$gdextension_zip_path" "$android_aar" "$addon_zip_path" "${addon_slice_assets[@]}")
 if [[ -n $defer_binary_publish ]]; then
     release_created=1
     echo "Creating public source prerelease $source_repo@$tag..."
@@ -385,12 +358,9 @@ echo "Published binary package consumer validation passed."
 
 (
     cd "$binary_repo_dir"
-    git add Package.swift binaries.json .gitignore
+    git add Package.swift binaries.json Sources/SwiftGodotMacroLibrary .gitignore
     if [[ -d Sources/GDExtension ]] || git ls-files --error-unmatch Sources/GDExtension >/dev/null 2>&1; then
         git rm -rf --ignore-unmatch Sources/GDExtension
-    fi
-    if [[ -d Sources/SwiftGodotMacroLibrary ]] || git ls-files --error-unmatch Sources/SwiftGodotMacroLibrary >/dev/null 2>&1; then
-        git rm -rf --ignore-unmatch Sources/SwiftGodotMacroLibrary
     fi
     git commit -m "Update to $tag"
     git tag "$tag"

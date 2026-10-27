@@ -24,7 +24,7 @@ if [[ $1 == release && $2 == view ]]; then
     fi
     exit 0
 fi
-if [[ $1 == api && $2 == repos/*/git/ref/tags/* ]]; then
+if [[ $1 == api && $2 == repos/*/commits/* ]]; then
     printf '%s\n' "$MOCK_TAG_COMMIT"
     exit 0
 fi
@@ -54,8 +54,7 @@ good_assets=$(jq -cn '{
     isPrerelease: true,
     assets: [
         {name:"SwiftGodot.xcframework.zip", digest:("sha256:" + ("a" * 64))},
-        {name:"GDExtensionC.xcframework.zip", digest:("sha256:" + ("b" * 64))},
-        {name:"SwiftGodotMacros.artifactbundle.zip", digest:("sha256:" + ("c" * 64))}
+        {name:"GDExtensionC.xcframework.zip", digest:("sha256:" + ("b" * 64))}
     ]
 }')
 
@@ -93,13 +92,14 @@ binary_repo="$work_dir/binary-good"
 make_binary_repo "$binary_repo"
 : > "$work_dir/gh.log"
 run_resume "$binary_repo" $'false\ttrue' "$commit" "$good_assets"
-jq -e --arg tag "$tag" '
+jq -e --arg tag "$tag" --arg commit "$commit" '
     .version == $tag
     and .artifacts[0].checksum == ("a" * 64)
     and .artifacts[1].checksum == ("b" * 64)
-    and .artifacts[2].checksum == ("c" * 64)
+    and .macroSources.sourceCommit == $commit
 ' "$binary_repo/binaries.json" >/dev/null || fail "resume metadata did not use published digests"
 rg -q "releases/download/$tag/SwiftGodot.xcframework.zip" "$binary_repo/Package.swift" || fail "resume manifest has the wrong release URL"
+[[ -f "$binary_repo/Sources/SwiftGodotMacroLibrary/MacroGodot.swift" ]] || fail "resume did not stage macro sources"
 if rg -q '^release create ' "$work_dir/gh.log"; then
     fail "resume path attempted to recreate the source release"
 fi
@@ -121,7 +121,7 @@ if run_resume "$binary_repo" $'false\ttrue' deadbeef "$good_assets" >/dev/null 2
 fi
 [[ ! -f "$binary_repo/binaries.json" ]] || fail "commit mismatch mutated binary metadata"
 
-bad_assets=$(jq -c '.assets[2].digest = null' <<< "$good_assets")
+bad_assets=$(jq -c '.assets[1].digest = null' <<< "$good_assets")
 binary_repo="$work_dir/binary-digest-mismatch"
 make_binary_repo "$binary_repo"
 if run_resume "$binary_repo" $'false\ttrue' "$commit" "$bad_assets" >/dev/null 2>&1; then

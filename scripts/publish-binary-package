@@ -18,8 +18,8 @@ if [[ ! $tag =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
     echo "Expected a stable vMAJOR.MINOR.PATCH tag: $tag" >&2
     exit 1
 fi
-if [[ ! -f "$metadata_dir/Package.swift" || ! -f "$metadata_dir/binaries.json" ]]; then
-    echo "Expected Package.swift and binaries.json in $metadata_dir" >&2
+if [[ ! -f "$metadata_dir/Package.swift" || ! -f "$metadata_dir/binaries.json" || ! -d "$metadata_dir/Sources/SwiftGodotMacroLibrary" ]]; then
+    echo "Expected Package.swift, binaries.json, and SwiftGodotMacroLibrary sources in $metadata_dir" >&2
     exit 1
 fi
 if [[ ! -d "$binary_repo_dir/.git" ]]; then
@@ -37,15 +37,28 @@ cmp "$metadata_dir/Package.swift" "$work_dir/Package.swift" || {
 }
 
 jq -e --arg tag "$tag" --arg source_repo "$source_repo" \
-    '.version == $tag and .sourceRepo == $source_repo and (.artifacts | length == 3)' \
+    '.version == $tag
+     and .sourceRepo == $source_repo
+     and .macroSources.path == "Sources/SwiftGodotMacroLibrary"
+     and (.artifacts | length == 2)' \
     "$metadata_dir/binaries.json" >/dev/null || {
     echo "Binary metadata does not match $source_repo@$tag" >&2
     exit 1
 }
 
-source_tag_commit=$(gh api "repos/$source_repo/git/ref/tags/$tag" --jq '.object.sha')
+source_tag_commit=$(gh api "repos/$source_repo/commits/$tag" --jq '.sha')
 if [[ $source_tag_commit != "$commit" ]]; then
     echo "Source tag $source_repo@$tag points to $source_tag_commit, expected $commit" >&2
+    exit 1
+fi
+jq -e --arg commit "$commit" '.macroSources.sourceCommit == $commit' \
+    "$metadata_dir/binaries.json" >/dev/null || {
+    echo "Binary metadata macro source commit does not match $commit" >&2
+    exit 1
+}
+if ! git diff --quiet "$commit" -- Sources/SwiftGodotMacroLibrary ||
+    ! diff -qr Sources/SwiftGodotMacroLibrary "$metadata_dir/Sources/SwiftGodotMacroLibrary" >/dev/null; then
+    echo "Staged macro sources do not match $source_repo@$commit" >&2
     exit 1
 fi
 
@@ -99,16 +112,22 @@ scripts/test-binary-package-consumer "$metadata_dir"
         cmp "$metadata_dir/binaries.json" "$work_dir/tag-binaries.json"
         cmp "$metadata_dir/Package.swift" Package.swift
         cmp "$metadata_dir/binaries.json" binaries.json
+        diff -qr "$metadata_dir/Sources/SwiftGodotMacroLibrary" Sources/SwiftGodotMacroLibrary
+        git diff --quiet "$tag" -- Sources/SwiftGodotMacroLibrary || {
+            echo "$binary_repo@$tag and $binary_branch contain different macro sources" >&2
+            exit 1
+        }
         echo "$binary_repo@$tag and $binary_branch already contain the expected metadata."
     elif [[ $tag_probe_status -eq 2 ]]; then
         cp "$metadata_dir/Package.swift" Package.swift
         cp "$metadata_dir/binaries.json" binaries.json
-        git add Package.swift binaries.json .gitignore
+        mkdir -p Sources/SwiftGodotMacroLibrary
+        rsync -a --delete \
+            "$metadata_dir/Sources/SwiftGodotMacroLibrary/" \
+            Sources/SwiftGodotMacroLibrary/
+        git add Package.swift binaries.json Sources/SwiftGodotMacroLibrary .gitignore
         if [[ -d Sources/GDExtension ]] || git ls-files --error-unmatch Sources/GDExtension >/dev/null 2>&1; then
             git rm -rf --ignore-unmatch Sources/GDExtension
-        fi
-        if [[ -d Sources/SwiftGodotMacroLibrary ]] || git ls-files --error-unmatch Sources/SwiftGodotMacroLibrary >/dev/null 2>&1; then
-            git rm -rf --ignore-unmatch Sources/SwiftGodotMacroLibrary
         fi
         git commit -m "Update to $tag"
         git tag "$tag"
