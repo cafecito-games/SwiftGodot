@@ -1,0 +1,128 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ $# -ne 4 ]]; then
+    echo "Usage: scripts/publish-binary-package TAG METADATA_DIR BINARY_REPO_DIR COMMIT" >&2
+    exit 1
+fi
+
+tag=$1
+metadata_dir=$(cd "$2" && pwd)
+binary_repo_dir=$(cd "$3" && pwd)
+commit=$4
+source_repo=${SWIFT_GODOT_SOURCE_REPO:-cafecito-games/SwiftGodot}
+binary_repo=${SWIFT_GODOT_BINARY_REPO:-cafecito-games/SwiftGodotBinary}
+binary_branch=${SWIFT_GODOT_BINARY_BRANCH:-main}
+
+if [[ ! $tag =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    echo "Expected a stable vMAJOR.MINOR.PATCH tag: $tag" >&2
+    exit 1
+fi
+if [[ ! -f "$metadata_dir/Package.swift" || ! -f "$metadata_dir/binaries.json" ]]; then
+    echo "Expected Package.swift and binaries.json in $metadata_dir" >&2
+    exit 1
+fi
+if [[ ! -d "$binary_repo_dir/.git" ]]; then
+    echo "Expected a checkout of $binary_repo at $binary_repo_dir" >&2
+    exit 1
+fi
+
+work_dir=$(mktemp -d)
+trap 'rm -rf "$work_dir"' EXIT
+
+scripts/generate-binary-package-manifest "$metadata_dir/binaries.json" "$work_dir/Package.swift"
+cmp "$metadata_dir/Package.swift" "$work_dir/Package.swift" || {
+    echo "Package.swift does not match the manifest generated from binaries.json" >&2
+    exit 1
+}
+
+jq -e --arg tag "$tag" --arg source_repo "$source_repo" \
+    '.version == $tag and .sourceRepo == $source_repo and (.artifacts | length == 3)' \
+    "$metadata_dir/binaries.json" >/dev/null || {
+    echo "Binary metadata does not match $source_repo@$tag" >&2
+    exit 1
+}
+
+source_tag_commit=$(gh api "repos/$source_repo/git/ref/tags/$tag" --jq '.object.sha')
+if [[ $source_tag_commit != "$commit" ]]; then
+    echo "Source tag $source_repo@$tag points to $source_tag_commit, expected $commit" >&2
+    exit 1
+fi
+
+release_json=$(gh release view "$tag" --repo "$source_repo" --json isDraft,isPrerelease,assets)
+jq -e '.isDraft == false' <<< "$release_json" >/dev/null || {
+    echo "Source release $source_repo@$tag must be public, not draft" >&2
+    exit 1
+}
+
+while IFS=$'\t' read -r name url checksum; do
+    asset_name=${url##*/}
+    published_digest=$(jq -r --arg asset "$asset_name" '.assets[] | select(.name == $asset) | .digest' <<< "$release_json")
+    if [[ $published_digest != "sha256:$checksum" ]]; then
+        echo "$name digest mismatch: release has $published_digest, metadata has sha256:$checksum" >&2
+        exit 1
+    fi
+
+    echo "Probing $name at $url..."
+    curl --fail --location --silent --show-error \
+        --connect-timeout 10 \
+        --max-time 60 \
+        --range 0-0 \
+        --output /dev/null \
+        --write-out "$name: HTTP %{http_code}; first-byte %{time_starttransfer}s; total %{time_total}s; downloaded %{size_download} bytes\n" \
+        "$url"
+done < <(jq -r '.artifacts[] | [.name, .url, .checksum] | @tsv' "$metadata_dir/binaries.json")
+
+echo "Validating the exact public URL/checksum package on a clean runner..."
+scripts/test-binary-package-consumer "$metadata_dir"
+
+(
+    cd "$binary_repo_dir"
+    if ! git diff --quiet || ! git diff --cached --quiet; then
+        echo "Binary repo has uncommitted changes: $binary_repo_dir" >&2
+        exit 1
+    fi
+
+    git fetch origin "$binary_branch"
+    git checkout -B "$binary_branch" "origin/$binary_branch"
+
+    set +e
+    tag_probe=$(git ls-remote --exit-code --tags origin "refs/tags/$tag" 2>&1)
+    tag_probe_status=$?
+    set -e
+
+    if [[ $tag_probe_status -eq 0 ]]; then
+        git fetch origin "refs/tags/$tag:refs/tags/$tag"
+        git show "$tag:Package.swift" > "$work_dir/tag-Package.swift"
+        git show "$tag:binaries.json" > "$work_dir/tag-binaries.json"
+        cmp "$metadata_dir/Package.swift" "$work_dir/tag-Package.swift"
+        cmp "$metadata_dir/binaries.json" "$work_dir/tag-binaries.json"
+        cmp "$metadata_dir/Package.swift" Package.swift
+        cmp "$metadata_dir/binaries.json" binaries.json
+        echo "$binary_repo@$tag and $binary_branch already contain the expected metadata."
+    elif [[ $tag_probe_status -eq 2 ]]; then
+        cp "$metadata_dir/Package.swift" Package.swift
+        cp "$metadata_dir/binaries.json" binaries.json
+        git add Package.swift binaries.json .gitignore
+        if [[ -d Sources/GDExtension ]] || git ls-files --error-unmatch Sources/GDExtension >/dev/null 2>&1; then
+            git rm -rf --ignore-unmatch Sources/GDExtension
+        fi
+        if [[ -d Sources/SwiftGodotMacroLibrary ]] || git ls-files --error-unmatch Sources/SwiftGodotMacroLibrary >/dev/null 2>&1; then
+            git rm -rf --ignore-unmatch Sources/SwiftGodotMacroLibrary
+        fi
+        git commit -m "Update to $tag"
+        git tag "$tag"
+        echo "Atomically publishing the binary branch and $tag..."
+        git push --atomic -u origin "$binary_branch" "$tag"
+    else
+        echo "Could not determine whether $binary_repo@$tag exists: $tag_probe" >&2
+        exit 1
+    fi
+)
+
+echo "Promoting $source_repo@$tag from prerelease to stable..."
+gh release edit "$tag" --repo "$source_repo" --prerelease=false --latest
+gh release view "$tag" --repo "$source_repo" --json isDraft,isPrerelease --jq \
+    'select(.isDraft == false and .isPrerelease == false)' >/dev/null
+
+echo "Published and promoted $source_repo@$tag with $binary_repo@$tag."

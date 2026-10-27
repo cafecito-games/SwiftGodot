@@ -43,16 +43,17 @@ public enum BinaryConsumerProbe {
 }
 EOF
 
-echo "Resolving and building the remote binary package with serialized SwiftPM operations..."
-SWIFTPM_MAX_CONCURRENT_OPERATIONS=1 swift build \
+echo "Resolving and building the remote binary package with a fresh SwiftPM cache..."
+swift build \
     --package-path "$work_dir" \
     --product BinaryConsumerProbe \
     --configuration release \
     --jobs 1 \
     --verbose \
+    --cache-path "$work_dir/cache" \
     --scratch-path "$work_dir/.build"
 
-if otool -L "$work_dir/.build/release/libBinaryConsumerProbe.dylib" | rg -q 'GDExtensionC'; then
+if otool -L "$work_dir/.build/release/libBinaryConsumerProbe.dylib" | grep -q 'GDExtensionC'; then
     echo "GDExtensionC must remain a static build-only dependency" >&2
     exit 1
 fi

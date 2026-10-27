@@ -20,10 +20,11 @@ if rg -q 'path: "Binaries/' scripts/release scripts/generate-binary-package-mani
     fail "remote binary package must not reference hydrated local Binaries paths"
 fi
 rg -q 'scripts/test-binary-package-consumer "\$binary_repo_dir"' scripts/release || fail "release must clean-build a binary-package consumer before publishing"
-rg -q 'SWIFTPM_MAX_CONCURRENT_OPERATIONS=1 swift build' scripts/test-binary-package-consumer || fail "binary consumer must serialize SwiftPM artifact downloads"
 rg -q -- '--jobs 1' scripts/test-binary-package-consumer || fail "binary consumer build must use one worker"
 rg -q -- '--verbose' scripts/test-binary-package-consumer || fail "binary consumer build must emit diagnostic progress"
-release_line=$(rg -n 'gh release create' scripts/release | cut -d: -f1)
+rg -q -- '--cache-path "\$work_dir/cache"' scripts/test-binary-package-consumer || fail "binary consumer must use a fresh SwiftPM cache"
+rg -q 'otool .* \| grep -q' scripts/test-binary-package-consumer || fail "binary consumer must use a runner-available linkage assertion"
+release_line=$(rg -n 'gh release create' scripts/release | cut -d: -f1 | tail -n 1)
 consumer_line=$(rg -n 'scripts/test-binary-package-consumer "\$binary_repo_dir"' scripts/release | cut -d: -f1)
 [[ -n "$release_line" && -n "$consumer_line" && "$consumer_line" -gt "$release_line" ]] || fail "remote consumer test must run after release assets exist"
 flag_line=$(rg -n '^release_created=1$' scripts/release | cut -d: -f1)
@@ -36,6 +37,22 @@ release_job=$(awk '
 grep -q '^    timeout-minutes: 45$' <<< "$release_job" || fail "release publication job must have a 45-minute hard timeout"
 release_step=$(grep -A1 '^      - name: Run release script$' <<< "$release_job")
 grep -q '^        timeout-minutes: 30$' <<< "$release_step" || fail "release script step must have a 30-minute hard timeout"
+rg -q 'SWIFT_GODOT_DEFER_BINARY_PUBLISH: 1' .github/workflows/release.yml || fail "heavy release job must defer binary validation to a clean runner"
+rg -q -- '--prerelease' scripts/release || fail "deferred source release must remain a prerelease until binary validation passes"
+rg -q 'scripts/publish-binary-package' .github/workflows/release.yml || fail "release workflow must publish binary metadata from a clean job"
+publish_job=$(awk '
+    /^  publish-binary-package:$/ { in_publish = 1 }
+    in_publish && /^  [A-Za-z0-9_-]+:$/ && $0 != "  publish-binary-package:" { exit }
+    in_publish { print }
+' .github/workflows/release.yml)
+grep -q '^    timeout-minutes: 15$' <<< "$publish_job" || fail "clean binary publication job must have a 15-minute hard timeout"
+publish_step=$(grep -A1 '^      - name: Validate public URLs, publish the binary tag, and promote the release$' <<< "$publish_job")
+grep -q '^        timeout-minutes: 12$' <<< "$publish_step" || fail "clean binary publication step must have a 12-minute hard timeout"
+publish_consumer_line=$(rg -n 'scripts/test-binary-package-consumer "\$metadata_dir"' scripts/publish-binary-package | cut -d: -f1)
+publish_push_line=$(rg -n 'git push --atomic' scripts/publish-binary-package | cut -d: -f1)
+publish_promote_line=$(rg -n 'gh release edit .*--prerelease=false' scripts/publish-binary-package | cut -d: -f1)
+[[ -n "$publish_consumer_line" && -n "$publish_push_line" && "$publish_consumer_line" -lt "$publish_push_line" ]] || fail "clean consumer validation must precede binary publication"
+[[ -n "$publish_promote_line" && "$publish_push_line" -lt "$publish_promote_line" ]] || fail "source release promotion must follow binary publication"
 
 work_dir=$(mktemp -d)
 trap 'rm -rf "$work_dir"' EXIT

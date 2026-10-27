@@ -31,11 +31,10 @@ artifact_record() {
         '{name: $name, file: $file, url: $url, checksum: $checksum}'
 }
 
-artifacts=$(jq -s '.' < <(
-    artifact_record SwiftGodot SwiftGodot.xcframework.zip
-    artifact_record GDExtensionC GDExtensionC.xcframework.zip
-    artifact_record SwiftGodotMacroLibrary SwiftGodotMacros.artifactbundle.zip
-))
+artifact_record SwiftGodot SwiftGodot.xcframework.zip > "$work_dir/swiftgodot.json"
+artifact_record GDExtensionC GDExtensionC.xcframework.zip > "$work_dir/gdextension.json"
+artifact_record SwiftGodotMacroLibrary SwiftGodotMacros.artifactbundle.zip > "$work_dir/macros.json"
+artifacts=$(jq -s '.' "$work_dir/swiftgodot.json" "$work_dir/gdextension.json" "$work_dir/macros.json")
 
 swiftgodot_url=$(jq -r '.[] | select(.name == "SwiftGodot") | .url' <<< "$artifacts")
 swiftgodot_checksum=$(jq -r '.[] | select(.name == "SwiftGodot") | .checksum' <<< "$artifacts")

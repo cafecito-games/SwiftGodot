@@ -123,7 +123,7 @@ jobs:
     name: Diagnose consumer after macro build (${{ matrix.mode }})
     if: ${{ inputs.diagnose_binary_downloads }}
     runs-on: macos-26
-    timeout-minutes: 20
+    timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
@@ -827,7 +827,77 @@ jobs:
           SWIFT_GODOT_DERIVED_DATA: ${{ runner.temp }}/sg-builds/release/derived
           SWIFT_GODOT_CONFIGURATION: Release
           SWIFT_GODOT_SKIP_BUILD: 1
+          SWIFT_GODOT_DEFER_BINARY_PUBLISH: 1
           SWIFT_GODOT_INCLUDE_MACOS_X86: ${{ inputs.include_macos_x86 && '1' || '' }}
           SWIFT_GODOT_ANDROID_AAR: ${{ runner.temp }}/release-products/swiftgodot-android/SwiftGodot-release.aar
         run: |
           scripts/release "${{ inputs.tag }}" "$RUNNER_TEMP/release-notes.md" "${{ needs.prepare.outputs.commit }}"
+
+      - name: Upload generated binary-package metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: swiftgodot-binary-package-metadata
+          path: |
+            ${{ runner.temp }}/SwiftGodotBinary/Package.swift
+            ${{ runner.temp }}/SwiftGodotBinary/binaries.json
+          if-no-files-found: error
+          overwrite: true
+          retention-days: 7
+
+  publish-binary-package:
+    name: Validate and publish binary package
+    needs:
+      - prepare
+      - release
+    runs-on: macos-26
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout SwiftGodot
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.prepare.outputs.commit }}
+
+      - name: Set up Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: "${{ env.SWIFT_GODOT_RELEASE_XCODE }}"
+
+      - name: Show clean validation environment
+        run: |
+          uname -m
+          xcodebuild -version
+          swift --version
+          df -h .
+          vm_stat
+
+      - name: Configure git identity
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Clone SwiftGodotBinary
+        env:
+          RELEASE_TOKEN: ${{ secrets.SWIFT_GODOT_RELEASE_TOKEN }}
+        run: |
+          git clone "https://x-access-token:${RELEASE_TOKEN}@github.com/cafecito-games/SwiftGodotBinary.git" "$RUNNER_TEMP/SwiftGodotBinary"
+
+      - name: Download generated binary-package metadata
+        uses: actions/download-artifact@v4
+        with:
+          name: swiftgodot-binary-package-metadata
+          path: ${{ runner.temp }}/binary-package-metadata
+
+      - name: Validate public URLs, publish the binary tag, and promote the release
+        timeout-minutes: 12
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SWIFT_GODOT_SOURCE_REPO: ${{ github.repository }}
+          SWIFT_GODOT_BINARY_REPO: cafecito-games/SwiftGodotBinary
+          SWIFT_GODOT_BINARY_REPO_DIR: ${{ runner.temp }}/SwiftGodotBinary
+        run: |
+          scripts/publish-binary-package \
+            "${{ inputs.tag }}" \
+            "$RUNNER_TEMP/binary-package-metadata" \
+            "$RUNNER_TEMP/SwiftGodotBinary" \
+            "${{ needs.prepare.outputs.commit }}"

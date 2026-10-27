@@ -68,6 +68,8 @@ echo "Expected SHA-256: $checksum"
 echo "URL: $asset_url"
 echo "Reachability check started: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
 curl --fail --location --silent --show-error \
+    --connect-timeout 10 \
+    --max-time 60 \
     --range 0-0 \
     --output /dev/null \
     --write-out 'HTTP %{http_code}; first-byte %{time_starttransfer}s; total %{time_total}s; downloaded %{size_download} bytes\n' \
@@ -81,7 +83,7 @@ swift package resolve \
     --verbose
 echo "Fresh SwiftPM resolve completed: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
-artifact_path=$(find "$work_dir/.build/artifacts" -type f -o -type d 2>/dev/null | head -n 1 || true)
+artifact_path=$(find "$work_dir/.build/artifacts" -type d -path "*/$target_name" -print -quit 2>/dev/null || true)
 if [[ -z $artifact_path ]]; then
     echo "SwiftPM reported success but staged no binary artifact" >&2
     exit 1

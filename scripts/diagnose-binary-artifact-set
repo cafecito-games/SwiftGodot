@@ -24,6 +24,7 @@ let package = Package(
 EOF
 
 IFS=',' read -r -a assets <<< "$asset_list"
+target_names=()
 for asset in "${assets[@]}"; do
     case "$asset" in
         SwiftGodot.xcframework.zip)
@@ -40,6 +41,7 @@ for asset in "${assets[@]}"; do
             exit 1
             ;;
     esac
+    target_names+=("$target_name")
 
     digest=$(gh release view "$tag" --repo "$source_repo" --json assets --jq \
         ".assets[] | select(.name == \"$asset\") | .digest")
@@ -73,11 +75,12 @@ swift package resolve \
     --verbose
 echo "Fresh combined SwiftPM resolve completed: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
-artifact_count=$(find "$work_dir/.build/artifacts" -mindepth 3 -maxdepth 3 -type d 2>/dev/null | wc -l | tr -d ' ')
-if [[ $artifact_count -lt ${#assets[@]} ]]; then
-    echo "SwiftPM staged $artifact_count artifact roots; expected ${#assets[@]}" >&2
-    find "$work_dir/.build/artifacts" -maxdepth 4 -print 2>/dev/null || true
-    exit 1
-fi
+for target_name in "${target_names[@]}"; do
+    if ! find "$work_dir/.build/artifacts" -type d -path "*/$target_name" -print -quit 2>/dev/null | grep -q .; then
+        echo "SwiftPM reported success but staged no $target_name artifact" >&2
+        find "$work_dir/.build/artifacts" -maxdepth 4 -print 2>/dev/null || true
+        exit 1
+    fi
+done
 
 echo "Combined binary artifact diagnostic passed for $asset_list"
