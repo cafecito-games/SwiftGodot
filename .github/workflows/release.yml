@@ -66,6 +66,38 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: scripts/diagnose-binary-artifact-download "${{ inputs.tag }}" "${{ matrix.asset }}" "${{ github.repository }}"
 
+  diagnose-binary-download-set:
+    name: Diagnose ${{ matrix.label }}
+    if: ${{ inputs.diagnose_binary_downloads }}
+    runs-on: macos-26
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: GDExtensionC + SwiftGodot
+            assets: GDExtensionC.xcframework.zip,SwiftGodot.xcframework.zip
+          - label: GDExtensionC + macros
+            assets: GDExtensionC.xcframework.zip,SwiftGodotMacros.artifactbundle.zip
+          - label: SwiftGodot + macros
+            assets: SwiftGodot.xcframework.zip,SwiftGodotMacros.artifactbundle.zip
+          - label: all binary artifacts
+            assets: GDExtensionC.xcframework.zip,SwiftGodot.xcframework.zip,SwiftGodotMacros.artifactbundle.zip
+
+    steps:
+      - name: Checkout SwiftGodot
+        uses: actions/checkout@v6
+
+      - name: Set up Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: "${{ env.SWIFT_GODOT_RELEASE_XCODE }}"
+
+      - name: Diagnose a published binary artifact set
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: scripts/diagnose-binary-artifact-set "${{ inputs.tag }}" "${{ matrix.assets }}" "${{ github.repository }}"
+
   prepare:
     name: Prepare release
     if: ${{ !inputs.diagnose_binary_downloads }}
