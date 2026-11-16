@@ -31,7 +31,67 @@ make_fake_xcframework() {
         "$mac/Versions/A/Modules/$module.swiftmodule" \
         "$mac/Versions/A/Resources"
 
-    printf 'fake xcframework plist\n' > "$xcf/Info.plist"
+    # A real Info.plist, because packaging reads the slice set out of it rather
+    # than globbing the bundle, and restages bin/ios from the iOS entries only.
+    cat > "$xcf/Info.plist" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>AvailableLibraries</key>
+	<array>
+		<dict>
+			<key>BinaryPath</key>
+			<string>$module.framework/$module</string>
+			<key>LibraryIdentifier</key>
+			<string>ios-arm64</string>
+			<key>LibraryPath</key>
+			<string>$module.framework</string>
+			<key>SupportedArchitectures</key>
+			<array>
+				<string>arm64</string>
+			</array>
+			<key>SupportedPlatform</key>
+			<string>ios</string>
+		</dict>
+		<dict>
+			<key>BinaryPath</key>
+			<string>$module.framework/$module</string>
+			<key>LibraryIdentifier</key>
+			<string>ios-arm64-simulator</string>
+			<key>LibraryPath</key>
+			<string>$module.framework</string>
+			<key>SupportedArchitectures</key>
+			<array>
+				<string>arm64</string>
+			</array>
+			<key>SupportedPlatform</key>
+			<string>ios</string>
+			<key>SupportedPlatformVariant</key>
+			<string>simulator</string>
+		</dict>
+		<dict>
+			<key>BinaryPath</key>
+			<string>$module.framework/Versions/A/$module</string>
+			<key>LibraryIdentifier</key>
+			<string>macos-arm64</string>
+			<key>LibraryPath</key>
+			<string>$module.framework</string>
+			<key>SupportedArchitectures</key>
+			<array>
+				<string>arm64</string>
+			</array>
+			<key>SupportedPlatform</key>
+			<string>macos</string>
+		</dict>
+	</array>
+	<key>CFBundlePackageType</key>
+	<string>XFWK</string>
+	<key>XCFrameworkFormatVersion</key>
+	<string>1.0</string>
+</dict>
+</plist>
+PLIST
     printf 'fake ios device binary\n' > "$xcf/ios-arm64/$module.framework/$module"
     printf 'fake ios simulator binary\n' > "$xcf/ios-arm64-simulator/$module.framework/$module"
     printf 'fake macos binary\n' > "$mac/Versions/A/$module"
@@ -108,6 +168,59 @@ cmp -s LICENSE "$addon/LICENSE" || fail "addon LICENSE must match repo LICENSE"
 [[ -d "$addon/bin/ios/SwiftGodotEmbed.xcframework" ]] || fail "iOS SwiftGodotEmbed.xcframework missing"
 [[ -d "$addon/bin/macos_arm64/SwiftGodot.framework" ]] || fail "macOS SwiftGodot.framework missing"
 [[ -d "$addon/bin/macos_arm64/SwiftGodotEmbed.framework" ]] || fail "macOS SwiftGodotEmbed.framework missing"
+
+# bin/ios carries iOS slices only. A macOS slice in there is unreachable —
+# macos.arm64 resolves to bin/macos_arm64/ — and dereferencing a versioned macOS
+# framework yields a bundle with a root binary and a Versions/ layout at once,
+# which codesign refuses as "bundle format is ambiguous". A consumer signing
+# every slice of every embedded xcframework fails its whole archive on it.
+xcframework_slices_for_platform() {
+    local plist=$1
+    local wanted=$2
+    local index=0
+    local identifier platform
+
+    while identifier=$(/usr/libexec/PlistBuddy -c "Print :AvailableLibraries:$index:LibraryIdentifier" "$plist" 2>/dev/null); do
+        platform=$(/usr/libexec/PlistBuddy -c "Print :AvailableLibraries:$index:SupportedPlatform" "$plist" 2>/dev/null) || platform=
+        if [[ "$wanted" == any || "$platform" == "$wanted" ]]; then
+            printf '%s\n' "$identifier"
+        fi
+        index=$((index + 1))
+    done
+}
+
+for module in SwiftGodot SwiftGodotEmbed; do
+    staged_xcframework="$addon/bin/ios/$module.xcframework"
+    source_xcframework="$work_dir/$module.xcframework"
+
+    declared=$(xcframework_slices_for_platform "$staged_xcframework/Info.plist" any | sort)
+    declared_ios=$(xcframework_slices_for_platform "$staged_xcframework/Info.plist" ios | sort)
+    [[ -n "$declared" ]] || fail "staged $module.xcframework declares no slices"
+    [[ "$declared" == "$declared_ios" ]] || {
+        echo "Declared slices:" >&2
+        printf '%s\n' "$declared" >&2
+        fail "staged $module.xcframework must declare iOS slices only"
+    }
+
+    # Every iOS slice of the input is kept, and nothing else is on disk: the
+    # expected set is read out of the input rather than written down here.
+    expected_ios=$(xcframework_slices_for_platform "$source_xcframework/Info.plist" ios | sort)
+    present=$(find "$staged_xcframework" -mindepth 1 -maxdepth 1 ! -name Info.plist -exec basename {} \; | sort)
+    [[ "$present" == "$expected_ios" ]] || {
+        echo "Expected staged slices:" >&2
+        printf '%s\n' "$expected_ios" >&2
+        echo "Present:" >&2
+        printf '%s\n' "$present" >&2
+        fail "staged $module.xcframework must carry exactly the input's iOS slices"
+    }
+
+    # Each kept slice is byte-for-byte what the input held.
+    while IFS= read -r slice; do
+        diff -r "$source_xcframework/$slice" "$staged_xcframework/$slice" >/dev/null ||
+            fail "staged $module.xcframework changed slice $slice"
+    done <<<"$expected_ios"
+done
+
 [[ -f "$addon/bin/android/SwiftGodot.aar" ]] || fail "Android SwiftGodot.aar missing"
 cmp -s "$android_aar" "$addon/bin/android/SwiftGodot.aar" || fail "Android AAR must be copied without modification"
 
@@ -507,6 +620,30 @@ rm -f "$directory_library_addon/bin/linux_x86_64/libSwiftGodotEmbed.so"
 mkdir -p "$directory_library_addon/bin/linux_x86_64/libSwiftGodotEmbed.so"
 if scripts/validate-godot-addon-libraries "$directory_library_addon" "$directory_library_addon/bin/android/SwiftGodot.aar" >/dev/null 2>&1; then
     fail "validation must fail when a native library entry resolves to a directory"
+fi
+
+# The iOS-only rule is enforced over the staged tree, in both directions: a
+# non-iOS slice declared by the Info.plist, and one sitting on disk under a plist
+# that does not name it.
+declared_macos_dir=$(mktemp -d "$work_dir/declared-macos.XXXXXX")
+declared_macos_addon="$declared_macos_dir/addons/SwiftGodot"
+mkdir -p "$declared_macos_addon"
+cp -R "$stage_root/bin" "$declared_macos_addon/bin"
+cp "$stage_root/SwiftGodotEmbed.gdextension" "$declared_macos_addon/SwiftGodotEmbed.gdextension"
+rsync -aL "$xcframework/macos-arm64" "$declared_macos_addon/bin/ios/SwiftGodot.xcframework/"
+cp "$xcframework/Info.plist" "$declared_macos_addon/bin/ios/SwiftGodot.xcframework/Info.plist"
+if scripts/validate-godot-addon-libraries "$declared_macos_addon" "$declared_macos_addon/bin/android/SwiftGodot.aar" >/dev/null 2>&1; then
+    fail "validation must fail when an xcframework under bin/ios declares a non-iOS slice"
+fi
+
+stray_slice_dir=$(mktemp -d "$work_dir/stray-slice.XXXXXX")
+stray_slice_addon="$stray_slice_dir/addons/SwiftGodot"
+mkdir -p "$stray_slice_addon"
+cp -R "$stage_root/bin" "$stray_slice_addon/bin"
+cp "$stage_root/SwiftGodotEmbed.gdextension" "$stray_slice_addon/SwiftGodotEmbed.gdextension"
+rsync -aL "$xcframework/macos-arm64" "$stray_slice_addon/bin/ios/SwiftGodot.xcframework/"
+if scripts/validate-godot-addon-libraries "$stray_slice_addon" "$stray_slice_addon/bin/android/SwiftGodot.aar" >/dev/null 2>&1; then
+    fail "validation must fail when a slice sits under bin/ios that the Info.plist does not declare"
 fi
 
 # And the mirror image: a payload the shim builds but the addon never declares.

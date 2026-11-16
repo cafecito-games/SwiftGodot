@@ -181,4 +181,43 @@ for entry in "${GDEXTENSION_SHIM_TARGETS[@]}"; do
         die "scripts/gdextension-shim-config declares $platform_tag but the addon has no [libraries] entry for it"
 done
 
+# Every xcframework staged under bin/ios carries iOS slices only, both in its
+# Info.plist and on disk. A slice for another platform is unreachable — macos.arm64
+# resolves to bin/macos_arm64/ — and a dereferenced macOS framework cannot be
+# code-signed at all: having a root binary and a Versions/ layout at once is the
+# shape codesign rejects as "bundle format is ambiguous", which fails the archive
+# of any consumer that signs every slice of every embedded xcframework.
+for xcframework in "$addon_dir"/bin/ios/*.xcframework; do
+    [[ -d "$xcframework" ]] || die "bin/ios carries no xcframework bundle"
+
+    plist="$xcframework/Info.plist"
+    [[ -f "$plist" ]] || die "${xcframework#"$addon_dir/"} has no Info.plist"
+
+    index=0
+    declared_slices=()
+    while identifier=$(/usr/libexec/PlistBuddy -c "Print :AvailableLibraries:$index:LibraryIdentifier" "$plist" 2>/dev/null); do
+        platform=$(/usr/libexec/PlistBuddy -c "Print :AvailableLibraries:$index:SupportedPlatform" "$plist" 2>/dev/null) || platform=
+        [[ "$platform" == ios ]] ||
+            die "${xcframework#"$addon_dir/"} declares slice $identifier for platform \"$platform\"; bin/ios must carry iOS slices only"
+        [[ -d "$xcframework/$identifier" ]] ||
+            die "${xcframework#"$addon_dir/"} declares slice $identifier, which is not staged"
+        declared_slices+=("$identifier")
+        index=$((index + 1))
+    done
+    [[ $index -gt 0 ]] || die "cannot read any AvailableLibraries entry out of ${plist#"$addon_dir/"}"
+
+    # The reverse direction: a slice directory the Info.plist does not name ships
+    # bytes no consumer loads, and is how an unsignable macOS slice would return
+    # while the plist looked clean.
+    while IFS= read -r present; do
+        [[ "$present" != Info.plist ]] || continue
+        named=
+        for identifier in "${declared_slices[@]}"; do
+            [[ "$identifier" != "$present" ]] || named=1
+        done
+        [[ -n "$named" ]] ||
+            die "${xcframework#"$addon_dir/"} stages $present, which its Info.plist does not declare"
+    done < <(find "$xcframework" -mindepth 1 -maxdepth 1 -exec basename {} \;)
+done
+
 echo "Godot addon library validation passed: $addon_dir"

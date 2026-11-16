@@ -20,6 +20,10 @@ The addon ships:
   - bin/linux_arm64/libSwiftGodotEmbed.so
   - bin/windows_x86_64/SwiftGodotEmbed.dll
 
+The two xcframeworks under bin/ios are restaged from their inputs carrying their
+iOS slices only. The macOS slices are reachable solely through
+bin/macos_arm64/, which is staged from the same inputs.
+
 SHIM_DIR is the directory produced by scripts/build-gdextension-shim; it supplies
 the three Linux and Windows payloads above.
 
@@ -193,6 +197,94 @@ pick_macos_framework() {
     exit 1
 }
 
+# Reads one field of one entry of an xcframework Info.plist's AvailableLibraries
+# array. Fails when the index is past the end, which is how the slice set is
+# enumerated: the array carries no count of its own.
+xcframework_slice_field() {
+    local plist=$1
+    local index=$2
+    local field=$3
+
+    /usr/libexec/PlistBuddy -c "Print :AvailableLibraries:$index:$field" "$plist" 2>/dev/null
+}
+
+# Drops every AvailableLibraries entry whose SupportedPlatform is not ios. The
+# indices shift on each delete, so the scan restarts rather than walking a
+# snapshot of them.
+prune_non_ios_libraries() {
+    local plist=$1
+    local index platform removed
+
+    while :; do
+        index=0
+        removed=
+        while xcframework_slice_field "$plist" "$index" LibraryIdentifier >/dev/null; do
+            platform=$(xcframework_slice_field "$plist" "$index" SupportedPlatform) || platform=
+            if [[ "$platform" != ios ]]; then
+                /usr/libexec/PlistBuddy -c "Delete :AvailableLibraries:$index" "$plist" >/dev/null
+                removed=1
+                break
+            fi
+            index=$((index + 1))
+        done
+        [[ -n "$removed" ]] || break
+    done
+}
+
+# Stages an xcframework under bin/ios carrying its iOS slices only.
+#
+# A macOS slice in there is unreachable: the .gdextension below resolves
+# macos.arm64 to bin/macos_arm64/, never to a slice nested in this bundle. It is
+# also actively harmful. Dereferencing a versioned macOS framework materializes
+# its root and Versions/Current symlinks as real copies, so the binary ships
+# three times, and the result is laid out as a flat and a versioned framework at
+# once — a shape codesign refuses with "bundle format is ambiguous (could be app
+# or framework)". That fails the archive of any consumer signing every slice of
+# every embedded xcframework, which Apple's third-party SDK requirements force on
+# anyone repackaging a listed SDK.
+stage_ios_slices() {
+    local source=$1
+    local destination_parent=$2
+    local destination="$destination_parent/${source##*/}"
+    local source_plist="$source/Info.plist"
+
+    if [[ ! -f "$source_plist" ]]; then
+        echo "Expected an xcframework Info.plist: $source_plist"
+        exit 1
+    fi
+
+    rm -rf "$destination"
+    mkdir -p "$destination"
+    cp "$source_plist" "$destination/Info.plist"
+
+    local index=0
+    local identifier platform
+    local staged=()
+    while identifier=$(xcframework_slice_field "$source_plist" "$index" LibraryIdentifier); do
+        platform=$(xcframework_slice_field "$source_plist" "$index" SupportedPlatform) || platform=
+        if [[ "$platform" == ios ]]; then
+            if [[ ! -d "$source/$identifier" ]]; then
+                echo "$source_plist declares slice $identifier, which is not a directory in $source"
+                exit 1
+            fi
+            copy_without_symlinks "$source/$identifier" "$destination"
+            staged+=("$identifier")
+        fi
+        index=$((index + 1))
+    done
+
+    if [[ $index -eq 0 ]]; then
+        echo "Cannot read any AvailableLibraries entry out of $source_plist"
+        exit 1
+    fi
+    if [[ ${#staged[@]} -eq 0 ]]; then
+        echo "$source carries no slice with SupportedPlatform ios"
+        exit 1
+    fi
+
+    prune_non_ios_libraries "$destination/Info.plist"
+}
+
 mac_framework=$(pick_macos_framework "$xcframework" "SwiftGodot")
 mac_embed_framework=$(pick_macos_framework "$embed_xcframework" "SwiftGodotEmbed")
 
@@ -275,8 +367,8 @@ EOF
 
 cp LICENSE "$addon_dir/LICENSE"
 cp "$android_aar" "$addon_dir/bin/android/SwiftGodot.aar"
-copy_without_symlinks "$xcframework" "$addon_dir/bin/ios"
-copy_without_symlinks "$embed_xcframework" "$addon_dir/bin/ios"
+stage_ios_slices "$xcframework" "$addon_dir/bin/ios"
+stage_ios_slices "$embed_xcframework" "$addon_dir/bin/ios"
 copy_without_symlinks "$mac_framework" "$addon_dir/bin/macos_arm64"
 copy_without_symlinks "$mac_embed_framework" "$addon_dir/bin/macos_arm64"
 
