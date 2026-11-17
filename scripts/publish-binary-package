@@ -68,8 +68,17 @@ jq -e '.isDraft == false' <<< "$release_json" >/dev/null || {
     exit 1
 }
 
-# Reachability and checksum verification are reported separately from SwiftPM
-# resolution so a transport hang is distinguishable from a metadata mismatch.
+# Each artifact is fetched in full and hashed, rather than probed for its first
+# byte, so what gets verified is the bytes a consumer will receive rather than
+# the digest the API reports about them. The two are independent: the digest
+# check above compares release metadata against binaries.json, while this
+# compares transferred content against the same checksum a SwiftPM binaryTarget
+# will enforce.
+#
+# A just-published asset can serve its first byte promptly and then crawl, so
+# the stall guard is a throughput floor rather than a wall-clock bound alone:
+# curl aborts a transfer that sits under 1 KB/s for 30s and retries it, which
+# fails a genuinely dead transfer in seconds instead of waiting out --max-time.
 echo "PHASE BEGIN release-asset-verify: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
 while IFS=$'\t' read -r name url checksum; do
     asset_name=${url##*/}
@@ -79,19 +88,29 @@ while IFS=$'\t' read -r name url checksum; do
         exit 1
     fi
 
-    echo "Probing $name at $url..."
+    echo "Downloading and hashing $name at $url..."
+    asset_path="$work_dir/$asset_name"
     curl --fail --location --silent --show-error \
         --connect-timeout 10 \
-        --max-time 60 \
-        --range 0-0 \
-        --output /dev/null \
+        --max-time 600 \
+        --speed-limit 1024 \
+        --speed-time 30 \
+        --retry 5 \
+        --retry-delay 5 \
+        --retry-all-errors \
+        --output "$asset_path" \
         --write-out "$name: HTTP %{http_code}; first-byte %{time_starttransfer}s; total %{time_total}s; downloaded %{size_download} bytes\n" \
         "$url"
+
+    downloaded_checksum=$(shasum -a 256 "$asset_path" | awk '{print $1}')
+    if [[ $downloaded_checksum != "$checksum" ]]; then
+        echo "$name content checksum mismatch: downloaded $downloaded_checksum, metadata has $checksum" >&2
+        exit 1
+    fi
+    echo "$name content checksum matches $checksum"
+    rm -f "$asset_path"
 done < <(jq -r '.artifacts[] | [.name, .url, .checksum] | @tsv' "$metadata_dir/binaries.json")
 echo "PHASE END release-asset-verify: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-
-echo "Validating the exact public URL/checksum package on a clean runner..."
-scripts/test-binary-package-consumer "$metadata_dir"
 
 (
     cd "$binary_repo_dir"
@@ -153,3 +172,4 @@ if [[ $final_release_state != $'false\tfalse' ]]; then
 fi
 
 echo "Published and promoted $source_repo@$tag with $binary_repo@$tag."
+echo "SwiftPM consumer validation runs separately and does not gate this release."

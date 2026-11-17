@@ -35,13 +35,8 @@ on:
         required: false
         type: number
         default: 25
-      prefetch_binary_artifacts:
-        description: Let SwiftPM prefetch the published xcframeworks during resolution. Leave off; resolution-time prefetch is what stalls on hosted macOS runners.
-        required: false
-        type: boolean
-        default: false
       consumer_phase_timeout_seconds:
-        description: Override the per-phase watchdog in seconds, bypassing the 600s ceiling the budget derivation clamps to. Empty derives it from consumer_validation_timeout.
+        description: Override the per-phase watchdog in seconds for the post-publish consumer validation, bypassing the 600s ceiling the budget derivation clamps to. Empty derives it from consumer_validation_timeout.
         required: false
         type: string
         default: ''
@@ -902,9 +897,11 @@ jobs:
       && needs.prepare.result == 'success'
       && needs.release.result == 'success' }}
     runs-on: macos-26
-    # Fixed backstop for runner setup plus the configurable validation step
-    # below; the validation step timeout is the value that bounds the work.
-    timeout-minutes: 30
+    # This job now only verifies the published assets, pushes the binary tag and
+    # promotes the release, so the bound is runner setup plus two artifact
+    # downloads. SwiftPM consumer validation moved to validate-binary-consumer
+    # below, where its cost cannot hold up a release.
+    timeout-minutes: 20
 
     steps:
       - name: Checkout SwiftGodot
@@ -942,26 +939,73 @@ jobs:
           name: swiftgodot-binary-package-metadata
           path: ${{ runner.temp }}/binary-package-metadata
 
-      - name: Validate public URLs, publish the binary tag, and promote the release
-        timeout-minutes: ${{ inputs.consumer_validation_timeout }}
+      - name: Verify published assets, publish the binary tag, and promote the release
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
           SWIFT_GODOT_SOURCE_REPO: ${{ github.repository }}
           SWIFT_GODOT_BINARY_REPO: cafecito-games/SwiftGodotBinary
           SWIFT_GODOT_BINARY_REPO_DIR: ${{ runner.temp }}/SwiftGodotBinary
-          SWIFT_GODOT_BINARY_CONSUMER_TIMEOUT_MINUTES: ${{ inputs.consumer_validation_timeout }}
-          # Resolution-time prefetch is the transfer that has been observed to
-          # stall against a just-published release, so the publishing path
-          # defers artifact transfer to the build phase by default. The
-          # condition is negated rather than the branches swapped because an
-          # empty string is falsy in an expression, so '1' has to stay on the
-          # truthy side for the toggle to have two distinct outcomes.
-          SWIFT_GODOT_BINARY_CONSUMER_DISABLE_PREFETCHING: ${{ !inputs.prefetch_binary_artifacts && '1' || '' }}
-          SWIFT_GODOT_BINARY_CONSUMER_PHASE_TIMEOUT_SECONDS: ${{ inputs.consumer_phase_timeout_seconds }}
         run: |
           scripts/publish-binary-package \
             "$RELEASE_TAG" \
             "$RUNNER_TEMP/binary-package-metadata" \
             "$RUNNER_TEMP/SwiftGodotBinary" \
             "${{ needs.prepare.outputs.commit }}"
+
+  # Runs after the release is already tagged and promoted, so a slow or stalled
+  # SwiftPM transfer cannot hold up a release again. The signal is kept: this
+  # job turns the run red when a published package will not resolve and build,
+  # which is a defect worth a patch release, but it withdraws nothing.
+  #
+  # Why it is slow enough to deserve its own job: the probe source applies the
+  # @Godot macro, so a clean build fetches swift-syntax, compiles it from
+  # source, compiles the macro target, then compiles and links the probe. The
+  # xcframework transfer is the small part of that.
+  validate-binary-consumer:
+    name: Validate the published binary package consumer
+    needs:
+      - prepare
+      - publish-binary-package
+    if: >-
+      ${{ !cancelled()
+      && needs.prepare.result == 'success'
+      && needs.publish-binary-package.result == 'success' }}
+    runs-on: macos-26
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout SwiftGodot
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.prepare.outputs.commit }}
+
+      - name: Set up Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: "${{ env.SWIFT_GODOT_RELEASE_XCODE }}"
+
+      - name: Download generated binary-package metadata
+        uses: actions/download-artifact@v4
+        with:
+          name: swiftgodot-binary-package-metadata
+          path: ${{ runner.temp }}/binary-package-metadata
+
+      # The probe resolves swift-syntax from its own pinned version, so the
+      # cache key is that generated manifest rather than a Package.resolved
+      # this repository controls.
+      - name: Cache the probe's SwiftPM dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/Caches/org.swift.swiftpm
+          key: binary-consumer-spm-${{ runner.os }}-${{ hashFiles('scripts/generate-binary-package-manifest') }}
+          restore-keys: |
+            binary-consumer-spm-${{ runner.os }}-
+
+      - name: Resolve and build a clean consumer of the published package
+        timeout-minutes: ${{ inputs.consumer_validation_timeout }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SWIFT_GODOT_BINARY_CONSUMER_TIMEOUT_MINUTES: ${{ inputs.consumer_validation_timeout }}
+          SWIFT_GODOT_BINARY_CONSUMER_PHASE_TIMEOUT_SECONDS: ${{ inputs.consumer_phase_timeout_seconds }}
+        run: scripts/test-binary-package-consumer "$RUNNER_TEMP/binary-package-metadata"
