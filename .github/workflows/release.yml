@@ -3,10 +3,15 @@ name: Release
 on:
   workflow_dispatch:
     inputs:
-      tag:
-        description: Release tag, for example v0.1.0 or 0.1.0
+      bump:
+        description: Semver bump level
         required: true
-        type: string
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+        default: patch
       commit:
         description: Commit SHA to release. Defaults to the workflow ref.
         required: false
@@ -35,7 +40,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: release-${{ inputs.tag }}
+  group: release-${{ inputs.diagnose_binary_downloads && 'diagnostics' || 'publish' }}
   cancel-in-progress: false
 
 env:
@@ -44,8 +49,59 @@ env:
   SWIFT_ANDROID_SDK_SHA256: d160cc3206dd1886dae3fef2337af5e25ec034692cd0ec225721c56cc69da7f5
 
 jobs:
+  resolve-version:
+    name: Resolve release version
+    runs-on: ubuntu-24.04
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+
+    steps:
+      - name: Checkout SwiftGodot
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Compute release version
+        id: version
+        env:
+          BUMP: ${{ inputs.bump }}
+          DIAGNOSE_BINARY_DOWNLOADS: ${{ inputs.diagnose_binary_downloads }}
+        run: |
+          latest=$(git tag --list 'v*.*.*' --sort=-v:refname \
+            | grep -E '^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$' \
+            | head -n1 || true)
+
+          if [[ "$DIAGNOSE_BINARY_DOWNLOADS" == "true" ]]; then
+            if [[ -z "$latest" ]]; then
+              echo "::error title=No release tag::No stable semver release tag exists to diagnose."
+              exit 1
+            fi
+            tag="$latest"
+          else
+            current="${latest#v}"
+            if [[ -z "$current" ]]; then
+              current="0.0.0"
+            fi
+
+            IFS='.' read -r major minor patch <<< "$current"
+            case "$BUMP" in
+              major) major=$((major + 1)); minor=0; patch=0 ;;
+              minor) minor=$((minor + 1)); patch=0 ;;
+              patch) patch=$((patch + 1)) ;;
+              *)
+                echo "::error title=Invalid semver bump::Expected major, minor, or patch; got '$BUMP'."
+                exit 1
+                ;;
+            esac
+            tag="v${major}.${minor}.${patch}"
+          fi
+
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "Resolved release tag: $tag"
+
   diagnose-binary-download:
     name: Diagnose ${{ matrix.asset }}
+    needs: resolve-version
     if: ${{ inputs.diagnose_binary_downloads }}
     runs-on: macos-26
     timeout-minutes: 10
@@ -68,11 +124,12 @@ jobs:
       - name: Diagnose one published binary artifact
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ inputs.tag }}
+          RELEASE_TAG: ${{ needs.resolve-version.outputs.tag }}
         run: scripts/diagnose-binary-artifact-download "$RELEASE_TAG" "${{ matrix.asset }}" "${{ github.repository }}"
 
   diagnose-binary-download-set:
     name: Diagnose ${{ matrix.label }}
+    needs: resolve-version
     if: ${{ inputs.diagnose_binary_downloads }}
     runs-on: macos-26
     timeout-minutes: 10
@@ -95,11 +152,12 @@ jobs:
       - name: Diagnose a published binary artifact set
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ inputs.tag }}
+          RELEASE_TAG: ${{ needs.resolve-version.outputs.tag }}
         run: scripts/diagnose-binary-artifact-set "$RELEASE_TAG" "${{ matrix.assets }}" "${{ github.repository }}"
 
   diagnose-binary-consumer:
     name: Diagnose full binary consumer (prefetch ${{ matrix.prefetch }})
+    needs: resolve-version
     if: ${{ inputs.diagnose_binary_downloads }}
     runs-on: macos-26
     timeout-minutes: 10
@@ -121,7 +179,7 @@ jobs:
         timeout-minutes: 8
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ inputs.tag }}
+          RELEASE_TAG: ${{ needs.resolve-version.outputs.tag }}
           # 3 minutes per phase keeps the diagnostic quick while leaving room for
           # package generation and polling inside the 8-minute step, so a stalled
           # phase always reaches the watchdog's timeout dump before the step ends.
@@ -131,10 +189,12 @@ jobs:
 
   prepare:
     name: Prepare release
+    needs: resolve-version
     if: ${{ !inputs.diagnose_binary_downloads }}
     runs-on: ubuntu-24.04
     outputs:
       commit: ${{ steps.release.outputs.commit }}
+      tag: ${{ steps.release.outputs.tag }}
 
     steps:
       - name: Checkout SwiftGodot
@@ -164,7 +224,7 @@ jobs:
         id: release
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ inputs.tag }}
+          RELEASE_TAG: ${{ needs.resolve-version.outputs.tag }}
           RELEASE_COMMIT: ${{ inputs.commit }}
           RELEASE_TOKEN: ${{ secrets.SWIFT_GODOT_RELEASE_TOKEN }}
         run: |
@@ -190,6 +250,7 @@ jobs:
           fi
 
           echo "commit=$RELEASE_COMMIT" >> "$GITHUB_OUTPUT"
+          echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
 
   stage-package:
     name: Stage generated sources
@@ -795,7 +856,7 @@ jobs:
         timeout-minutes: 30
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ inputs.tag }}
+          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
           SWIFT_GODOT_SOURCE_REPO: ${{ github.repository }}
           SWIFT_GODOT_BINARY_REPO: cafecito-games/SwiftGodotBinary
           SWIFT_GODOT_BINARY_REPO_DIR: ${{ runner.temp }}/SwiftGodotBinary
@@ -875,7 +936,7 @@ jobs:
         timeout-minutes: ${{ inputs.consumer_validation_timeout }}
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ inputs.tag }}
+          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
           SWIFT_GODOT_SOURCE_REPO: ${{ github.repository }}
           SWIFT_GODOT_BINARY_REPO: cafecito-games/SwiftGodotBinary
           SWIFT_GODOT_BINARY_REPO_DIR: ${{ runner.temp }}/SwiftGodotBinary
