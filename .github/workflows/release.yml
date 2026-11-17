@@ -35,6 +35,16 @@ on:
         required: false
         type: number
         default: 25
+      prefetch_binary_artifacts:
+        description: Let SwiftPM prefetch the published xcframeworks during resolution. Leave off; resolution-time prefetch is what stalls on hosted macOS runners.
+        required: false
+        type: boolean
+        default: false
+      consumer_phase_timeout_seconds:
+        description: Override the per-phase watchdog in seconds, bypassing the 600s ceiling the budget derivation clamps to. Empty derives it from consumer_validation_timeout.
+        required: false
+        type: string
+        default: ''
 
 permissions:
   contents: write
@@ -941,6 +951,14 @@ jobs:
           SWIFT_GODOT_BINARY_REPO: cafecito-games/SwiftGodotBinary
           SWIFT_GODOT_BINARY_REPO_DIR: ${{ runner.temp }}/SwiftGodotBinary
           SWIFT_GODOT_BINARY_CONSUMER_TIMEOUT_MINUTES: ${{ inputs.consumer_validation_timeout }}
+          # Resolution-time prefetch is the transfer that has been observed to
+          # stall against a just-published release, so the publishing path
+          # defers artifact transfer to the build phase by default. The
+          # condition is negated rather than the branches swapped because an
+          # empty string is falsy in an expression, so '1' has to stay on the
+          # truthy side for the toggle to have two distinct outcomes.
+          SWIFT_GODOT_BINARY_CONSUMER_DISABLE_PREFETCHING: ${{ !inputs.prefetch_binary_artifacts && '1' || '' }}
+          SWIFT_GODOT_BINARY_CONSUMER_PHASE_TIMEOUT_SECONDS: ${{ inputs.consumer_phase_timeout_seconds }}
         run: |
           scripts/publish-binary-package \
             "$RELEASE_TAG" \

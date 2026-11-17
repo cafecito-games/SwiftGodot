@@ -13,6 +13,7 @@
 - Release assets now include `SwiftGodot-release.aar`, and the Godot addon includes that AAR alongside its Apple xcframeworks.
 
 ### Fixed
+- The release pipeline no longer lets SwiftPM prefetch the published xcframeworks while resolving the binary-consumer probe. Resolution-time prefetch is the transfer that stalls against a just-published release, and the publishing step had left it enabled even though the toggle for it already existed and the diagnose matrix already exercised both sides. A stall there burned the per-phase watchdog and failed the step after every asset had been uploaded, leaving the release an unpromoted prerelease with no binary tag. `prefetch_binary_artifacts` restores the old behaviour for reproduction, and `consumer_phase_timeout_seconds` reaches past the 600s ceiling that `consumer_validation_timeout` clamps to.
 - The addon's `bin/ios/SwiftGodot.xcframework` and `bin/ios/SwiftGodotEmbed.xcframework` now carry iOS slices only. They previously included a `macos-arm64` slice that nothing loads — `macos.arm64` resolves to `bin/macos_arm64/` — whose dereferenced framework symlinks made it both unsignable (`codesign`: "bundle format is ambiguous") and three copies of the same binary. The published iOS slice drops from 641 MB to 244 MB uncompressed.
 
 ## 0.2.0
