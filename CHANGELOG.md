@@ -12,6 +12,9 @@
 - The supported engine contract is now Cafecito Godot 4.7.2.
 - Release assets now include `SwiftGodot-release.aar`, and the Godot addon includes that AAR alongside its Apple xcframeworks.
 
+### Fixed
+- The addon's `bin/ios/SwiftGodot.xcframework` and `bin/ios/SwiftGodotEmbed.xcframework` now carry iOS slices only. They previously included a `macos-arm64` slice that nothing loads — `macos.arm64` resolves to `bin/macos_arm64/` — whose dereferenced framework symlinks made it both unsignable (`codesign`: "bundle format is ambiguous") and three copies of the same binary. The published iOS slice drops from 641 MB to 244 MB uncompressed.
+
 ## 0.2.0
 
 ### Added
