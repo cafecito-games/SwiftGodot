@@ -888,7 +888,7 @@ jobs:
           retention-days: 7
 
   publish-binary-package:
-    name: Validate and publish binary package
+    name: Verify assets and publish binary package
     needs:
       - prepare
       - release
@@ -954,7 +954,11 @@ jobs:
             "${{ needs.prepare.outputs.commit }}"
 
   # Runs after the release is already tagged and promoted, so a slow or stalled
-  # SwiftPM transfer cannot hold up a release again. The signal is kept: this
+  # SwiftPM transfer cannot hold up a release again. Deliberately uncached:
+  # test-binary-package-consumer resolves under a fresh --cache-path inside its
+  # own mktemp work directory, which is what makes it a true clean-consumer
+  # check, and a persistent SwiftPM cache would let a previously downloaded
+  # binaryTarget archive satisfy it without fetching the live release URL. The signal is kept: this
   # job turns the run red when a published package will not resolve and build,
   # which is a defect worth a patch release, but it withdraws nothing.
   #
@@ -990,17 +994,6 @@ jobs:
         with:
           name: swiftgodot-binary-package-metadata
           path: ${{ runner.temp }}/binary-package-metadata
-
-      # The probe resolves swift-syntax from its own pinned version, so the
-      # cache key is that generated manifest rather than a Package.resolved
-      # this repository controls.
-      - name: Cache the probe's SwiftPM dependencies
-        uses: actions/cache@v4
-        with:
-          path: ~/Library/Caches/org.swift.swiftpm
-          key: binary-consumer-spm-${{ runner.os }}-${{ hashFiles('scripts/generate-binary-package-manifest') }}
-          restore-keys: |
-            binary-consumer-spm-${{ runner.os }}-
 
       - name: Resolve and build a clean consumer of the published package
         timeout-minutes: ${{ inputs.consumer_validation_timeout }}

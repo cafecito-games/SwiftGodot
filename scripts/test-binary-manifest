@@ -76,7 +76,7 @@ publish_if=$(awk '
 expected_publish_if=$'    if: >-\n      ${{ !cancelled()\n      && needs.prepare.result == \'success\'\n      && needs.release.result == \'success\' }}'
 [[ "$publish_if" == "$expected_publish_if" ]] || fail "clean binary publication job must use the exact cancellation and required-dependency guard"
 grep -q '^    timeout-minutes: 20$' <<< "$publish_job" || fail "clean binary publication job must have a 20-minute hard timeout"
-publish_step=$(grep -A1 '^      - name: Verify published assets, publish the binary tag, and promote the release$' <<< "$publish_job")
+publish_step=$(grep '^      - name: Verify published assets, publish the binary tag, and promote the release$' <<< "$publish_job" || true)
 [[ -n "$publish_step" ]] || fail "clean binary publication job must verify assets, publish the tag, and promote the release"
 # Publication must not wait on SwiftPM. Resolving and building a consumer
 # against assets published seconds earlier is what stalled v0.5.0 and v0.5.1
@@ -88,7 +88,10 @@ rg -q 'shasum -a 256 "\$asset_path"' scripts/publish-binary-package || fail "pub
 publish_verify_line=$(rg -n 'PHASE BEGIN release-asset-verify' scripts/publish-binary-package | cut -d: -f1)
 publish_push_line=$(rg -n 'git push --atomic' scripts/publish-binary-package | cut -d: -f1)
 publish_promote_line=$(rg -n 'gh release edit .*--prerelease=false' scripts/publish-binary-package | cut -d: -f1)
+publish_import_line=$(rg -n 'PHASE BEGIN host-import-verify' scripts/publish-binary-package | cut -d: -f1)
 [[ -n "$publish_verify_line" && -n "$publish_push_line" && "$publish_verify_line" -lt "$publish_push_line" ]] || fail "published asset verification must precede binary publication"
+[[ -n "$publish_import_line" && "$publish_import_line" -lt "$publish_push_line" ]] || fail "the published module must be imported on the host before binary publication"
+rg -q 'GDExtensionC must remain a static build-only dependency of the published package' scripts/publish-binary-package || fail "publisher must assert GDExtensionC stays statically linked"
 [[ -n "$publish_promote_line" && "$publish_push_line" -lt "$publish_promote_line" ]] || fail "source release promotion must follow binary publication"
 validate_job=$(awk '
     /^  validate-binary-consumer:$/ { in_validate = 1 }
@@ -96,11 +99,46 @@ validate_job=$(awk '
     in_validate { print }
 ' .github/workflows/release.yml)
 [[ -n "$validate_job" ]] || fail "release workflow must validate the published consumer in its own job"
-grep -q 'needs.publish-binary-package.result' <<< "$validate_job" || fail "consumer validation must run only after the release is published and promoted"
+validate_if=$(awk '
+    /^    if: >-$/ { in_if = 1 }
+    in_if { print }
+    in_if && /}}$/ { exit }
+' <<< "$validate_job")
+expected_validate_if=$'    if: >-\n      ${{ !cancelled()\n      && needs.prepare.result == \'success\'\n      && needs.publish-binary-package.result == \'success\' }}'
+[[ "$validate_if" == "$expected_validate_if" ]] || fail "consumer validation must run only after the release is published and promoted"
+# The runner variable is literal workflow text, not a shell expansion here.
+# shellcheck disable=SC2016
+grep -q 'run: scripts/test-binary-package-consumer "$RUNNER_TEMP/binary-package-metadata"' <<< "$validate_job" || fail "consumer validation job must run the consumer probe against the published metadata"
+grep -q 'name: swiftgodot-binary-package-metadata' <<< "$validate_job" || fail "consumer validation job must download the preserved binary-package metadata"
+if grep -q 'actions/cache' <<< "$validate_job"; then
+    fail "consumer validation must resolve with a fresh SwiftPM cache, not a persisted one"
+fi
 # The GitHub Actions expression is literal text, not a shell variable.
 # shellcheck disable=SC2016
 grep -qF '        timeout-minutes: ${{ inputs.consumer_validation_timeout }}' <<< "$validate_job" || fail "consumer validation step timeout must come from the consumer_validation_timeout input"
 rg -q 'diff -qr Sources/SwiftGodotMacroLibrary "\$metadata_dir/Sources/SwiftGodotMacroLibrary"' scripts/publish-binary-package || fail "publisher must verify staged macro source bytes"
+
+# The published package declares its own macro-target dependencies, hardcoded in
+# the generator, while the macro sources themselves are copied verbatim from this
+# repository. Those two have no single source of truth, so a new swift-syntax
+# product added to Package.swift's macro target passes the byte-for-byte source
+# comparison above and still ships a package that cannot compile. Compare the
+# declared product sets directly.
+swift_syntax_products() {
+    awk -v target="$2" '
+        $0 ~ "name: \"" target "\"" { inside = 1 }
+        inside && /product\(name: "/ {
+            match($0, /name: "[A-Za-z]+"/)
+            name = substr($0, RSTART + 7, RLENGTH - 8)
+            if ($0 ~ /package: "swift-syntax"/) print name
+        }
+        inside && /^        \]/ { inside = 0 }
+    ' "$1" | sort -u
+}
+repository_macro_products=$(swift_syntax_products Package.swift SwiftGodotMacroLibrary)
+generated_macro_products=$(swift_syntax_products scripts/generate-binary-package-manifest SwiftGodotMacroLibrary)
+[[ -n "$repository_macro_products" ]] || fail "could not read the macro target's swift-syntax products from Package.swift"
+[[ "$repository_macro_products" == "$generated_macro_products" ]] || fail "generated manifest's macro dependencies drifted from Package.swift: repository has [$(tr '\n' ' ' <<< "$repository_macro_products")], generated has [$(tr '\n' ' ' <<< "$generated_macro_products")]"
 
 work_dir=$(mktemp -d)
 trap 'rm -rf "$work_dir"' EXIT

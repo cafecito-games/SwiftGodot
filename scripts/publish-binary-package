@@ -79,6 +79,9 @@ jq -e '.isDraft == false' <<< "$release_json" >/dev/null || {
 # the stall guard is a throughput floor rather than a wall-clock bound alone:
 # curl aborts a transfer that sits under 1 KB/s for 30s and retries it, which
 # fails a genuinely dead transfer in seconds instead of waiting out --max-time.
+# --retry-max-time bounds the whole retry series, not just one attempt, so a
+# transfer crawling just above the floor cannot outlive the job's own wall clock
+# and lose curl's diagnostic with it.
 echo "PHASE BEGIN release-asset-verify: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
 while IFS=$'\t' read -r name url checksum; do
     asset_name=${url##*/}
@@ -93,6 +96,7 @@ while IFS=$'\t' read -r name url checksum; do
     curl --fail --location --silent --show-error \
         --connect-timeout 10 \
         --max-time 600 \
+        --retry-max-time 720 \
         --speed-limit 1024 \
         --speed-time 30 \
         --retry 5 \
@@ -108,9 +112,80 @@ while IFS=$'\t' read -r name url checksum; do
         exit 1
     fi
     echo "$name content checksum matches $checksum"
-    rm -f "$asset_path"
 done < <(jq -r '.artifacts[] | [.name, .url, .checksum] | @tsv' "$metadata_dir/binaries.json")
 echo "PHASE END release-asset-verify: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+# Intact bytes do not mean a usable module. Full consumer validation moved after
+# promotion because it needs SwiftPM, swift-syntax and the macro toolchain, but
+# the two defects that would be worst to publish — a module surface that cannot
+# be imported, and GDExtensionC regressing from a static build-only dependency
+# to a dynamic one — are reachable from the archives already downloaded above,
+# with no SwiftPM, no network and no macro expansion. This costs about a fifth
+# of a second, so it stays on the publishing path where it can still fail closed.
+echo "PHASE BEGIN host-import-verify: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+unpack_dir="$work_dir/unpacked"
+mkdir -p "$unpack_dir"
+for archive in "$work_dir"/*.xcframework.zip; do
+    unzip -q "$archive" -d "$unpack_dir"
+done
+
+host_architecture=$(uname -m)
+# A macOS slice identifier carries every architecture it holds, so
+# include_macos_x86 turns macos-arm64 into macos-arm64_x86_64.
+host_slice() {
+    local xcframework=$1
+    local candidate
+    for candidate in "$unpack_dir/$xcframework.xcframework"/macos-*; do
+        [[ -d $candidate ]] || continue
+        case ${candidate##*/} in
+            *"$host_architecture"*)
+                printf '%s\n' "$candidate"
+                return 0
+                ;;
+        esac
+    done
+    return 1
+}
+
+swiftgodot_slice=$(host_slice SwiftGodot) || {
+    echo "SwiftGodot.xcframework carries no macOS $host_architecture slice to import" >&2
+    exit 1
+}
+gdextension_slice=$(host_slice GDExtensionC) || {
+    echo "GDExtensionC.xcframework carries no macOS $host_architecture slice to import" >&2
+    exit 1
+}
+# SwiftGodot ships as a framework, GDExtensionC as a static library plus headers
+# carrying its own module.modulemap, so each needs a different search flag.
+gdextension_headers="$gdextension_slice/Headers"
+if [[ ! -f "$gdextension_headers/module.modulemap" ]]; then
+    echo "GDExtensionC slice has no module.modulemap at $gdextension_headers" >&2
+    exit 1
+fi
+
+cat > "$work_dir/ImportProbe.swift" <<'SWIFT'
+import SwiftGodot
+
+public enum PublishedModuleProbe {
+    public static let importedType = String(describing: Node.self)
+}
+SWIFT
+
+xcrun swiftc -emit-library -o "$work_dir/libPublishedModuleProbe.dylib" \
+    "$work_dir/ImportProbe.swift" \
+    -F "$swiftgodot_slice" \
+    -framework SwiftGodot \
+    -I "$gdextension_headers" \
+    -Xcc -I"$gdextension_headers" \
+    -target "$host_architecture-apple-macos14.0"
+
+if otool -L "$work_dir/libPublishedModuleProbe.dylib" | grep -q 'GDExtensionC'; then
+    echo "GDExtensionC must remain a static build-only dependency of the published package" >&2
+    otool -L "$work_dir/libPublishedModuleProbe.dylib" >&2
+    exit 1
+fi
+echo "Published SwiftGodot module imports on $host_architecture with GDExtensionC linked statically."
+echo "PHASE END host-import-verify: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
 (
     cd "$binary_repo_dir"
