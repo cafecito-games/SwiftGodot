@@ -186,17 +186,26 @@ platform artifacts:
 1. The `release` job builds and uploads every platform artifact, then publishes the
    source release as a **prerelease** and defers binary-package publication
    (`SWIFT_GODOT_DEFER_BINARY_PUBLISH=1`).
-2. The `publish-binary-package` job clones `SwiftGodotBinary`, verifies the public
-   asset URLs and checksums, and builds a clean consumer against the exact published
-   package before promoting the source release to stable.
+2. The `publish-binary-package` job clones `SwiftGodotBinary`, downloads each public
+   asset in full and hashes it against the checksum written into `Package.swift`,
+   then pushes the binary tag and promotes the source release to stable.
+3. The `validate-binary-consumer` job then resolves and builds a clean consumer
+   against the published package. It runs **after** promotion, so it cannot hold up
+   a release; a failure turns the run red and calls for a patch release rather than
+   withdrawing anything.
 
-A failed final validation leaves the prerelease and all release inputs intact, so
-the failed `publish-binary-package` job can be re-run to retry validation without
-rebuilding platform artifacts: it re-downloads the preserved binary-package metadata
-and re-runs the clean consumer build. `scripts/release` can also regenerate that
-metadata from an existing prerelease's published asset digests instead of recomputing
-checksums from a local rebuild. Publication stays fail-closed: the binary tag is only
-pushed and the source release only promoted after the clean consumer build passes.
+Consumer validation used to run before publication, and it blocked two consecutive
+releases: SwiftPM stalled resolving a consumer against assets published seconds
+earlier, failing after every asset had already been uploaded and leaving each release
+an unpromoted prerelease with no binary tag. Publication is still fail-closed on
+everything it can check cheaply and locally — asset bytes, manifest equality, macro
+source provenance — and those checks all precede the tag push.
+
+A failed job leaves the prerelease and all release inputs intact, so a failed
+`publish-binary-package` job can be re-run without rebuilding platform artifacts: it
+re-downloads the preserved binary-package metadata. `scripts/release` can also
+regenerate that metadata from an existing prerelease's published asset digests
+instead of recomputing checksums from a local rebuild.
 
 The clean consumer build (`scripts/test-binary-package-consumer`) separates resolution
 from compilation and timestamps every phase, so a stall is attributable to downloading
