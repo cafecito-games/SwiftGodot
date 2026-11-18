@@ -141,8 +141,8 @@ if [[ -z "$gpm_version" ]]; then
 fi
 if ! gpm_slice_version_at_least "$gpm_version" "$GPM_SLICE_MINIMUM_VERSION"; then
     echo "gpm $gpm_version is older than the required $GPM_SLICE_MINIMUM_VERSION."
-    echo "0.5.1 is the floor: earlier versions cannot store the Android AAR as a shared"
-    echo "artifact, and reject the android.* [libraries] keys Godot resolves from the APK."
+    echo "0.6.1 is the floor: earlier versions refuse the contained relative symlinks"
+    echo "inside the versioned macOS .framework bundles (and < 0.5.1 cannot package the Android slices)."
     exit 1
 fi
 
@@ -161,15 +161,6 @@ if [[ ${#missing_payloads[@]} -gt 0 ]]; then
     echo "Run scripts/build-gdextension-shim first."
     exit 1
 fi
-
-copy_without_symlinks() {
-    local source=$1
-    local destination_parent=$2
-
-    # gpm refuses to extract symlink entries from release zips. Dereference
-    # framework symlinks into real files/directories while preserving paths.
-    rsync -aL "$source" "$destination_parent/"
-}
 
 # Pick the macOS arm64 slice from an xcframework. Falls back to a unique
 # macos-* slice when no exact "macos-arm64" directory exists.
@@ -234,14 +225,9 @@ prune_non_ios_libraries() {
 # Stages an xcframework under bin/ios carrying its iOS slices only.
 #
 # A macOS slice in there is unreachable: the .gdextension below resolves
-# macos.arm64 to bin/macos_arm64/, never to a slice nested in this bundle. It is
-# also actively harmful. Dereferencing a versioned macOS framework materializes
-# its root and Versions/Current symlinks as real copies, so the binary ships
-# three times, and the result is laid out as a flat and a versioned framework at
-# once — a shape codesign refuses with "bundle format is ambiguous (could be app
-# or framework)". That fails the archive of any consumer signing every slice of
-# every embedded xcframework, which Apple's third-party SDK requirements force on
-# anyone repackaging a listed SDK.
+# macos.arm64 to bin/macos_arm64/, never to a slice nested in this bundle, so
+# keeping non-iOS slices under bin/ios would ship unreachable frameworks inside
+# the ios slice.
 stage_ios_slices() {
     local source=$1
     local destination_parent=$2
@@ -267,7 +253,7 @@ stage_ios_slices() {
                 echo "$source_plist declares slice $identifier, which is not a directory in $source"
                 exit 1
             fi
-            copy_without_symlinks "$source/$identifier" "$destination"
+            rsync -a "$source/$identifier" "$destination/"
             staged+=("$identifier")
         fi
         index=$((index + 1))
@@ -369,29 +355,19 @@ cp LICENSE "$addon_dir/LICENSE"
 cp "$android_aar" "$addon_dir/bin/android/SwiftGodot.aar"
 stage_ios_slices "$xcframework" "$addon_dir/bin/ios"
 stage_ios_slices "$embed_xcframework" "$addon_dir/bin/ios"
-copy_without_symlinks "$mac_framework" "$addon_dir/bin/macos_arm64"
-copy_without_symlinks "$mac_embed_framework" "$addon_dir/bin/macos_arm64"
+rsync -a "$mac_framework" "$addon_dir/bin/macos_arm64/"
+rsync -a "$mac_embed_framework" "$addon_dir/bin/macos_arm64/"
 
 for entry in "${GDEXTENSION_SHIM_TARGETS[@]}"; do
     IFS='|' read -r _tag payload_dir payload_name _target _container _machine <<<"$entry"
     cp "$shim_dir/$payload_dir/$payload_name" "$addon_dir/bin/$payload_dir/$payload_name"
 done
 
-if find "$addon_dir" -type l -print | grep -q .; then
-    echo "Refusing to package addon with symlinks; gpm cannot extract them:"
-    find "$addon_dir" -type l -print
-    exit 1
-fi
-
-# Resolvability is proven after staging and before zipping, so a failure leaves
-# no artifact behind for a release to publish.
-scripts/validate-godot-addon-libraries "$addon_dir" "$addon_dir/bin/android/SwiftGodot.aar"
-
+# Resolvability and slice packaging are proven before writing the standalone
+# addon zip, so any validation or symlink-containment failure leaves no zip
+# artifact behind for a release to publish.
 rm -f "$zip_path"
-(
-    cd "$dist_dir"
-    zip -qryX "$zip_path" addons/SwiftGodot
-)
+scripts/validate-godot-addon-libraries "$addon_dir" "$addon_dir/bin/android/SwiftGodot.aar"
 
 # gpm has no exclusion mechanism, so it packages the staged tree rather than the
 # working tree: everything under addons/SwiftGodot that no .gdextension key and
@@ -407,5 +383,10 @@ gpm package --dir "$dist_dir" --out "$slices_dir" --version "$plugin_version" >&
 # validation runs before zipping: a wrong cut is only discovered in someone
 # else's project, where it fails as a download error.
 scripts/validate-addon-slices "$slices_dir" "$plugin_version" "$addon_dir/bin/android/SwiftGodot.aar" >&2
+
+(
+    cd "$dist_dir"
+    zip -qryX "$zip_path" addons/SwiftGodot
+)
 
 printf '%s\n' "$zip_path"

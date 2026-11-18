@@ -166,4 +166,26 @@ for slice_id in "${GPM_SLICE_EXPECTED_SLICES[@]}"; do
         die "slice $slice_id does not reference the shared android artifact; it would install without the AAR"
 done
 
+# The macos.arm64 slice archive must preserve the versioned framework symlinks as
+# zip symlink entries so gpm install materializes signable macOS bundles rather
+# than triplicated regular files.
+macos_slice_file=$(printf '%s\n' "$facts" | sed -n 's/^slice=macos\.arm64 \([^ ]*\) .*$/\1/p')
+macos_detailed_listing=$(unzip -Zl "$slices_dir/$macos_slice_file" 2>/dev/null) ||
+    die "cannot inspect zip modes of $slices_dir/$macos_slice_file"
+for module in SwiftGodot SwiftGodotEmbed; do
+    prefix="bin/macos_arm64/$module.framework"
+    for required_symlink in "Versions/Current" "$module" "Resources"; do
+        awk -v target="$prefix/$required_symlink" '$NF == target && $1 ~ /^l/ { found = 1 } END { exit found ? 0 : 1 }' <<<"$macos_detailed_listing" ||
+            die "macos.arm64 slice archive must store $prefix/$required_symlink as a symlink entry"
+    done
+    if [[ "$module" == SwiftGodot ]]; then
+        for metadata_symlink in "Headers" "Modules"; do
+            awk -v target="$prefix/$metadata_symlink" '$NF == target && $1 ~ /^l/ { found = 1 } END { exit found ? 0 : 1 }' <<<"$macos_detailed_listing" ||
+                die "macos.arm64 slice archive must store $prefix/$metadata_symlink as a symlink entry"
+        done
+    fi
+    awk -v target="$prefix/Versions/A/$module" '$NF == target && $1 ~ /^-/ { found = 1 } END { exit found ? 0 : 1 }' <<<"$macos_detailed_listing" ||
+        die "macos.arm64 slice archive must store $prefix/Versions/A/$module as a regular file"
+done
+
 echo "Godot addon slice validation passed: $slices_dir"

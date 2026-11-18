@@ -9,7 +9,8 @@
 # instead of publishing a wrong package quietly.
 #
 # The emitted index is format 2, because the Android AAR is a shared artifact
-# across the per-ABI slices. Consumers therefore need gpm 0.5.0 or newer.
+# across the per-ABI slices, and macos.arm64 ships versioned .framework relative
+# symlinks. Consumers therefore need gpm 0.6.1 or newer.
 
 [package]
 name       = "SwiftGodot"
