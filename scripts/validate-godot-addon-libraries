@@ -183,10 +183,8 @@ done
 
 # Every xcframework staged under bin/ios carries iOS slices only, both in its
 # Info.plist and on disk. A slice for another platform is unreachable — macos.arm64
-# resolves to bin/macos_arm64/ — and a dereferenced macOS framework cannot be
-# code-signed at all: having a root binary and a Versions/ layout at once is the
-# shape codesign rejects as "bundle format is ambiguous", which fails the archive
-# of any consumer that signs every slice of every embedded xcframework.
+# resolves to bin/macos_arm64/ — so keeping non-iOS slices under bin/ios ships
+# dead weight in the ios slice.
 for xcframework in "$addon_dir"/bin/ios/*.xcframework; do
     [[ -d "$xcframework" ]] || die "bin/ios carries no xcframework bundle"
 
@@ -207,8 +205,7 @@ for xcframework in "$addon_dir"/bin/ios/*.xcframework; do
     [[ $index -gt 0 ]] || die "cannot read any AvailableLibraries entry out of ${plist#"$addon_dir/"}"
 
     # The reverse direction: a slice directory the Info.plist does not name ships
-    # bytes no consumer loads, and is how an unsignable macOS slice would return
-    # while the plist looked clean.
+    # bytes no consumer loads.
     while IFS= read -r present; do
         [[ "$present" != Info.plist ]] || continue
         named=
@@ -218,6 +215,54 @@ for xcframework in "$addon_dir"/bin/ios/*.xcframework; do
         [[ -n "$named" ]] ||
             die "${xcframework#"$addon_dir/"} stages $present, which its Info.plist does not declare"
     done < <(find "$xcframework" -mindepth 1 -maxdepth 1 -exec basename {} \;)
+done
+
+# Every macOS framework staged under bin/macos_arm64 must preserve its versioned
+# symlink layout and remain code-signable. Dereferencing Versions/Current or the
+# root symlinks produces a hybrid flat+versioned bundle that codesign rejects as
+# "bundle format is ambiguous (could be app or framework)".
+scratch_dir=$(mktemp -d)
+trap 'rm -rf "$scratch_dir"' EXIT
+
+for required_module in SwiftGodot SwiftGodotEmbed; do
+    [[ -d "$addon_dir/bin/macos_arm64/$required_module.framework" && ! -L "$addon_dir/bin/macos_arm64/$required_module.framework" ]] ||
+        die "bin/macos_arm64/$required_module.framework is missing or not a bundle directory"
+done
+
+for framework in "$addon_dir"/bin/macos_arm64/*.framework; do
+    [[ -d "$framework" ]] || die "bin/macos_arm64 carries no framework bundle"
+    module=$(basename "$framework" .framework)
+    relative_framework=${framework#"$addon_dir/"}
+
+    [[ -f "$framework/Versions/A/$module" && ! -L "$framework/Versions/A/$module" ]] ||
+        die "$relative_framework/Versions/A/$module must be a regular Mach-O binary"
+    [[ -L "$framework/Versions/Current" && "$(readlink "$framework/Versions/Current")" == "A" ]] ||
+        die "$relative_framework/Versions/Current must be a symlink to A"
+    [[ -L "$framework/$module" && "$(readlink "$framework/$module")" == "Versions/Current/$module" ]] ||
+        die "$relative_framework/$module must be a symlink to Versions/Current/$module"
+    [[ -L "$framework/Resources" && "$(readlink "$framework/Resources")" == "Versions/Current/Resources" ]] ||
+        die "$relative_framework/Resources must be a symlink to Versions/Current/Resources"
+
+    if [[ "$module" == SwiftGodot ]]; then
+        [[ -L "$framework/Headers" && "$(readlink "$framework/Headers")" == "Versions/Current/Headers" ]] ||
+            die "$relative_framework/Headers must be a symlink to Versions/Current/Headers"
+        [[ -L "$framework/Modules" && "$(readlink "$framework/Modules")" == "Versions/Current/Modules" ]] ||
+            die "$relative_framework/Modules must be a symlink to Versions/Current/Modules"
+    fi
+
+    while IFS= read -r top_entry; do
+        [[ "$top_entry" != Versions ]] || continue
+        [[ -L "$framework/$top_entry" ]] ||
+            die "$relative_framework/$top_entry is not a symlink; versioned macOS frameworks must not mix root files/directories with Versions/"
+    done < <(find "$framework" -mindepth 1 -maxdepth 1 -exec basename {} \;)
+
+    sign_probe_dir="$scratch_dir/$module"
+    mkdir -p "$sign_probe_dir"
+    rsync -a "$framework" "$sign_probe_dir/"
+    codesign --force -s - "$sign_probe_dir/$module.framework" >/dev/null 2>&1 ||
+        die "$relative_framework cannot be code-signed (codesign --force -s - failed)"
+    codesign --verify --strict "$sign_probe_dir/$module.framework" >/dev/null 2>&1 ||
+        die "$relative_framework failed strict code-signature verification after signing"
 done
 
 echo "Godot addon library validation passed: $addon_dir"

@@ -78,7 +78,7 @@ declared above, and the host's own, which matters here because the whole addon u
 well over a gigabyte of Apple frameworks: a Linux or Windows machine, or an Android CI job,
 needs `core` plus a few kilobytes of it.
 
-This requires **gpm 0.5.1 or newer**, and the manifest must declare neither `asset` nor
+This requires **gpm 0.6.1 or newer**, and the manifest must declare neither `asset` nor
 `source_path`:
 
 - `asset` selects one archive of a set that is only complete together, so a sliced addon

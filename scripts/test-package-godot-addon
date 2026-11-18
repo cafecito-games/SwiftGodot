@@ -14,22 +14,36 @@ release_workflow=".github/workflows/release.yml"
 [[ -x "$script" ]] || fail "package-godot-addon script must exist and be executable"
 
 work_dir=$(mktemp -d)
-trap 'rm -rf "$work_dir"' EXIT
+http_server_pid=
+cleanup() {
+    if [[ -n "$http_server_pid" ]]; then
+        kill "$http_server_pid" 2>/dev/null || true
+        wait "$http_server_pid" 2>/dev/null || true
+    fi
+    rm -rf "$work_dir"
+}
+trap cleanup EXIT
 
-# Build a fake SwiftGodot xcframework with a versioned macOS framework, plus a
-# minimal SwiftGodotEmbed xcframework. The two xcframeworks parallel what the
-# release pipeline produces.
+# Build a fake SwiftGodot xcframework with a signed, versioned macOS framework,
+# plus a matching C-only SwiftGodotEmbed xcframework. Mirrors
+# scripts/make-swiftgodot-framework: SwiftGodot carries Headers and Modules
+# metadata symlinks, while C-only SwiftGodotEmbed carries only Versions/Current,
+# SwiftGodotEmbed, and Resources.
 make_fake_xcframework() {
     local module=$1
+    local kind=${2:-swift}
     local xcf="$work_dir/$module.xcframework"
     local mac="$xcf/macos-arm64/$module.framework"
 
     mkdir -p \
         "$xcf/ios-arm64/$module.framework" \
         "$xcf/ios-arm64-simulator/$module.framework" \
-        "$mac/Versions/A/Headers" \
-        "$mac/Versions/A/Modules/$module.swiftmodule" \
         "$mac/Versions/A/Resources"
+    if [[ "$kind" == swift ]]; then
+        mkdir -p \
+            "$mac/Versions/A/Headers" \
+            "$mac/Versions/A/Modules/$module.swiftmodule"
+    fi
 
     # A real Info.plist, because packaging reads the slice set out of it rather
     # than globbing the bundle, and restages bin/ios from the iOS entries only.
@@ -94,23 +108,52 @@ make_fake_xcframework() {
 PLIST
     printf 'fake ios device binary\n' > "$xcf/ios-arm64/$module.framework/$module"
     printf 'fake ios simulator binary\n' > "$xcf/ios-arm64-simulator/$module.framework/$module"
-    printf 'fake macos binary\n' > "$mac/Versions/A/$module"
-    printf 'fake header\n' > "$mac/Versions/A/Headers/$module-Swift.h"
-    printf 'fake module\n' > "$mac/Versions/A/Modules/module.modulemap"
-    printf 'fake swiftmodule\n' > "$mac/Versions/A/Modules/$module.swiftmodule/arm64-apple-macos.swiftmodule"
-    printf 'fake plist\n' > "$mac/Versions/A/Resources/Info.plist"
+    cc -dynamiclib -arch arm64 \
+        -install_name "@rpath/$module.framework/Versions/A/$module" \
+        -x c - -o "$mac/Versions/A/$module" <<'SOURCE'
+int swiftgodot_test_fixture_symbol(void) { return 0; }
+SOURCE
+    if [[ "$kind" == swift ]]; then
+        printf 'fake header\n' > "$mac/Versions/A/Headers/$module-Swift.h"
+        printf 'fake module\n' > "$mac/Versions/A/Modules/module.modulemap"
+        printf 'fake swiftmodule\n' > "$mac/Versions/A/Modules/$module.swiftmodule/arm64-apple-macos.swiftmodule"
+    fi
+    cat > "$mac/Versions/A/Resources/Info.plist" <<FRAMEWORK_PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleExecutable</key>
+	<string>$module</string>
+	<key>CFBundleIdentifier</key>
+	<string>com.cafecito-games.$module</string>
+	<key>CFBundleName</key>
+	<string>$module</string>
+	<key>CFBundlePackageType</key>
+	<string>FMWK</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0</string>
+	<key>CFBundleVersion</key>
+	<string>1</string>
+</dict>
+</plist>
+FRAMEWORK_PLIST
 
     ln -s A "$mac/Versions/Current"
-    ln -s Versions/Current/Headers "$mac/Headers"
-    ln -s Versions/Current/Modules "$mac/Modules"
+    if [[ "$kind" == swift ]]; then
+        ln -s Versions/Current/Headers "$mac/Headers"
+        ln -s Versions/Current/Modules "$mac/Modules"
+    fi
     ln -s Versions/Current/Resources "$mac/Resources"
     ln -s "Versions/Current/$module" "$mac/$module"
+
+    codesign --force -s - "$mac" >/dev/null 2>&1
 
     printf '%s\n' "$xcf"
 }
 
-xcframework=$(make_fake_xcframework SwiftGodot)
-embed_xcframework=$(make_fake_xcframework SwiftGodotEmbed)
+xcframework=$(make_fake_xcframework SwiftGodot swift)
+embed_xcframework=$(make_fake_xcframework SwiftGodotEmbed c)
 
 # shellcheck source=gdextension-shim-config
 source scripts/gdextension-shim-config
@@ -216,7 +259,7 @@ for module in SwiftGodot SwiftGodotEmbed; do
 
     # Each kept slice is byte-for-byte what the input held.
     while IFS= read -r slice; do
-        diff -r "$source_xcframework/$slice" "$staged_xcframework/$slice" >/dev/null ||
+        diff -r --no-dereference "$source_xcframework/$slice" "$staged_xcframework/$slice" >/dev/null ||
             fail "staged $module.xcframework changed slice $slice"
     done <<<"$expected_ios"
 done
@@ -253,15 +296,38 @@ if [[ "$gdextension_files" != "$addon/SwiftGodotEmbed.gdextension" ]]; then
     fail "expected only SwiftGodotEmbed.gdextension; got: $gdextension_files"
 fi
 
-if zipinfo -l "$zip_path" | awk '$1 ~ /^l/ { found = 1 } END { exit found ? 0 : 1 }'; then
-    zipinfo -l "$zip_path" | awk '$1 ~ /^l/ { print }' >&2
-    fail "SwiftGodot addon zip must not contain symlink entries; gpm refuses to extract them"
-fi
+expected_macos_framework_symlinks() {
+    local module=$1
+    printf '%s\n' \
+        "Versions/Current|A" \
+        "$module|Versions/Current/$module" \
+        "Resources|Versions/Current/Resources"
+    if [[ "$module" == SwiftGodot ]]; then
+        printf '%s\n' \
+            "Headers|Versions/Current/Headers" \
+            "Modules|Versions/Current/Modules"
+    fi
+}
 
-if find "$addon" -type l -print | grep -q .; then
-    find "$addon" -type l -print >&2
-    fail "SwiftGodot addon zip must extract without symlinks"
-fi
+# Versioned macOS frameworks require relative symlinks so codesign classifies the
+# bundle unambiguously and each Mach-O binary is stored once at Versions/A/<Name>.
+zip_listing=$(unzip -Zl "$zip_path")
+for module in SwiftGodot SwiftGodotEmbed; do
+    prefix="addons/SwiftGodot/bin/macos_arm64/$module.framework"
+    while IFS='|' read -r relative_link _expected_target; do
+        awk -v target="$prefix/$relative_link" '$NF == target && $1 ~ /^l/ { found = 1 } END { exit found ? 0 : 1 }' <<<"$zip_listing" ||
+            fail "addon zip must store $prefix/$relative_link as a symlink entry"
+    done < <(expected_macos_framework_symlinks "$module")
+    awk -v target="$prefix/Versions/A/$module" '$NF == target && $1 ~ /^-/ { found = 1 } END { exit found ? 0 : 1 }' <<<"$zip_listing" ||
+        fail "addon zip must store $prefix/Versions/A/$module as a regular file"
+done
+
+unexpected_symlinks=$(find "$addon" \
+    \( -path "$addon/bin/macos_arm64/SwiftGodot.framework/*" \
+       -o -path "$addon/bin/macos_arm64/SwiftGodotEmbed.framework/*" \) -prune \
+    -o -type l -print)
+[[ -z "$unexpected_symlinks" ]] ||
+    fail "unexpected symlinks outside macOS framework bundles: $unexpected_symlinks"
 
 for forbidden in '*.swift' '*.h' '*.swiftmodule'; do
     if find "$addon" \
@@ -333,13 +399,53 @@ rg -q 'platform is EditorExportPlatformAndroid' "$addon/export_plugin.gd" || fai
 rg -q 'res://addons/SwiftGodot/bin/android/SwiftGodot\.aar' "$addon/export_plugin.gd" || fail "export plugin must return the packaged Android AAR"
 rg -q '^\s*func _get_name\(\):' "$addon/export_plugin.gd" || fail "Android export plugin must have a stable name"
 
+assert_versioned_macos_framework() {
+    local framework=$1
+    local module=$2
+    local context=$3
+
+    [[ -d "$framework" && ! -L "$framework" ]] ||
+        fail "$context macOS $module.framework must be a real bundle directory"
+    [[ -f "$framework/Versions/A/$module" && ! -L "$framework/Versions/A/$module" ]] ||
+        fail "$context macOS $module.framework must keep regular binary Versions/A/$module for its install name"
+
+    local link_path expected_target actual_target
+    while IFS='|' read -r link_path expected_target; do
+        [[ -L "$framework/$link_path" ]] ||
+            fail "$context macOS $module.framework/$link_path must be a symlink, not a dereferenced copy"
+        actual_target=$(readlink "$framework/$link_path")
+        [[ "$actual_target" == "$expected_target" ]] ||
+            fail "$context macOS $module.framework/$link_path points to '$actual_target', expected '$expected_target'"
+    done < <(expected_macos_framework_symlinks "$module")
+
+    if [[ "$module" == SwiftGodotEmbed ]]; then
+        [[ ! -e "$framework/Headers" && ! -L "$framework/Headers" ]] ||
+            fail "$context C-only macOS SwiftGodotEmbed.framework must not carry Headers"
+        [[ ! -e "$framework/Modules" && ! -L "$framework/Modules" ]] ||
+            fail "$context C-only macOS SwiftGodotEmbed.framework must not carry Modules"
+    fi
+
+    local binary_copies
+    binary_copies=$(find "$framework" -type f -name "$module" | wc -l | tr -d ' ')
+    [[ "$binary_copies" == "1" ]] ||
+        fail "$context macOS $module.framework must contain exactly 1 regular binary file, got $binary_copies"
+
+    codesign --verify --strict "$framework" >/dev/null 2>&1 ||
+        fail "$context macOS $module.framework failed codesign --verify --strict"
+
+    local resign_dir
+    resign_dir=$(mktemp -d "$work_dir/resign.XXXXXX")
+    rsync -a "$framework" "$resign_dir/"
+    codesign --force -s - "$resign_dir/$module.framework" >/dev/null 2>&1 ||
+        fail "$context macOS $module.framework cannot be re-signed with codesign --force -s -"
+    codesign --verify --strict "$resign_dir/$module.framework" >/dev/null 2>&1 ||
+        fail "$context re-signed macOS $module.framework failed codesign --verify --strict"
+    rm -rf "$resign_dir"
+}
+
 for module in SwiftGodot SwiftGodotEmbed; do
-    framework="$addon/bin/macos_arm64/$module.framework"
-    [[ -f "$framework/Versions/A/$module" ]] || fail "macOS $module.framework must keep Versions/A/$module for its install name"
-    [[ -f "$framework/Versions/Current/$module" ]] || fail "macOS $module.framework must materialize Versions/Current/$module"
-    [[ -f "$framework/$module" ]] || fail "macOS $module.framework must materialize root binary"
-    [[ -d "$framework/Headers" ]] || fail "macOS $module.framework must materialize root Headers directory"
-    [[ -d "$framework/Modules" ]] || fail "macOS $module.framework must materialize root Modules directory"
+    assert_versioned_macos_framework "$stage_root/bin/macos_arm64/$module.framework" "$module" "staged"
+    assert_versioned_macos_framework "$addon/bin/macos_arm64/$module.framework" "$module" "extracted-zip"
 done
 
 # --- gpm slices -------------------------------------------------------------
@@ -409,6 +515,99 @@ rg -q '"android\.debug\.arm64" = "res://addons/SwiftGodot/bin/android/arm64-v8a/
 scripts/validate-addon-slices "$slices_dir" "1.2.3-rc.1" "$addon/bin/android/SwiftGodot.aar" >/dev/null ||
     fail "the published cut must pass scripts/validate-addon-slices"
 
+# The macos.arm64 slice archive must preserve the versioned framework symlinks
+# rather than shipping dereferenced regular files.
+macos_slice_file="$slices_dir/$(printf '%s\n' "$slice_facts" | sed -n 's/^slice=macos\.arm64 \([^ ]*\) .*$/\1/p')"
+[[ -f "$macos_slice_file" ]] || fail "no macos.arm64 slice archive was published"
+macos_slice_listing=$(unzip -Zl "$macos_slice_file")
+for module in SwiftGodot SwiftGodotEmbed; do
+    prefix="bin/macos_arm64/$module.framework"
+    while IFS='|' read -r relative_link _expected_target; do
+        awk -v target="$prefix/$relative_link" '$NF == target && $1 ~ /^l/ { found = 1 } END { exit found ? 0 : 1 }' <<<"$macos_slice_listing" ||
+            fail "macos.arm64 slice must store $prefix/$relative_link as a symlink entry"
+    done < <(expected_macos_framework_symlinks "$module")
+    awk -v target="$prefix/Versions/A/$module" '$NF == target && $1 ~ /^-/ { found = 1 } END { exit found ? 0 : 1 }' <<<"$macos_slice_listing" ||
+        fail "macos.arm64 slice must store $prefix/Versions/A/$module as a regular file"
+done
+
+# Round-trip verification: install the packaged slices with gpm into a scratch
+# Godot project and prove the versioned macOS framework symlinks survive as real
+# symbolic links and pass strict codesign verification.
+port_file="$work_dir/http-port"
+python3 - "$slices_dir" "$port_file" <<'HTTP_SERVER' &
+import functools
+import http.server
+import pathlib
+import sys
+
+directory, port_path = sys.argv[1], sys.argv[2]
+
+
+class QuietHandler(http.server.SimpleHTTPRequestHandler):
+    def log_message(self, format, *args):
+        pass
+
+
+server = http.server.ThreadingHTTPServer(
+    ("127.0.0.1", 0),
+    functools.partial(QuietHandler, directory=directory),
+)
+pathlib.Path(port_path).write_text(f"{server.server_address[1]}\n", encoding="utf-8")
+server.serve_forever()
+HTTP_SERVER
+http_server_pid=$!
+while [[ ! -s "$port_file" ]] && kill -0 "$http_server_pid" 2>/dev/null; do
+    sleep 0.05
+done
+[[ -s "$port_file" ]] || fail "failed to start local HTTP server for gpm round-trip install"
+http_port=$(tr -d '\n' < "$port_file")
+
+core_slice_name=$(printf '%s\n' "$slice_facts" | sed -n 's/^slice=core \([^ ]*\) .*$/\1/p')
+gpm_project="$work_dir/gpm-consumer"
+mkdir -p "$gpm_project"
+printf 'config_version=5\n' > "$gpm_project/project.godot"
+cat > "$gpm_project/addons.toml" <<ADDONS_TOML
+[project]
+platforms = ["ios", "macos.arm64", "android.arm64", "android.x86_64", "linux.x86_64", "linux.arm64", "windows.x86_64"]
+
+[addons.SwiftGodot]
+source = "archive"
+url    = "http://127.0.0.1:$http_port/$core_slice_name"
+index  = "http://127.0.0.1:$http_port/gpm-index.toml"
+ADDONS_TOML
+
+gpm install --dir "$gpm_project" --json >/dev/null ||
+    fail "gpm install failed on the published slice cut"
+
+gpm_installed_addon="$gpm_project/addons/SwiftGodot"
+[[ -d "$gpm_installed_addon" ]] || fail "gpm install did not materialize addons/SwiftGodot"
+rg -q '^    file_manifest_version = 2$' "$gpm_project/.gpm-state.toml" ||
+    fail "gpm state must record file_manifest_version = 2 for symlinked macOS frameworks"
+rg -q 'symlinks = \[' "$gpm_project/.gpm-state.toml" ||
+    fail "gpm state must record installed symlinks"
+
+for module in SwiftGodot SwiftGodotEmbed; do
+    assert_versioned_macos_framework "$gpm_installed_addon/bin/macos_arm64/$module.framework" "$module" "gpm-installed"
+done
+
+scripts/validate-godot-addon-libraries "$gpm_installed_addon" "$gpm_installed_addon/bin/android/SwiftGodot.aar" >/dev/null ||
+    fail "reassembled gpm-installed addon failed library validation"
+
+# Repeat install must be idempotent and report the symlinked addon as intact.
+gpm install --dir "$gpm_project" --json >/dev/null ||
+    fail "repeat gpm install failed on the installed symlinked addon"
+gpm_list_json=$(gpm list --dir "$gpm_project" --json) ||
+    fail "gpm list failed after round-trip install"
+python3 -c '
+import json, sys
+entries = json.loads(sys.argv[1])
+assert len(entries) == 1 and entries[0]["name"] == "SwiftGodot" and entries[0]["installed"] is True, entries
+' "$gpm_list_json" || fail "gpm list did not report SwiftGodot as installed after round-trip"
+
+kill "$http_server_pid" 2>/dev/null || true
+wait "$http_server_pid" 2>/dev/null || true
+http_server_pid=
+
 # Fail closed: the validator is the authority on the published set, so it must
 # reject a cut short an archive, and one carrying an archive the index does not
 # name.
@@ -424,6 +623,14 @@ cp -R "$slices_dir/." "$stray_archive_dir/"
 printf 'stray\n' > "$stray_archive_dir/SwiftGodot-1.2.3-rc.1-haiku.zip"
 if scripts/validate-addon-slices "$stray_archive_dir" "1.2.3-rc.1" "$addon/bin/android/SwiftGodot.aar" >/dev/null 2>&1; then
     fail "slice validation must fail on an archive the index does not name"
+fi
+
+dereferenced_dist_dir=$(mktemp -d "$work_dir/deref-dist.XXXXXX")
+rsync -aL "$output_dir/dist/" "$dereferenced_dist_dir/"
+dereferenced_slices_dir=$(mktemp -d "$work_dir/deref-slices.XXXXXX")
+gpm package --dir "$dereferenced_dist_dir" --out "$dereferenced_slices_dir" --version "1.2.3-rc.1" >/dev/null 2>&1
+if scripts/validate-addon-slices "$dereferenced_slices_dir" "1.2.3-rc.1" "$addon/bin/android/SwiftGodot.aar" >/dev/null 2>&1; then
+    fail "slice validation must fail when macos.arm64 slice stores dereferenced framework files instead of symlinks"
 fi
 
 rg -q 'scripts/package-godot-addon "\$tag" "\$output_dir/SwiftGodot\.xcframework" "\$output_dir/SwiftGodotEmbed\.xcframework" "\$android_aar" "\$shim_dir" "\$output_dir"' "$release_script" || fail "release script must package the Godot addon from Apple artifacts, the Android AAR, and the GDExtension shim"
@@ -523,6 +730,39 @@ if PATH=/usr/bin:/bin "$script" "v1.2.3-rc.1" "$xcframework" "$embed_xcframework
 fi
 [[ ! -f "$no_gpm_dir/SwiftGodot-v1.2.3-rc.1.zip" ]] ||
     fail "a run without gpm must publish no zip"
+
+# gpm versions older than 0.6.1 refuse symlink entries in slice archives, so the
+# preflight version floor must reject 0.6.0 up front without staging or zipping.
+old_gpm_bin=$(mktemp -d "$work_dir/old-gpm-bin.XXXXXX")
+cat > "$old_gpm_bin/gpm" <<'OLD_GPM'
+#!/usr/bin/env bash
+if [[ "${1:-}" == "--version" ]]; then
+    echo "gpm version 0.6.0"
+    exit 0
+fi
+echo "outdated gpm should never be invoked past --version" >&2
+exit 1
+OLD_GPM
+chmod +x "$old_gpm_bin/gpm"
+old_gpm_dir=$(mktemp -d "$work_dir/old-gpm-out.XXXXXX")
+old_gpm_output=$(PATH="$old_gpm_bin:$PATH" "$script" "v1.2.3-rc.1" "$xcframework" "$embed_xcframework" "$android_aar" "$shim_dir" "$old_gpm_dir" 2>&1 && echo UNEXPECTED_SUCCESS || true)
+printf '%s\n' "$old_gpm_output" | grep -q UNEXPECTED_SUCCESS &&
+    fail "packaging must reject gpm 0.6.0 below the 0.6.1 symlink floor"
+printf '%s\n' "$old_gpm_output" | grep -Fq "0.6.1" ||
+    fail "outdated gpm rejection must name the 0.6.1 version floor"
+[[ ! -f "$old_gpm_dir/SwiftGodot-v1.2.3-rc.1.zip" ]] ||
+    fail "a run with an outdated gpm must publish no zip"
+
+# An escaping symlink inside an input framework must fail closed and leave no
+# standalone zip behind either.
+escaping_xcframework_dir=$(mktemp -d "$work_dir/escaping-xcf.XXXXXX")
+rsync -a "$xcframework" "$escaping_xcframework_dir/"
+ln -s ../../../../../../etc/passwd "$escaping_xcframework_dir/SwiftGodot.xcframework/macos-arm64/SwiftGodot.framework/Versions/A/Resources/escape"
+if "$script" "v1.2.3-rc.1" "$escaping_xcframework_dir/SwiftGodot.xcframework" "$embed_xcframework" "$android_aar" "$shim_dir" "$escaping_xcframework_dir/output" >/dev/null 2>&1; then
+    fail "packaging must fail when an input framework contains an escaping symlink"
+fi
+[[ ! -f "$escaping_xcframework_dir/output/SwiftGodot-v1.2.3-rc.1.zip" ]] ||
+    fail "a failed run on an escaping symlink must publish no zip"
 
 delete_linux_payload() { rm -f "$1/linux_x86_64/libSwiftGodotEmbed.so"; }
 expect_packaging_failure "a shim payload is missing" delete_linux_payload
@@ -656,21 +896,35 @@ if scripts/validate-godot-addon-libraries "$undeclared_entry_addon" "$undeclared
     fail "validation must fail when a built shim platform has no [libraries] entry"
 fi
 
+# A dereferenced macOS framework under bin/macos_arm64 carries both a root
+# binary and Versions/ at once, which codesign rejects as ambiguous. Library
+# validation must reject that layout directly.
+dereferenced_macos_dir=$(mktemp -d "$work_dir/dereferenced-macos.XXXXXX")
+dereferenced_macos_addon="$dereferenced_macos_dir/addons/SwiftGodot"
+mkdir -p "$dereferenced_macos_addon"
+cp -R "$stage_root/bin" "$dereferenced_macos_addon/bin"
+cp "$stage_root/SwiftGodotEmbed.gdextension" "$dereferenced_macos_addon/SwiftGodotEmbed.gdextension"
+rm -rf "$dereferenced_macos_addon/bin/macos_arm64/SwiftGodot.framework"
+rsync -aL "$xcframework/macos-arm64/SwiftGodot.framework" "$dereferenced_macos_addon/bin/macos_arm64/"
+if scripts/validate-godot-addon-libraries "$dereferenced_macos_addon" "$dereferenced_macos_addon/bin/android/SwiftGodot.aar" >/dev/null 2>&1; then
+    fail "validation must fail when a macOS framework under bin/macos_arm64 has dereferenced symlinks"
+fi
+
 # Apple and Android output is unchanged by the shim work: repackaging with the
 # same Apple and Android inputs reproduces an identical tree for those slices.
 rerun_dir="$work_dir/rerun"
 "$script" "v1.2.3-rc.1" "$xcframework" "$embed_xcframework" "$android_aar" "$shim_dir" "$rerun_dir" >/dev/null
 rerun_root="$rerun_dir/dist/addons/SwiftGodot"
 for slice in bin/ios bin/macos_arm64 bin/android; do
-    diff -r "$stage_root/$slice" "$rerun_root/$slice" >/dev/null ||
+    diff -r --no-dereference "$stage_root/$slice" "$rerun_root/$slice" >/dev/null ||
         fail "repackaging changed $slice"
 done
-diff -r "$stage_root" "$rerun_root" >/dev/null || fail "repackaging is not idempotent"
+diff -r --no-dereference "$stage_root" "$rerun_root" >/dev/null || fail "repackaging is not idempotent"
 
 # gpm guarantees reproducible archives — sorted entries, fixed timestamps,
 # normalized modes — so two cuts of an unchanged tree must be byte-identical. A
 # cut that is not reproducible is a gpm bug worth reporting rather than tolerating.
-diff -r "$slices_dir" "$rerun_dir/$GPM_SLICE_OUTPUT_SUBDIR" >/dev/null ||
+diff -r --no-dereference "$slices_dir" "$rerun_dir/$GPM_SLICE_OUTPUT_SUBDIR" >/dev/null ||
     fail "repackaging produced different slice archives for an unchanged tree"
 
 echo "Godot addon packaging tests passed"

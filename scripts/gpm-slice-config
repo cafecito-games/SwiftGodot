@@ -7,27 +7,29 @@
 # declared; scripts/install-gpm, scripts/package-godot-addon and
 # scripts/validate-addon-slices all read them from here.
 
-# The lowest gpm that can package this addon. 0.5.1 is the floor rather than a
+# The lowest gpm that can package this addon. 0.6.1 is the floor rather than a
 # preference: 0.5.0 added the shared artifact that lets the per-ABI Android
-# slices share one AAR, and 0.5.1 stopped rejecting the android.* [libraries]
-# keys this addon resolves out of the exported APK rather than from its own tree.
-# A Homebrew cask floats and a developer's gpm is usually older than CI's, so the
-# floor is enforced at package time and not only here.
-GPM_SLICE_MINIMUM_VERSION=0.5.1
+# slices share one AAR, 0.5.1 stopped rejecting the android.* [libraries] keys
+# this addon resolves out of the exported APK rather than from its own tree, and
+# 0.6.1 packages and materializes the contained relative symlinks inside the
+# versioned macOS .framework bundles. A Homebrew cask floats and a developer's
+# gpm is usually older than CI's, so the floor is enforced at package time and
+# not only here.
+GPM_SLICE_MINIMUM_VERSION=0.6.1
 
 # The version scripts/install-gpm fetches, which CI pins so a release is never
 # cut with whatever gpm happened to be on the runner.
-GPM_SLICE_PINNED_VERSION=0.5.1
+GPM_SLICE_PINNED_VERSION=0.6.1
 
 # Checksum-verified download per host, the same treatment the pinned Zig, the
 # Android NDK and the Swift Android SDK get. scripts/install-gpm consumes these;
 # nothing else may fetch the packager.
 # host_os|host_arch|url|sha256
 GPM_SLICE_ARCHIVES=(
-    "darwin|arm64|https://github.com/cafecito-games/godot-package-manager/releases/download/v0.5.1/gpm_0.5.1_darwin_arm64.tar.gz|8ffabb157b18fb11483f4e1c209ab171a6172313cfd0e6358e5d3ff4f2416cdc"
-    "darwin|amd64|https://github.com/cafecito-games/godot-package-manager/releases/download/v0.5.1/gpm_0.5.1_darwin_amd64.tar.gz|566a8e85ac7891339fe3f812c29b6c87b93ce80ab0bfb420b35b18cd68c1a59b"
-    "linux|arm64|https://github.com/cafecito-games/godot-package-manager/releases/download/v0.5.1/gpm_0.5.1_linux_arm64.tar.gz|eb807f6326bf038cf7b2b23f80ef43724196eecb8cecd507e8b55019a448948a"
-    "linux|amd64|https://github.com/cafecito-games/godot-package-manager/releases/download/v0.5.1/gpm_0.5.1_linux_amd64.tar.gz|beaba7bc7aa2d05dba09989530fda8240ca53ce2202a63c58f682a8de3527299"
+    "darwin|arm64|https://github.com/cafecito-games/godot-package-manager/releases/download/v0.6.1/gpm_0.6.1_darwin_arm64.tar.gz|4389adc93b69bfa6389d477a854b99bcaf80a2993521a59a667c2b31fb984ce2"
+    "darwin|amd64|https://github.com/cafecito-games/godot-package-manager/releases/download/v0.6.1/gpm_0.6.1_darwin_amd64.tar.gz|33f6de2151d6ed9d232d3a7995fc56b0cab62bffc0dc1c743b2032e8ec2b4a05"
+    "linux|arm64|https://github.com/cafecito-games/godot-package-manager/releases/download/v0.6.1/gpm_0.6.1_linux_arm64.tar.gz|b91ef7d859cdb60a14be9355789b52b39f5b5583b8dcd7998e6e92fb321f48af"
+    "linux|amd64|https://github.com/cafecito-games/godot-package-manager/releases/download/v0.6.1/gpm_0.6.1_linux_amd64.tar.gz|215cfc86a6978bdd12165b1912f099a90a769bf8aceabb79acf4c88b07181c76"
 )
 
 # The packaging manifest, kept out of the repository root so a bare
