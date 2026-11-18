@@ -25,20 +25,25 @@ cleanup() {
 trap cleanup EXIT
 
 # Build a fake SwiftGodot xcframework with a signed, versioned macOS framework,
-# plus a matching SwiftGodotEmbed xcframework. The two xcframeworks parallel
-# what the release pipeline produces, including real Mach-O dylibs and relative
-# framework symlinks so codesign verifies the bundle layout strictly.
+# plus a matching C-only SwiftGodotEmbed xcframework. Mirrors
+# scripts/make-swiftgodot-framework: SwiftGodot carries Headers and Modules
+# metadata symlinks, while C-only SwiftGodotEmbed carries only Versions/Current,
+# SwiftGodotEmbed, and Resources.
 make_fake_xcframework() {
     local module=$1
+    local kind=${2:-swift}
     local xcf="$work_dir/$module.xcframework"
     local mac="$xcf/macos-arm64/$module.framework"
 
     mkdir -p \
         "$xcf/ios-arm64/$module.framework" \
         "$xcf/ios-arm64-simulator/$module.framework" \
-        "$mac/Versions/A/Headers" \
-        "$mac/Versions/A/Modules/$module.swiftmodule" \
         "$mac/Versions/A/Resources"
+    if [[ "$kind" == swift ]]; then
+        mkdir -p \
+            "$mac/Versions/A/Headers" \
+            "$mac/Versions/A/Modules/$module.swiftmodule"
+    fi
 
     # A real Info.plist, because packaging reads the slice set out of it rather
     # than globbing the bundle, and restages bin/ios from the iOS entries only.
@@ -108,9 +113,11 @@ PLIST
         -x c - -o "$mac/Versions/A/$module" <<'SOURCE'
 int swiftgodot_test_fixture_symbol(void) { return 0; }
 SOURCE
-    printf 'fake header\n' > "$mac/Versions/A/Headers/$module-Swift.h"
-    printf 'fake module\n' > "$mac/Versions/A/Modules/module.modulemap"
-    printf 'fake swiftmodule\n' > "$mac/Versions/A/Modules/$module.swiftmodule/arm64-apple-macos.swiftmodule"
+    if [[ "$kind" == swift ]]; then
+        printf 'fake header\n' > "$mac/Versions/A/Headers/$module-Swift.h"
+        printf 'fake module\n' > "$mac/Versions/A/Modules/module.modulemap"
+        printf 'fake swiftmodule\n' > "$mac/Versions/A/Modules/$module.swiftmodule/arm64-apple-macos.swiftmodule"
+    fi
     cat > "$mac/Versions/A/Resources/Info.plist" <<FRAMEWORK_PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -133,8 +140,10 @@ SOURCE
 FRAMEWORK_PLIST
 
     ln -s A "$mac/Versions/Current"
-    ln -s Versions/Current/Headers "$mac/Headers"
-    ln -s Versions/Current/Modules "$mac/Modules"
+    if [[ "$kind" == swift ]]; then
+        ln -s Versions/Current/Headers "$mac/Headers"
+        ln -s Versions/Current/Modules "$mac/Modules"
+    fi
     ln -s Versions/Current/Resources "$mac/Resources"
     ln -s "Versions/Current/$module" "$mac/$module"
 
@@ -143,8 +152,8 @@ FRAMEWORK_PLIST
     printf '%s\n' "$xcf"
 }
 
-xcframework=$(make_fake_xcframework SwiftGodot)
-embed_xcframework=$(make_fake_xcframework SwiftGodotEmbed)
+xcframework=$(make_fake_xcframework SwiftGodot swift)
+embed_xcframework=$(make_fake_xcframework SwiftGodotEmbed c)
 
 # shellcheck source=gdextension-shim-config
 source scripts/gdextension-shim-config
@@ -287,15 +296,28 @@ if [[ "$gdextension_files" != "$addon/SwiftGodotEmbed.gdextension" ]]; then
     fail "expected only SwiftGodotEmbed.gdextension; got: $gdextension_files"
 fi
 
+expected_macos_framework_symlinks() {
+    local module=$1
+    printf '%s\n' \
+        "Versions/Current|A" \
+        "$module|Versions/Current/$module" \
+        "Resources|Versions/Current/Resources"
+    if [[ "$module" == SwiftGodot ]]; then
+        printf '%s\n' \
+            "Headers|Versions/Current/Headers" \
+            "Modules|Versions/Current/Modules"
+    fi
+}
+
 # Versioned macOS frameworks require relative symlinks so codesign classifies the
 # bundle unambiguously and each Mach-O binary is stored once at Versions/A/<Name>.
 zip_listing=$(unzip -Zl "$zip_path")
 for module in SwiftGodot SwiftGodotEmbed; do
     prefix="addons/SwiftGodot/bin/macos_arm64/$module.framework"
-    for relative_link in "Versions/Current" "$module" "Headers" "Modules" "Resources"; do
+    while IFS='|' read -r relative_link _expected_target; do
         awk -v target="$prefix/$relative_link" '$NF == target && $1 ~ /^l/ { found = 1 } END { exit found ? 0 : 1 }' <<<"$zip_listing" ||
             fail "addon zip must store $prefix/$relative_link as a symlink entry"
-    done
+    done < <(expected_macos_framework_symlinks "$module")
     awk -v target="$prefix/Versions/A/$module" '$NF == target && $1 ~ /^-/ { found = 1 } END { exit found ? 0 : 1 }' <<<"$zip_listing" ||
         fail "addon zip must store $prefix/Versions/A/$module as a regular file"
 done
@@ -388,20 +410,20 @@ assert_versioned_macos_framework() {
         fail "$context macOS $module.framework must keep regular binary Versions/A/$module for its install name"
 
     local link_path expected_target actual_target
-    for pair in \
-        "Versions/Current|A" \
-        "$module|Versions/Current/$module" \
-        "Headers|Versions/Current/Headers" \
-        "Modules|Versions/Current/Modules" \
-        "Resources|Versions/Current/Resources"
-    do
-        IFS='|' read -r link_path expected_target <<<"$pair"
+    while IFS='|' read -r link_path expected_target; do
         [[ -L "$framework/$link_path" ]] ||
             fail "$context macOS $module.framework/$link_path must be a symlink, not a dereferenced copy"
         actual_target=$(readlink "$framework/$link_path")
         [[ "$actual_target" == "$expected_target" ]] ||
             fail "$context macOS $module.framework/$link_path points to '$actual_target', expected '$expected_target'"
-    done
+    done < <(expected_macos_framework_symlinks "$module")
+
+    if [[ "$module" == SwiftGodotEmbed ]]; then
+        [[ ! -e "$framework/Headers" && ! -L "$framework/Headers" ]] ||
+            fail "$context C-only macOS SwiftGodotEmbed.framework must not carry Headers"
+        [[ ! -e "$framework/Modules" && ! -L "$framework/Modules" ]] ||
+            fail "$context C-only macOS SwiftGodotEmbed.framework must not carry Modules"
+    fi
 
     local binary_copies
     binary_copies=$(find "$framework" -type f -name "$module" | wc -l | tr -d ' ')
@@ -500,10 +522,10 @@ macos_slice_file="$slices_dir/$(printf '%s\n' "$slice_facts" | sed -n 's/^slice=
 macos_slice_listing=$(unzip -Zl "$macos_slice_file")
 for module in SwiftGodot SwiftGodotEmbed; do
     prefix="bin/macos_arm64/$module.framework"
-    for relative_link in "Versions/Current" "$module" "Headers" "Modules" "Resources"; do
+    while IFS='|' read -r relative_link _expected_target; do
         awk -v target="$prefix/$relative_link" '$NF == target && $1 ~ /^l/ { found = 1 } END { exit found ? 0 : 1 }' <<<"$macos_slice_listing" ||
             fail "macos.arm64 slice must store $prefix/$relative_link as a symlink entry"
-    done
+    done < <(expected_macos_framework_symlinks "$module")
     awk -v target="$prefix/Versions/A/$module" '$NF == target && $1 ~ /^-/ { found = 1 } END { exit found ? 0 : 1 }' <<<"$macos_slice_listing" ||
         fail "macos.arm64 slice must store $prefix/Versions/A/$module as a regular file"
 done
