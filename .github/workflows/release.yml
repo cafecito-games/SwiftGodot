@@ -610,6 +610,27 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
+      # The macro plugin is a host binary shared by every ABI consumer build, so
+      # caching it here avoids compiling swift-syntax in the ABI jobs.
+      - name: Restore host macro plugin
+        uses: actions/cache@v4
+        with:
+          path: .build/android-macro-plugin-cache
+          key: android-macro-plugin-${{ runner.os }}-${{ runner.arch }}-swift6.3.3-${{ hashFiles('Package.resolved', 'Sources/SwiftGodotMacroLibrary/**') }}
+
+      - name: Stage host macro plugin
+        env:
+          SWIFT_GODOT_ANDROID_MACRO_PLUGIN_CACHE: ${{ github.workspace }}/.build/android-macro-plugin-cache/SwiftGodotMacroLibrary-tool
+        run: scripts/build-android-macro-plugin .build/android-macro-plugin/SwiftGodotMacroLibrary-tool
+
+      - name: Upload host macro plugin
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-macro-plugin
+          path: .build/android-macro-plugin/SwiftGodotMacroLibrary-tool
+          if-no-files-found: error
+          retention-days: 1
+
   build-android-abi:
     name: Build Android ${{ matrix.abi }}
     needs:
@@ -670,10 +691,18 @@ jobs:
           name: android-staged-package
           path: .build/android-staged-package
 
+      - name: Download host macro plugin
+        uses: actions/download-artifact@v4
+        with:
+          name: android-macro-plugin
+          path: .build/android-macro-plugin
+
       - name: Build and validate ${{ matrix.abi }}
         env:
           SWIFT_GODOT_ANDROID_PACKAGE: ${{ github.workspace }}/.build/android-staged-package
+          SWIFT_GODOT_ANDROID_MACRO_PLUGIN: ${{ github.workspace }}/.build/android-macro-plugin/SwiftGodotMacroLibrary-tool
         run: |
+          chmod +x "$SWIFT_GODOT_ANDROID_MACRO_PLUGIN"
           scripts/build-android-libraries .build/android
           scripts/build-android-test-extension .build/android-test
 
@@ -731,6 +760,16 @@ jobs:
         with:
           pattern: android-abi-*
           path: .build/android-abis
+
+      - name: Restore Gradle cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('Android/SwiftGodotPlugin/**/*.kts', 'Android/SwiftGodotPlugin/gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: |
+            gradle-${{ runner.os }}-
 
       - name: Build and validate publishable Android AAR
         env:

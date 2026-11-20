@@ -62,6 +62,14 @@ for workflow in "$ci_workflow" "$release_workflow"; do
         fail "$workflow must cache the generated Swift sources"
     rg -q 'hashFiles\(.Sources/ExtensionApi/\*\*., .Generator/\*\*., .Plugins/CodeGeneratorPlugin/\*\*., .Package\.swift.\)' "$workflow" ||
         fail "$workflow must key the generated-source cache on every generation input"
+    rg -q 'SWIFT_GODOT_ANDROID_MACRO_PLUGIN_CACHE' "$workflow" ||
+        fail "$workflow must cache the host SwiftGodotMacroLibrary-tool binary"
+    rg -q 'scripts/build-android-macro-plugin \.build/android-macro-plugin/SwiftGodotMacroLibrary-tool' "$workflow" ||
+        fail "$workflow must stage the host macro plugin once"
+    rg -q 'name: android-macro-plugin' "$workflow" ||
+        fail "$workflow must publish the host macro plugin as an artifact"
+    rg -q 'SWIFT_GODOT_ANDROID_MACRO_PLUGIN: \$\{\{ github\.workspace \}\}/\.build/android-macro-plugin/SwiftGodotMacroLibrary-tool' "$workflow" ||
+        fail "$workflow ABI jobs must pass the staged host macro plugin to the consumer build"
     if rg -q 'ANDROID_NDK_ROOT: /usr/local' "$workflow"; then
         fail "$workflow must derive ANDROID_NDK_ROOT from ANDROID_HOME, not the runner image layout"
     fi

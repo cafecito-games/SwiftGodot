@@ -27,14 +27,24 @@ android_home="$work_dir/android-sdk"
 ndk_root="$android_home/ndk/27.3.13750724"
 runtime_root="$work_dir/runtime"
 staged_package="$work_dir/staged-package"
-mkdir -p "$fake_bin" "$ndk_root" "$staged_package"
+mkdir -p "$fake_bin" "$ndk_root" "$staged_package/Sources/GDExtension/include"
 printf '%s\n' 'Pkg.Revision = 27.3.13750724' > "$ndk_root/source.properties"
 printf '%s\n' '// swift-tools-version: 6.3' > "$staged_package/Package.swift"
+printf '%s\n' '/* fake header */' > "$staged_package/Sources/GDExtension/include/gdextension_interface.h"
 
 for abi in arm64-v8a x86_64; do
-    mkdir -p "$runtime_root/jni/$abi"
+    mkdir -p \
+        "$runtime_root/jni/$abi" \
+        "$work_dir/distribution/build/$abi/release/Modules" \
+        "$work_dir/distribution/build/$abi/release/GDExtensionC.build"
     printf 'fake SwiftGodot ELF\n' > "$runtime_root/jni/$abi/libSwiftGodot.so"
+    printf 'fake swiftmodule\n' > "$work_dir/distribution/build/$abi/release/Modules/SwiftGodot.swiftmodule"
+    printf 'module GDExtensionC {}\n' > "$work_dir/distribution/build/$abi/release/GDExtensionC.build/module.modulemap"
 done
+
+fake_macro_plugin="$work_dir/SwiftGodotMacroLibrary-tool"
+printf '#!/usr/bin/env bash\nexit 0\n' > "$fake_macro_plugin"
+chmod +x "$fake_macro_plugin"
 
 cat > "$fake_bin/swift" <<'EOF'
 #!/usr/bin/env bash
@@ -51,16 +61,22 @@ if [[ "${1:-} ${2:-}" == "sdk list" ]]; then
 fi
 scratch=
 product=
+target=
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --scratch-path) scratch=$2; shift 2 ;;
         --product) product=$2; shift 2 ;;
+        --target) target=$2; shift 2 ;;
         *) shift ;;
     esac
 done
 if [[ -n "$scratch" && "$product" == "AndroidTestExtension" ]]; then
     mkdir -p "$scratch/release"
     printf 'fake consumer ELF\n' > "$scratch/release/libAndroidTestExtension.so"
+elif [[ -n "$scratch" && "$target" == "HostStub" ]]; then
+    mkdir -p "$scratch/debug"
+    printf '#!/usr/bin/env bash\nexit 0\n' > "$scratch/debug/SwiftGodotMacroLibrary-tool"
+    chmod +x "$scratch/debug/SwiftGodotMacroLibrary-tool"
 fi
 EOF
 chmod +x "$fake_bin/swift"
@@ -96,6 +112,7 @@ export ANDROID_HOME="$android_home"
 export ANDROID_NDK_ROOT="$ndk_root"
 export SWIFT_GODOT_ANDROID_PACKAGE="$staged_package"
 export SWIFT_GODOT_ANDROID_LIBRARIES="$runtime_root"
+export SWIFT_GODOT_ANDROID_MACRO_PLUGIN="$fake_macro_plugin"
 export SWIFT_GODOT_ANDROID_TEST_WORK_DIR="$work_dir/build"
 export SWIFT_GODOT_ANDROID_WORK_DIR="$work_dir/distribution"
 export SWIFT_GODOT_GRADLE_COMMAND="$fake_bin/gradle"
@@ -110,6 +127,17 @@ for expected in \
 do
     grep -Eq "$expected" "$SWIFT_TEST_LOG" || fail "missing Swift invocation matching: $expected"
 done
+
+if grep -Eq -- '--target HostStub' "$SWIFT_TEST_LOG"; then
+    fail "a prebuilt macro plugin must skip rebuilding SwiftGodotMacroLibrary"
+fi
+
+consumer_manifest="$work_dir/build/consumer-package/Package.swift"
+if rg -q '"SwiftGodotAndroid"|swift-syntax|dependencies:' "$consumer_manifest"; then
+    fail "consumer manifest must not declare external package dependencies"
+fi
+rg -q -- '-load-plugin-executable' "$consumer_manifest" || fail "consumer manifest must load the host macro plugin"
+rg -q -- '-lSwiftGodot' "$consumer_manifest" || fail "consumer manifest must link against libSwiftGodot.so"
 
 for abi in arm64-v8a x86_64; do
     consumer="$output/jni/$abi/libAndroidTestExtension.so"
@@ -128,6 +156,32 @@ done
 
 [[ ! -s "$GRADLE_TEST_LOG" ]] || fail "the per-ABI builder must not assemble the test AAR"
 [[ ! -e "$output/SwiftGodotAndroidTest-release.aar" ]] || fail "the per-ABI builder must not emit an AAR"
+
+# Without SWIFT_GODOT_ANDROID_MACRO_PLUGIN, the builder builds the host macro
+# plugin on demand and populates its cache when configured.
+macro_cache="$work_dir/macro-cache/SwiftGodotMacroLibrary-tool"
+: > "$SWIFT_TEST_LOG"
+env -u SWIFT_GODOT_ANDROID_MACRO_PLUGIN \
+    SWIFT_GODOT_ANDROID_MACRO_WORK_DIR="$work_dir/macro-build" \
+    SWIFT_GODOT_ANDROID_MACRO_PLUGIN_CACHE="$macro_cache" \
+    SWIFT_GODOT_ANDROID_ABIS=x86_64 \
+    "$builder" "$work_dir/fallback-output" >"$work_dir/fallback.log" 2>&1 ||
+    fail "fallback host macro plugin build failed: $(cat "$work_dir/fallback.log")"
+grep -Eq -- '--target HostStub' "$SWIFT_TEST_LOG" ||
+    fail "fallback build must compile SwiftGodotMacroLibrary on the host"
+[[ -x "$macro_cache" ]] || fail "host macro plugin build must populate its cache"
+
+: > "$SWIFT_TEST_LOG"
+SWIFT_GODOT_ANDROID_MACRO_WORK_DIR="$work_dir/macro-build-hit" \
+    SWIFT_GODOT_ANDROID_MACRO_PLUGIN_CACHE="$macro_cache" \
+    "$repo_root/scripts/build-android-macro-plugin" "$work_dir/cached-plugin/SwiftGodotMacroLibrary-tool" \
+    >"$work_dir/macro-hit.log" 2>&1 ||
+    fail "cached host macro plugin restore failed: $(cat "$work_dir/macro-hit.log")"
+if grep -Eq -- '--target HostStub' "$SWIFT_TEST_LOG"; then
+    fail "a populated host macro plugin cache must skip rebuilding SwiftGodotMacroLibrary"
+fi
+[[ -x "$work_dir/cached-plugin/SwiftGodotMacroLibrary-tool" ]] ||
+    fail "cached host macro plugin was not staged"
 
 single_abi_output="$work_dir/single-abi-output"
 : > "$SWIFT_TEST_LOG"

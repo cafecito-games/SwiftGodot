@@ -1,15 +1,11 @@
 // swift-tools-version: 6.3
 
-import CompilerPluginSupport
 import PackageDescription
 
 let withMultiProcessTrait = "with_multi_process"
 
 let package = Package(
     name: "SwiftGodotAndroid",
-    platforms: [
-        .macOS(.v14),
-    ],
     products: [
         .library(
             name: "SwiftGodot",
@@ -27,9 +23,6 @@ let package = Package(
             name: withMultiProcessTrait,
             description: "Use multi-process-safe code generation with reinitialization support."
         ),
-    ],
-    dependencies: [
-        .package(url: "https://github.com/swiftlang/swift-syntax", from: "600.0.1"),
     ],
     targets: [
         .target(
@@ -56,8 +49,7 @@ let package = Package(
             ],
             linkerSettings: [
                 .unsafeFlags(["-Xlinker", "-soname", "-Xlinker", "libSwiftGodot.so"]),
-            ],
-            plugins: ["SwiftGodotMacroLibrary"]
+            ]
         ),
         .target(
             name: "SwiftGodotEmbed",
@@ -65,19 +57,6 @@ let package = Package(
             linkerSettings: [
                 .unsafeFlags(["-Xlinker", "-soname", "-Xlinker", "libSwiftGodotEmbed.so"]),
             ]
-        ),
-        .macro(
-            name: "SwiftGodotMacroLibrary",
-            dependencies: [
-                .product(name: "SwiftSyntaxMacros", package: "swift-syntax"),
-                .product(name: "SwiftSyntax", package: "swift-syntax"),
-                .product(name: "SwiftCompilerPlugin", package: "swift-syntax"),
-                .product(name: "SwiftDiagnostics", package: "swift-syntax"),
-                .product(name: "SwiftParserDiagnostics", package: "swift-syntax"),
-                .product(name: "SwiftParser", package: "swift-syntax"),
-                .product(name: "SwiftBasicFormat", package: "swift-syntax"),
-            ],
-            swiftSettings: [.swiftLanguageMode(.v6)]
         ),
     ]
 )

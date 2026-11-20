@@ -283,15 +283,16 @@ a warning and must not be published; CI never sets it, and
 The SwiftPM scratch path persists between runs, so only the first build pays
 full cost.
 
-`scripts/build-android-test-extension` builds the consumer in a scratch path of
-its own, so it recompiles SwiftGodot for each ABI. Pointing it at the scratch
-path `scripts/build-android-libraries` populated does not work: SwiftPM reuses
-that build description rather than replanning for the consumer's root package,
-and the build fails with `No target named
-'AndroidTestExtension-<triple>-release.dylib' in build description`. Set
-`SWIFT_GODOT_GENERATED_SOURCES_CACHE` to a directory to reuse previously
-generated bindings and skip the host generation build; it is repopulated
-whenever generation does run.
+`scripts/build-android-test-extension` compiles `AndroidTestExtension` in its
+own scratch path against the prebuilt `SwiftGodot.swiftmodule`, `GDExtensionC`
+modulemap, and `libSwiftGodot.so` that `scripts/build-android-libraries`
+produced, together with a host `SwiftGodotMacroLibrary-tool` (supplied via
+`SWIFT_GODOT_ANDROID_MACRO_PLUGIN` or built on demand by
+`scripts/build-android-macro-plugin`). That avoids recompiling `SwiftGodot` or
+`swift-syntax` per ABI while still verifying dynamic linking against the staged
+runtime. Set `SWIFT_GODOT_GENERATED_SOURCES_CACHE` to a directory to reuse
+previously generated bindings and skip the host generation build; it is
+repopulated whenever generation does run.
 
 ## Export and verify
 
