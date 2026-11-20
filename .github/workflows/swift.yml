@@ -30,9 +30,6 @@ jobs:
       with:
         xcode-version: "latest-stable"
 
-    - name: Install workflow validation tools
-      run: brew install ripgrep actionlint
-
     - name: Load the pinned Cafecito Godot release
       run: scripts/godot-fork-pin --github-env >> "$GITHUB_ENV"
 
@@ -61,32 +58,55 @@ jobs:
         godot --version
         test "$(godot --version)" = "$GODOT_VERSION_STRING"
 
+    - name: Build
+      run: swift build --build-tests --quiet
+
+    - name: Run Swift tests
+      run: swift test --skip-build --no-parallel
+
+    - name: Run Godot-based tests
+      run: swift run SwiftGodotTestRunner
+
+  release-script-tests:
+    name: Release and packaging script tests
+    runs-on: macos-26
+    env:
+      HOMEBREW_NO_AUTO_UPDATE: "1"
+      HOMEBREW_NO_INSTALL_CLEANUP: "1"
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v6
+
+    - name: Set up Xcode
+      uses: maxim-lobanov/setup-xcode@v1
+      with:
+        xcode-version: "latest-stable"
+
+    - name: Install workflow validation tools
+      run: brew install ripgrep actionlint
+
     - name: Show ripgrep version
-      run: |
-        rg --version
+      run: rg --version
 
     - name: Validate GitHub Actions workflows
       run: actionlint
 
     - name: Install pinned Zig
-      run: scripts/install-zig "$RUNNER_TEMP/zig" >> "$GITHUB_PATH"
+      run: |
+        scripts/install-zig "$RUNNER_TEMP/zig" >> "$GITHUB_PATH"
+        echo "ZIG_GLOBAL_CACHE_DIR=$RUNNER_TEMP/zig-cache" >> "$GITHUB_ENV"
+
+    - name: Restore Zig cache
+      uses: actions/cache@v4
+      with:
+        path: ${{ runner.temp }}/zig-cache
+        key: zig-cache-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('scripts/gdextension-shim-config') }}
 
     # scripts/test-package-godot-addon runs the real packaging script, which cuts
     # the addon's gpm slices and validates them.
     - name: Install pinned gpm
       run: scripts/install-gpm "$RUNNER_TEMP/gpm" >> "$GITHUB_PATH"
-
-    - name: Build
-      run: swift build --build-tests --quiet
-
-    - name: Run Swift tests (Swift Testing)
-      run: swift test --skip-build --no-parallel --disable-xctest
-
-    - name: Run Swift tests (XCTest)
-      run: swift test --skip-build --no-parallel --disable-swift-testing
-
-    - name: Run Godot-based tests
-      run: swift run SwiftGodotTestRunner
 
     - name: Run release script regression tests
       run: |
@@ -155,17 +175,22 @@ jobs:
     - name: Build
       run: swift build --build-tests --quiet
 
-    - name: Run Swift tests (Swift Testing)
-      run: swift test --skip-build --no-parallel --disable-xctest
-
-    - name: Run Swift tests (XCTest)
-      run: swift test --skip-build --no-parallel --disable-swift-testing
+    - name: Run Swift tests
+      run: swift test --skip-build --no-parallel
 
     - name: Run Godot-based tests
       run: swift run SwiftGodotTestRunner
 
     - name: Install pinned Zig
-      run: scripts/install-zig "$RUNNER_TEMP/zig" >> "$GITHUB_PATH"
+      run: |
+        scripts/install-zig "$RUNNER_TEMP/zig" >> "$GITHUB_PATH"
+        echo "ZIG_GLOBAL_CACHE_DIR=$RUNNER_TEMP/zig-cache" >> "$GITHUB_ENV"
+
+    - name: Restore Zig cache
+      uses: actions/cache@v4
+      with:
+        path: ${{ runner.temp }}/zig-cache
+        key: zig-cache-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('scripts/gdextension-shim-config') }}
 
     # This is the platform where the defect reproduces: before the shim
     # shipped, a Linux host loading the addon printed "No GDExtension library
@@ -314,6 +339,27 @@ jobs:
         if-no-files-found: error
         retention-days: 1
 
+    # The macro plugin is a host binary shared by every ABI consumer build, so
+    # caching it here avoids compiling swift-syntax in the ABI jobs.
+    - name: Restore host macro plugin
+      uses: actions/cache@v4
+      with:
+        path: .build/android-macro-plugin-cache
+        key: android-macro-plugin-${{ runner.os }}-${{ runner.arch }}-swift6.3.3-${{ hashFiles('Package.resolved', 'Sources/SwiftGodotMacroLibrary/**') }}
+
+    - name: Stage host macro plugin
+      env:
+        SWIFT_GODOT_ANDROID_MACRO_PLUGIN_CACHE: ${{ github.workspace }}/.build/android-macro-plugin-cache/SwiftGodotMacroLibrary-tool
+      run: scripts/build-android-macro-plugin .build/android-macro-plugin/SwiftGodotMacroLibrary-tool
+
+    - name: Upload host macro plugin
+      uses: actions/upload-artifact@v4
+      with:
+        name: android-macro-plugin
+        path: .build/android-macro-plugin/SwiftGodotMacroLibrary-tool
+        if-no-files-found: error
+        retention-days: 1
+
   android-abi:
     name: Android ${{ matrix.abi }} libraries
     needs: android-stage
@@ -370,10 +416,18 @@ jobs:
         name: android-staged-package
         path: .build/android-staged-package
 
+    - name: Download host macro plugin
+      uses: actions/download-artifact@v4
+      with:
+        name: android-macro-plugin
+        path: .build/android-macro-plugin
+
     - name: Build and validate ${{ matrix.abi }}
       env:
         SWIFT_GODOT_ANDROID_PACKAGE: ${{ github.workspace }}/.build/android-staged-package
+        SWIFT_GODOT_ANDROID_MACRO_PLUGIN: ${{ github.workspace }}/.build/android-macro-plugin/SwiftGodotMacroLibrary-tool
       run: |
+        chmod +x "$SWIFT_GODOT_ANDROID_MACRO_PLUGIN"
         scripts/build-android-libraries .build/android
         scripts/build-android-test-extension .build/android-test
 
@@ -429,6 +483,16 @@ jobs:
       with:
         pattern: android-abi-*
         path: .build/android-abis
+
+    - name: Restore Gradle cache
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.gradle/caches
+          ~/.gradle/wrapper
+        key: gradle-${{ runner.os }}-${{ hashFiles('Android/SwiftGodotPlugin/**/*.kts', 'Android/SwiftGodotPlugin/gradle/wrapper/gradle-wrapper.properties') }}
+        restore-keys: |
+          gradle-${{ runner.os }}-
 
     - name: Aggregate and validate both ABIs
       run: |

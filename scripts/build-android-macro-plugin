@@ -1,0 +1,81 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+    echo "Usage: scripts/build-android-macro-plugin OUTPUT_PATH" >&2
+}
+
+if [[ $# -ne 1 ]]; then
+    usage
+    exit 2
+fi
+
+script_dir=$(cd "$(dirname "$0")" && pwd)
+repository_root=$(cd "$script_dir/.." && pwd)
+# shellcheck source=android-config
+source "$script_dir/android-config"
+
+output_path=$1
+swift_command=${SWIFT_GODOT_SWIFT_COMMAND:-swift}
+work_dir=${SWIFT_GODOT_ANDROID_MACRO_WORK_DIR:-"$repository_root/.build/android-macro-plugin-build"}
+cache_path=${SWIFT_GODOT_ANDROID_MACRO_PLUGIN_CACHE:-}
+
+die() {
+    echo "Error: $*" >&2
+    exit 1
+}
+
+case "$output_path" in
+    ""|/|"$repository_root") die "refusing unsafe output path: $output_path" ;;
+esac
+
+if [[ -n "$cache_path" ]]; then
+    case "$cache_path" in
+        ""|/|"$repository_root") die "refusing unsafe macro plugin cache path: $cache_path" ;;
+    esac
+fi
+
+swift_version=$($swift_command --version 2>&1) || die "unable to run $swift_command"
+printf '%s\n' "$swift_version" | grep -Eq "Swift version ${SWIFT_ANDROID_VERSION}([[:space:]]|$)" ||
+    die "Swift ${SWIFT_ANDROID_VERSION} is required; found: $(printf '%s' "$swift_version" | head -1)"
+
+copy_atomically() {
+    local source=$1 destination=$2
+    local destination_dir pending
+    destination_dir=$(dirname "$destination")
+    mkdir -p "$destination_dir"
+    pending="${destination}.pending.$$"
+    cp "$source" "$pending"
+    chmod +x "$pending"
+    mv "$pending" "$destination"
+}
+
+if [[ -n "$cache_path" && -f "$cache_path" && -s "$cache_path" ]]; then
+    chmod +x "$cache_path"
+    if [[ -x "$cache_path" ]]; then
+        echo "Reusing cached host SwiftGodotMacroLibrary-tool from $cache_path"
+        if [[ "$cache_path" != "$output_path" ]]; then
+            copy_atomically "$cache_path" "$output_path"
+        fi
+        exit 0
+    fi
+fi
+
+mkdir -p "$work_dir"
+echo "Building host SwiftGodotMacroLibrary-tool..."
+"$swift_command" build \
+    --package-path "$repository_root" \
+    --scratch-path "$work_dir" \
+    --target SwiftGodotMacroLibrary
+
+tool_binary=$(find "$work_dir" -type f -name 'SwiftGodotMacroLibrary-tool' -perm -111 -print -quit)
+[[ -n "$tool_binary" && -x "$tool_binary" ]] ||
+    die "build did not emit an executable SwiftGodotMacroLibrary-tool under $work_dir"
+
+if [[ -n "$cache_path" ]]; then
+    copy_atomically "$tool_binary" "$cache_path"
+    echo "Populated host macro plugin cache at $cache_path"
+fi
+
+copy_atomically "$tool_binary" "$output_path"
+echo "Staged host SwiftGodotMacroLibrary-tool at $output_path"

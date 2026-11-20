@@ -25,16 +25,23 @@ distribution_work_dir=${SWIFT_GODOT_ANDROID_WORK_DIR:-"$repository_root/.build/a
 staged_package=${SWIFT_GODOT_ANDROID_PACKAGE:-"$distribution_work_dir/package"}
 runtime_root=${SWIFT_GODOT_ANDROID_LIBRARIES:-"$repository_root/.build/android"}
 consumer_package="$work_dir/consumer-package"
-# The consumer needs a scratch path of its own. Sharing the one the runtime
-# build populated makes SwiftPM reuse that build description instead of
-# replanning for this root package, and the build fails with
-# "No target named 'AndroidTestExtension-<triple>-release.dylib'".
+# The consumer builds in its own scratch path and imports the SwiftGodot module
+# and shared library that scripts/build-android-libraries already produced,
+# avoiding a duplicate SwiftGodot and swift-syntax compile for every ABI.
 scratch_root="$work_dir/build"
 validation_root="$work_dir/validation-jni"
+macro_plugin=${SWIFT_GODOT_ANDROID_MACRO_PLUGIN:-}
 
 die() {
     echo "Error: $*" >&2
     exit 1
+}
+
+absolute_path() {
+    case "$1" in
+        /*) printf '%s\n' "$1" ;;
+        *) printf '%s/%s\n' "$(pwd)" "$1" ;;
+    esac
 }
 
 case "$output_dir" in
@@ -63,16 +70,45 @@ printf '%s\n' "$java_version" | grep -Eq 'version "17([.]|"|$)' ||
 
 [[ -f "$staged_package/Package.swift" ]] ||
     die "staged Android SwiftGodot package missing; run scripts/build-android-libraries first"
+gdextension_include_dir=$(absolute_path "$staged_package/Sources/GDExtension/include")
+[[ -d "$gdextension_include_dir" ]] ||
+    die "staged GDExtension headers missing: $gdextension_include_dir"
+
 for abi in $selected_abis; do
     [[ -f "$runtime_root/jni/$abi/libSwiftGodot.so" ]] ||
         die "SwiftGodot Android runtime missing for $abi; run scripts/build-android-libraries first"
 done
 
+if [[ -n "$macro_plugin" ]]; then
+    macro_plugin=$(absolute_path "$macro_plugin")
+    [[ -x "$macro_plugin" ]] ||
+        die "SWIFT_GODOT_ANDROID_MACRO_PLUGIN must name an executable SwiftGodotMacroLibrary-tool: $macro_plugin"
+else
+    macro_plugin=$(absolute_path "$work_dir/macro-plugin/SwiftGodotMacroLibrary-tool")
+    "$script_dir/build-android-macro-plugin" "$macro_plugin"
+fi
+
 rm -rf "$consumer_package" "$validation_root" "$output_dir"
 mkdir -p "$consumer_package/Sources/AndroidTestExtension" "$scratch_root" "$validation_root" "$output_dir/jni"
 rsync -aL "$repository_root/Sources/AndroidTestExtension/" "$consumer_package/Sources/AndroidTestExtension/"
 
-cat > "$consumer_package/Package.swift" <<EOF
+for abi in $selected_abis; do
+    triple=$(android_triple_for_abi "$abi") || die "unsupported Android ABI: $abi"
+
+    runtime_abi_scratch="$distribution_work_dir/build/$abi"
+    swiftmodule=$(find "$runtime_abi_scratch" -type f -name 'SwiftGodot.swiftmodule' -print -quit 2>/dev/null || true)
+    [[ -n "$swiftmodule" ]] ||
+        die "SwiftGodot.swiftmodule missing for $abi under $runtime_abi_scratch; run scripts/build-android-libraries first"
+    modules_dir=$(absolute_path "$(dirname "$swiftmodule")")
+
+    gdextension_modulemap=$(find "$runtime_abi_scratch" -type f -path '*/GDExtensionC.build/module.modulemap' -print -quit 2>/dev/null || true)
+    [[ -n "$gdextension_modulemap" ]] ||
+        die "GDExtensionC modulemap missing for $abi under $runtime_abi_scratch; run scripts/build-android-libraries first"
+    gdextension_modulemap=$(absolute_path "$gdextension_modulemap")
+
+    runtime_abi_dir=$(absolute_path "$runtime_root/jni/$abi")
+
+    cat > "$consumer_package/Package.swift" <<EOF
 // swift-tools-version: 6.3
 import PackageDescription
 
@@ -81,26 +117,30 @@ let package = Package(
     products: [
         .library(name: "AndroidTestExtension", type: .dynamic, targets: ["AndroidTestExtension"]),
     ],
-    dependencies: [
-        .package(name: "SwiftGodotAndroid", path: "$staged_package"),
-    ],
     targets: [
         .target(
             name: "AndroidTestExtension",
-            dependencies: [
-                .product(name: "SwiftGodot", package: "SwiftGodotAndroid"),
+            swiftSettings: [
+                .swiftLanguageMode(.v6),
+                .unsafeFlags([
+                    "-I", "$modules_dir",
+                    "-Xcc", "-fmodule-map-file=$gdextension_modulemap",
+                    "-Xcc", "-I", "-Xcc", "$gdextension_include_dir",
+                    "-Xfrontend", "-load-plugin-executable",
+                    "-Xfrontend", "$macro_plugin#SwiftGodotMacroLibrary",
+                ]),
             ],
-            swiftSettings: [.swiftLanguageMode(.v6)],
             linkerSettings: [
-                .unsafeFlags(["-Xlinker", "-soname", "-Xlinker", "libAndroidTestExtension.so"]),
+                .unsafeFlags([
+                    "-L", "$runtime_abi_dir",
+                    "-lSwiftGodot",
+                    "-Xlinker", "-soname", "-Xlinker", "libAndroidTestExtension.so",
+                ]),
             ]
         ),
     ]
 )
 EOF
-
-for abi in $selected_abis; do
-    triple=$(android_triple_for_abi "$abi") || die "unsupported Android ABI: $abi"
 
     abi_scratch="$scratch_root/$abi"
     echo "Building AndroidTestExtension for $abi ($triple)..."
