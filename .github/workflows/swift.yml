@@ -14,9 +14,9 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  GODOT_RELEASE_TAG: v4.7.2-20261120.3
-  GODOT_EDITOR_SHA256: 60ef34b74c85e36b19911550a212da671256854da57f0533812ec7e1bbd57de0
-  GODOT_LINUX_EDITOR_SHA256: ed23c3159334c111030903177f8fa4c0e08aac54e764b08a9694b0593bfb31cf
+  GODOT_RELEASE_TAG: v4.7.2-20261120.4
+  GODOT_EDITOR_SHA256: a1352333310d8bcd56770ccac69460596ed7ef21e9bd5f00f00c3412544bc6b4
+  GODOT_LINUX_EDITOR_SHA256: 86827001d446544707be08fed8d18b331d223a2f4dec8e0524c63682ea851968
   SWIFT_ANDROID_SDK_URL: https://download.swift.org/swift-6.3.3-release/android-sdk/swift-6.3.3-RELEASE/swift-6.3.3-RELEASE_android.artifactbundle.tar.gz
   SWIFT_ANDROID_SDK_SHA256: d160cc3206dd1886dae3fef2337af5e25ec034692cd0ec225721c56cc69da7f5
 
@@ -59,7 +59,7 @@ jobs:
 
         export PATH="$bin_dir:$PATH"
         godot --version
-        test "$(godot --version)" = "4.7.2.stable.cafecito.69f697e8c"
+        test "$(godot --version)" = "4.7.2.stable.cafecito.706f49aa1"
 
     - name: Show ripgrep version
       run: |
@@ -146,7 +146,7 @@ jobs:
 
         export PATH="$bin_dir:$PATH"
         godot --headless --version
-        test "$(godot --headless --version 2>/dev/null)" = "4.7.2.stable.cafecito.69f697e8c"
+        test "$(godot --headless --version 2>/dev/null)" = "4.7.2.stable.cafecito.706f49aa1"
 
     - name: Build
       run: swift build --build-tests --quiet

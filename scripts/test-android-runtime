@@ -15,14 +15,14 @@ repository_root=$(cd "$script_dir/.." && pwd)
 source "$script_dir/android-config"
 # shellcheck source=android-abis
 source "$script_dir/android-abis"
-release_tag=v4.7.2-20261120.3
-godot_version=4.7.2.stable.cafecito.69f697e8c
+release_tag=v4.7.2-20261120.4
+godot_version=4.7.2.stable.cafecito.706f49aa1
 # Godot resolves export templates by major.minor.patch.status only; the custom
 # build name and hash that --version reports are not part of the directory.
 godot_template_version=4.7.2.stable
-editor_sha=60ef34b74c85e36b19911550a212da671256854da57f0533812ec7e1bbd57de0
-linux_editor_sha=ed23c3159334c111030903177f8fa4c0e08aac54e764b08a9694b0593bfb31cf
-templates_sha=3b051cbd777acb3fa47a8610fd4e6d4ec3d9bf54bd13c1965c433980a56db344
+editor_sha=a1352333310d8bcd56770ccac69460596ed7ef21e9bd5f00f00c3412544bc6b4
+linux_editor_sha=86827001d446544707be08fed8d18b331d223a2f4dec8e0524c63682ea851968
+templates_sha=72cfd35b14755e65fe3647ce440f2169099a26a7345bd4957eb0833b2f2e810e
 cache_dir=${SWIFT_GODOT_ANDROID_RUNTIME_CACHE:-"$repository_root/.build/android-runtime-cache"}
 work_dir=${SWIFT_GODOT_ANDROID_RUNTIME_WORK_DIR:-"$repository_root/.build/android-runtime-$abi"}
 project_dir="$work_dir/project"
