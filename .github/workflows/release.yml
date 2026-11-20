@@ -732,19 +732,9 @@ jobs:
           pattern: android-abi-*
           path: .build/android-abis
 
-      - name: Create custom Godot access token
-        id: custom-godot-token
-        uses: actions/create-github-app-token@v3
-        with:
-          app-id: ${{ secrets.CAFECITO_CI_BOT_APP_ID }}
-          private-key: ${{ secrets.CAFECITO_CI_BOT_PRIVATE_KEY }}
-          owner: cafecito-games
-          repositories: custom-godot
-          permission-contents: read
-
       - name: Build and validate publishable Android AAR
         env:
-          GH_TOKEN: ${{ steps.custom-godot-token.outputs.token }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           scripts/aggregate-android-jni .build/android/jni .build/android-abis/*/runtime-jni
           scripts/aggregate-android-jni .build/android-test/jni .build/android-abis/*/consumer-jni

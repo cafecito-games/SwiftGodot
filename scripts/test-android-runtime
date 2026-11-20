@@ -15,14 +15,14 @@ repository_root=$(cd "$script_dir/.." && pwd)
 source "$script_dir/android-config"
 # shellcheck source=android-abis
 source "$script_dir/android-abis"
-release_tag=v4.7.2-20260902.2
-godot_version=4.7.2.stable.cafecito_6b0b715d9.ed1daf0bf
+release_tag=v4.7.2-20261120.3
+godot_version=4.7.2.stable.cafecito.69f697e8c
 # Godot resolves export templates by major.minor.patch.status only; the custom
 # build name and hash that --version reports are not part of the directory.
 godot_template_version=4.7.2.stable
-editor_sha=d5c760b89da2ef01e9e19153f5fae969c058dd9f1e78d0e1a3881923e1a77b38
-linux_editor_sha=5ef9ae1efd521967e803935885e53fd8e620e02a2b8db6aeba3108b92dcd7238
-templates_sha=1e6bca23f4278466f9b1ab159ce869ab5a877884122a1faec6d5353c3d7744d2
+editor_sha=60ef34b74c85e36b19911550a212da671256854da57f0533812ec7e1bbd57de0
+linux_editor_sha=ed23c3159334c111030903177f8fa4c0e08aac54e764b08a9694b0593bfb31cf
+templates_sha=3b051cbd777acb3fa47a8610fd4e6d4ec3d9bf54bd13c1965c433980a56db344
 cache_dir=${SWIFT_GODOT_ANDROID_RUNTIME_CACHE:-"$repository_root/.build/android-runtime-cache"}
 work_dir=${SWIFT_GODOT_ANDROID_RUNTIME_WORK_DIR:-"$repository_root/.build/android-runtime-$abi"}
 project_dir="$work_dir/project"
@@ -44,7 +44,7 @@ download_release_asset() {
     local name=$1 destination=$2 expected=$3
     if [[ ! -f "$destination" ]]; then
         mkdir -p "$(dirname "$destination")"
-        gh release download "$release_tag" --repo cafecito-games/custom-godot --pattern "$name" --output "$destination"
+        gh release download "$release_tag" --repo cafecito-games/godot --pattern "$name" --output "$destination"
     fi
     [[ "$(sha256 "$destination")" == "$expected" ]] || die "SHA-256 mismatch for $name"
 }
