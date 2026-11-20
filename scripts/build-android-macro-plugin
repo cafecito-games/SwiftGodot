@@ -61,16 +61,61 @@ if [[ -n "$cache_path" && -f "$cache_path" && -s "$cache_path" ]]; then
     fi
 fi
 
-mkdir -p "$work_dir"
+# SwiftPM links a .macro target's executable only when a downstream target
+# depends on it. Stage a minimal package containing SwiftGodotMacroLibrary and
+# an empty stub target so we link SwiftGodotMacroLibrary-tool without building
+# SwiftGodot or running CodeGeneratorPlugin.
+builder_package="$work_dir/package"
+scratch_dir="$work_dir/build"
+rm -rf "$builder_package"
+mkdir -p "$builder_package/Sources/SwiftGodotMacroLibrary" "$builder_package/Sources/HostStub" "$scratch_dir"
+rsync -aL "$repository_root/Sources/SwiftGodotMacroLibrary/" "$builder_package/Sources/SwiftGodotMacroLibrary/"
+cp "$repository_root/Package.resolved" "$builder_package/Package.resolved"
+printf 'public enum HostStub {}\n' > "$builder_package/Sources/HostStub/HostStub.swift"
+
+cat > "$builder_package/Package.swift" <<'EOF'
+// swift-tools-version: 6.3
+import CompilerPluginSupport
+import PackageDescription
+
+let package = Package(
+    name: "SwiftGodotMacroPluginBuilder",
+    platforms: [.macOS(.v14)],
+    dependencies: [
+        .package(url: "https://github.com/swiftlang/swift-syntax", from: "600.0.1"),
+    ],
+    targets: [
+        .macro(
+            name: "SwiftGodotMacroLibrary",
+            dependencies: [
+                .product(name: "SwiftSyntaxMacros", package: "swift-syntax"),
+                .product(name: "SwiftSyntax", package: "swift-syntax"),
+                .product(name: "SwiftCompilerPlugin", package: "swift-syntax"),
+                .product(name: "SwiftDiagnostics", package: "swift-syntax"),
+                .product(name: "SwiftParserDiagnostics", package: "swift-syntax"),
+                .product(name: "SwiftParser", package: "swift-syntax"),
+                .product(name: "SwiftBasicFormat", package: "swift-syntax"),
+            ],
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
+        .target(
+            name: "HostStub",
+            dependencies: ["SwiftGodotMacroLibrary"],
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
+    ]
+)
+EOF
+
 echo "Building host SwiftGodotMacroLibrary-tool..."
 "$swift_command" build \
-    --package-path "$repository_root" \
-    --scratch-path "$work_dir" \
-    --target SwiftGodotMacroLibrary
+    --package-path "$builder_package" \
+    --scratch-path "$scratch_dir" \
+    --target HostStub
 
-tool_binary=$(find "$work_dir" -type f -name 'SwiftGodotMacroLibrary-tool' -perm -111 -print -quit)
+tool_binary=$(find "$scratch_dir" -type f -name 'SwiftGodotMacroLibrary-tool' -perm -111 -print -quit)
 [[ -n "$tool_binary" && -x "$tool_binary" ]] ||
-    die "build did not emit an executable SwiftGodotMacroLibrary-tool under $work_dir"
+    die "build did not emit an executable SwiftGodotMacroLibrary-tool under $scratch_dir"
 
 if [[ -n "$cache_path" ]]; then
     copy_atomically "$tool_binary" "$cache_path"
