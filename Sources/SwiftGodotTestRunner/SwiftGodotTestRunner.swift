@@ -14,6 +14,7 @@ struct SwiftGodotTestRunner {
         let resultsPath = "Tests/SwiftGodotTestProject/test_results.json"
         let extensionTarget = "SwiftGodotTestExtension"
         let buildConfiguration = "debug"
+        let skipBuild = CommandLine.arguments.dropFirst().contains("--skip-build")
 
         print("SwiftGodot Test Runner")
         print(String(repeating: "=", count: 60))
@@ -28,50 +29,54 @@ struct SwiftGodotTestRunner {
         print("  Extension target:  \(extensionTarget)")
         print("  Build config:      \(buildConfiguration)")
 
-        // Find swift executable from PATH
-        let whichSwiftProcess = Process()
-        whichSwiftProcess.executableURL = URL(fileURLWithPath: "/usr/bin/which")
-        whichSwiftProcess.arguments = ["swift"]
-        let whichSwiftPipe = Pipe()
-        whichSwiftProcess.standardOutput = whichSwiftPipe
-        whichSwiftProcess.standardError = whichSwiftPipe
-        do {
-            try whichSwiftProcess.run()
-            whichSwiftProcess.waitUntilExit()
-        } catch {
-            print("      Failed to find swift: \(error)")
-            exit(1)
-        }
-        if whichSwiftProcess.terminationStatus != 0 {
-            print("      Swift not found in PATH")
-            exit(1)
-        }
-        let swiftPathData = whichSwiftPipe.fileHandleForReading.readDataToEndOfFile()
-        let swiftPath = String(data: swiftPathData, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "swift"
-
         // 1. Build the test extension and dependencies
-        print("\n[1/5] Building test extension...")
-        let products = [extensionTarget, "SwiftGodot"]
-        for product in products {
-            let process = Process()
-            process.executableURL = URL(fileURLWithPath: swiftPath)
-            process.arguments = ["build", "--product", product, "-c", buildConfiguration]
-            process.currentDirectoryURL = URL(fileURLWithPath: cwd)
-            process.standardOutput = FileHandle.standardOutput
-            process.standardError = FileHandle.standardError
+        if skipBuild {
+            print("\n[1/5] Skipping build (--skip-build)")
+        } else {
+            // Find swift executable from PATH
+            let whichSwiftProcess = Process()
+            whichSwiftProcess.executableURL = URL(fileURLWithPath: "/usr/bin/which")
+            whichSwiftProcess.arguments = ["swift"]
+            let whichSwiftPipe = Pipe()
+            whichSwiftProcess.standardOutput = whichSwiftPipe
+            whichSwiftProcess.standardError = whichSwiftPipe
             do {
-                try process.run()
-                process.waitUntilExit()
-                if process.terminationStatus != 0 {
-                    print("      Build failed for \(product)")
-                    exit(1)
-                }
+                try whichSwiftProcess.run()
+                whichSwiftProcess.waitUntilExit()
             } catch {
-                print("      Build failed: \(error)")
+                print("      Failed to find swift: \(error)")
                 exit(1)
             }
+            if whichSwiftProcess.terminationStatus != 0 {
+                print("      Swift not found in PATH")
+                exit(1)
+            }
+            let swiftPathData = whichSwiftPipe.fileHandleForReading.readDataToEndOfFile()
+            let swiftPath = String(data: swiftPathData, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "swift"
+
+            print("\n[1/5] Building test extension...")
+            let products = [extensionTarget, "SwiftGodot"]
+            for product in products {
+                let process = Process()
+                process.executableURL = URL(fileURLWithPath: swiftPath)
+                process.arguments = ["build", "--product", product, "-c", buildConfiguration]
+                process.currentDirectoryURL = URL(fileURLWithPath: cwd)
+                process.standardOutput = FileHandle.standardOutput
+                process.standardError = FileHandle.standardError
+                do {
+                    try process.run()
+                    process.waitUntilExit()
+                    if process.terminationStatus != 0 {
+                        print("      Build failed for \(product)")
+                        exit(1)
+                    }
+                } catch {
+                    print("      Build failed: \(error)")
+                    exit(1)
+                }
+            }
+            print("      Build successful")
         }
-        print("      Build successful")
 
         // 2. Copy built libraries to Godot project
         print("\n[2/5] Copying libraries to test project...")

@@ -1,9 +1,13 @@
 // swift-tools-version: 6.3
 
 import CompilerPluginSupport
+import Foundation
 import PackageDescription
 
 let withMultiProcessTrait = "with_multi_process"
+let testScope = ProcessInfo.processInfo.environment["SWIFTGODOT_TEST_SCOPE"] ?? "all"
+let includeUniversalTests = testScope == "all" || testScope == "universal"
+let includeMacroTests = testScope == "all" || testScope == "macros"
 
 // Products define the executables and libraries a package produces, and make them visible to other packages.
 var products: [Product] = [
@@ -230,23 +234,17 @@ var targets: [Target] = [
             .unsafeFlags(
                 [
                     "-Xfrontend", "-conditional-runtime-records",
+                ]
+            ),
+            .unsafeFlags(
+                [
                     "-Xfrontend", "-internalize-at-link",
                     "-Xfrontend", "-lto=llvm-full",
-                ]
+                ],
+                .when(configuration: .release)
             ),
         ],
         plugins: ["CodeGeneratorPlugin", "SwiftGodotMacroLibrary"]
-    ),
-
-    // General purpose cross-platform tests
-    .testTarget(
-        name: "SwiftGodotUniversalTests",
-        dependencies: [
-            "SwiftGodot",
-            "ExtensionApi",
-            "ExtensionApiJson",
-        ],
-        swiftSettings: [.swiftLanguageMode(.v6)]
     ),
 
     // Test runner CLI executable
@@ -275,21 +273,38 @@ var targets: [Target] = [
     ),
 ]
 
+if includeUniversalTests {
+    // General purpose cross-platform tests
+    targets.append(
+        .testTarget(
+            name: "SwiftGodotUniversalTests",
+            dependencies: [
+                "SwiftGodot",
+                "ExtensionApi",
+                "ExtensionApiJson",
+            ],
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        )
+    )
+}
+
 // Idea: -mark_dead_strippable_dylib
-targets.append(
-    .testTarget(
-        name: "SwiftGodotMacrosTests",
-        dependencies: [
-            "SwiftGodotMacroLibrary",
-            "SwiftGodot",
-            .product(name: "SwiftSyntaxMacrosTestSupport", package: "swift-syntax"),
-        ],
-        exclude: ["Resources"],
-        resources: [
-            .copy("Resources")
-        ],
-        swiftSettings: [.swiftLanguageMode(.v6)]
-    ))
+if includeMacroTests {
+    targets.append(
+        .testTarget(
+            name: "SwiftGodotMacrosTests",
+            dependencies: [
+                "SwiftGodotMacroLibrary",
+                .product(name: "SwiftSyntaxMacrosTestSupport", package: "swift-syntax"),
+            ],
+            exclude: ["Resources"],
+            resources: [
+                .copy("Resources")
+            ],
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        )
+    )
+}
 
 let package = Package(
     name: "SwiftGodot",
