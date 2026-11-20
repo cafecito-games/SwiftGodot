@@ -144,4 +144,12 @@ rg -q -- '- build-android-abi' "$release_workflow" ||
 rg -q -- '- build-android$' "$release_workflow" ||
     fail "the release job must still gate on Android packaging"
 
+if rg -q 'SWIFT_GODOT_ANDROID_CONFIGURATION.*debug' "$release_workflow"; then
+    fail "release workflow must never build Android libraries in debug configuration"
+fi
+rg -q '^  ci-gate:$' "$ci_workflow" ||
+    fail "CI workflow must define the ci-gate aggregator job for path-gated PRs"
+rg -q 'name: CI Gate' "$ci_workflow" ||
+    fail "CI workflow must name the aggregator check 'CI Gate'"
+
 echo "Android CI topology tests passed"

@@ -19,11 +19,17 @@ source "$script_dir/android-abis"
 jni_root=$1
 shift
 ndk_root=${ANDROID_NDK_ROOT:-}
+configuration=${SWIFT_GODOT_ANDROID_CONFIGURATION:-release}
 
 die() {
     echo "Error: $*" >&2
     exit 1
 }
+
+case "$configuration" in
+    release|debug) ;;
+    *) die "unsupported SWIFT_GODOT_ANDROID_CONFIGURATION: $configuration (expected release or debug)" ;;
+esac
 
 selected_abis=$(android_selected_abis) || die "invalid Android ABI selection"
 
@@ -80,7 +86,7 @@ for abi in $selected_abis; do
         if printf '%s\n' "$sections" | grep -Eq '[[:space:]][.]debug_'; then
             die "$abi/$(basename "$library") contains debug sections; strip release libraries before packaging"
         fi
-        if grep -Eq '/(Users|home)/[^/]+/' < <("$strings_tool" "$library"); then
+        if [[ "$configuration" == "release" ]] && grep -Eq '/(Users|home)/[^/]+/' < <("$strings_tool" "$library"); then
             die "$abi/$(basename "$library") contains a build-host path"
         fi
 

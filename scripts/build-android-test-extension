@@ -20,6 +20,7 @@ source "$script_dir/android-abis"
 output_dir=$1
 swift_command=${SWIFT_GODOT_SWIFT_COMMAND:-swift}
 java_command=${SWIFT_GODOT_JAVA_COMMAND:-java}
+configuration=${SWIFT_GODOT_ANDROID_CONFIGURATION:-release}
 work_dir=${SWIFT_GODOT_ANDROID_TEST_WORK_DIR:-"$repository_root/.build/android-test-extension"}
 distribution_work_dir=${SWIFT_GODOT_ANDROID_WORK_DIR:-"$repository_root/.build/android-distribution"}
 staged_package=${SWIFT_GODOT_ANDROID_PACKAGE:-"$distribution_work_dir/package"}
@@ -43,6 +44,11 @@ absolute_path() {
         *) printf '%s/%s\n' "$(pwd)" "$1" ;;
     esac
 }
+
+case "$configuration" in
+    release|debug) ;;
+    *) die "unsupported SWIFT_GODOT_ANDROID_CONFIGURATION: $configuration (expected release or debug)" ;;
+esac
 
 case "$output_dir" in
     ""|/|"$repository_root") die "refusing unsafe output directory: $output_dir" ;;
@@ -96,14 +102,14 @@ for abi in $selected_abis; do
     triple=$(android_triple_for_abi "$abi") || die "unsupported Android ABI: $abi"
 
     runtime_abi_scratch="$distribution_work_dir/build/$abi"
-    swiftmodule=$(find "$runtime_abi_scratch" -type f -name 'SwiftGodot.swiftmodule' -print -quit 2>/dev/null || true)
+    swiftmodule=$(find "$runtime_abi_scratch" -type f -path "*/$configuration/Modules/SwiftGodot.swiftmodule" -print -quit 2>/dev/null || true)
     [[ -n "$swiftmodule" ]] ||
-        die "SwiftGodot.swiftmodule missing for $abi under $runtime_abi_scratch; run scripts/build-android-libraries first"
+        die "SwiftGodot.swiftmodule missing for $abi ($configuration) under $runtime_abi_scratch; run scripts/build-android-libraries first"
     modules_dir=$(absolute_path "$(dirname "$swiftmodule")")
 
-    gdextension_modulemap=$(find "$runtime_abi_scratch" -type f -path '*/GDExtensionC.build/module.modulemap' -print -quit 2>/dev/null || true)
+    gdextension_modulemap=$(find "$runtime_abi_scratch" -type f -path "*/$configuration/GDExtensionC.build/module.modulemap" -print -quit 2>/dev/null || true)
     [[ -n "$gdextension_modulemap" ]] ||
-        die "GDExtensionC modulemap missing for $abi under $runtime_abi_scratch; run scripts/build-android-libraries first"
+        die "GDExtensionC modulemap missing for $abi ($configuration) under $runtime_abi_scratch; run scripts/build-android-libraries first"
     gdextension_modulemap=$(absolute_path "$gdextension_modulemap")
 
     runtime_abi_dir=$(absolute_path "$runtime_root/jni/$abi")
@@ -143,16 +149,16 @@ let package = Package(
 EOF
 
     abi_scratch="$scratch_root/$abi"
-    echo "Building AndroidTestExtension for $abi ($triple)..."
+    echo "Building AndroidTestExtension for $abi ($triple, $configuration)..."
     "$swift_command" build \
         --package-path "$consumer_package" \
         --scratch-path "$abi_scratch" \
-        -c release \
+        -c "$configuration" \
         --swift-sdk "$triple" \
         --product AndroidTestExtension
 
-    library=$(find "$abi_scratch" -type f -name 'libAndroidTestExtension.so' -print -quit)
-    [[ -n "$library" ]] || die "build did not emit libAndroidTestExtension.so for $abi"
+    library=$(find "$abi_scratch" -type f -path "*/$configuration/libAndroidTestExtension.so" -print -quit)
+    [[ -n "$library" ]] || die "build did not emit libAndroidTestExtension.so for $abi ($configuration)"
     mkdir -p "$output_dir/jni/$abi"
     cp "$library" "$output_dir/jni/$abi/libAndroidTestExtension.so"
 done
@@ -166,7 +172,7 @@ if [[ -z "${SWIFT_GODOT_SKIP_ELF_VALIDATION:-}" ]]; then
         cp "$output_dir/jni/$abi/libAndroidTestExtension.so" "$validation_root/$abi/"
         consumers+=("$validation_root/$abi/libAndroidTestExtension.so")
     done
-    "$script_dir/validate-android-elf" "$validation_root" "${consumers[@]}"
+    SWIFT_GODOT_ANDROID_CONFIGURATION="$configuration" "$script_dir/validate-android-elf" "$validation_root" "${consumers[@]}"
 fi
 
 echo "Android test extension libraries staged at $output_dir/jni"
