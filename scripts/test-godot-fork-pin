@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+# Check that the engine lock is internally consistent and exposes every value
+# the workflows and the Android runtime harness read from it.
+set -euo pipefail
+
+script_dir=$(cd "$(dirname "$0")" && pwd)
+repository_root=$(cd "$script_dir/.." && pwd)
+lock_file=${GODOT_FORK_PIN:-"$repository_root/config/godot-fork.json"}
+
+fail() {
+    echo "error: $*" >&2
+    exit 1
+}
+
+[[ -f "$lock_file" ]] || fail "missing engine lock: $lock_file"
+jq -e 'type == "object"' "$lock_file" >/dev/null || fail "engine lock is not a JSON object"
+
+repository=$(GODOT_FORK_PIN="$lock_file" "$script_dir/godot-fork-pin" repository)
+tag=$(GODOT_FORK_PIN="$lock_file" "$script_dir/godot-fork-pin" tag)
+commit=$(GODOT_FORK_PIN="$lock_file" "$script_dir/godot-fork-pin" commit)
+template_version=$(GODOT_FORK_PIN="$lock_file" "$script_dir/godot-fork-pin" templateVersion)
+version_string=$(GODOT_FORK_PIN="$lock_file" "$script_dir/godot-fork-pin" versionString)
+
+[[ $repository == */* ]] || fail "repository is not OWNER/NAME: $repository"
+[[ $tag =~ ^v[0-9]+\.[0-9]+\.[0-9]+- ]] || fail "unexpected release tag: $tag"
+[[ $commit =~ ^[0-9a-f]{40}$ ]] || fail "commit is not a full SHA: $commit"
+[[ $template_version =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[a-z]+$ ]] || fail "unexpected template version: $template_version"
+
+expected_version_string="$template_version.cafecito.${commit:0:9}"
+[[ "$version_string" == "$expected_version_string" ]] ||
+    fail "version string is $version_string; the pinned commit and template version imply $expected_version_string"
+
+[[ "$tag" == "v${template_version%.*}-"* ]] ||
+    fail "release tag $tag does not match template version $template_version"
+
+for asset in godot_macos_editor.arm64.zip godot_linux_editor.x86_64.tar.gz android.zip; do
+    GODOT_FORK_PIN="$lock_file" "$script_dir/godot-fork-pin" --asset "$asset" >/dev/null
+done
+
+recorded_assets=$(jq -r '.assets | keys[]' "$lock_file" | sort)
+expected_assets=$(printf '%s\n' android.zip godot_linux_editor.x86_64.tar.gz godot_macos_editor.arm64.zip | sort)
+[[ "$recorded_assets" == "$expected_assets" ]] || fail "engine lock records unexpected assets:"$'\n'"$recorded_assets"
+
+environment_output=$(GODOT_FORK_PIN="$lock_file" "$script_dir/godot-fork-pin" --github-env)
+for key in GODOT_REPOSITORY GODOT_RELEASE_TAG GODOT_VERSION_STRING GODOT_EDITOR_SHA256 \
+    GODOT_LINUX_EDITOR_SHA256 GODOT_ANDROID_TEMPLATES_SHA256; do
+    grep -q "^$key=.\+$" <<<"$environment_output" || fail "--github-env does not export $key"
+done
+
+if ! GODOT_FORK_PIN="$lock_file" "$script_dir/godot-fork-pin" --asset no-such-asset.zip >/dev/null 2>&1; then
+    :
+else
+    fail "an unknown asset name should fail"
+fi
+
+printf 'engine lock tests passed (%s@%s, %s)\n' "$repository" "$tag" "$version_string"

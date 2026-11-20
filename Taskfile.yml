@@ -82,6 +82,15 @@ tasks:
           | "Godot \(.version_major).\(.version_minor).\(.version_patch) \(.version_status).\(.version_build) - \(.version_full_name)"
         ' Sources/ExtensionApi/extension_api.json
 
+  godot-fork:pin:
+    desc: Pin a published Cafecito Godot release in config/godot-fork.json; set TAG
+    silent: true
+    preconditions:
+      - sh: test -n "{{.TAG}}"
+        msg: "Set TAG, for example: task godot-fork:pin TAG=v4.7.2-20261120.4"
+    cmds:
+      - scripts/update-godot-fork-pin "{{.TAG}}"
+
   godot-fork:version:
     desc: Print the version of the local Cafecito Godot editor build
     silent: true
