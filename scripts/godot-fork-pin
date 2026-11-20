@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+# Read the pinned Cafecito Godot release from config/godot-fork.json.
+#
+# Every place that needs the engine's identity reads it from here, so a bump
+# touches the lock file alone. Run scripts/update-godot-fork-pin to rewrite it.
+set -euo pipefail
+
+script_dir=$(cd "$(dirname "$0")" && pwd)
+repository_root=$(cd "$script_dir/.." && pwd)
+lock_file=${GODOT_FORK_PIN:-"$repository_root/config/godot-fork.json"}
+
+usage() {
+    cat >&2 <<'USAGE'
+Usage: scripts/godot-fork-pin <field>
+       scripts/godot-fork-pin --asset <name>
+       scripts/godot-fork-pin --github-env
+
+Fields: repository, tag, commit, templateVersion, versionString
+USAGE
+}
+
+fail() {
+    echo "error: $*" >&2
+    exit 1
+}
+
+[[ -f "$lock_file" ]] || fail "missing engine lock: $lock_file"
+
+read_field() {
+    local field=$1 value
+    value=$(jq -er --arg field "$field" '.[$field] | select(type == "string" and length > 0)' "$lock_file") ||
+        fail "engine lock has no $field: $lock_file"
+    printf '%s\n' "$value"
+}
+
+read_asset_checksum() {
+    local name=$1 value
+    value=$(jq -er --arg name "$name" '.assets[$name] | select(test("^[0-9a-f]{64}$"))' "$lock_file") ||
+        fail "engine lock has no SHA-256 for asset $name: $lock_file"
+    printf '%s\n' "$value"
+}
+
+case ${1:-} in
+    "")
+        usage
+        exit 2
+        ;;
+    --asset)
+        [[ $# -eq 2 ]] || { usage; exit 2; }
+        read_asset_checksum "$2"
+        ;;
+    --github-env)
+        [[ $# -eq 1 ]] || { usage; exit 2; }
+        printf 'GODOT_REPOSITORY=%s\n' "$(read_field repository)"
+        printf 'GODOT_RELEASE_TAG=%s\n' "$(read_field tag)"
+        printf 'GODOT_VERSION_STRING=%s\n' "$(read_field versionString)"
+        printf 'GODOT_EDITOR_SHA256=%s\n' "$(read_asset_checksum godot_macos_editor.arm64.zip)"
+        printf 'GODOT_LINUX_EDITOR_SHA256=%s\n' "$(read_asset_checksum godot_linux_editor.x86_64.tar.gz)"
+        printf 'GODOT_ANDROID_TEMPLATES_SHA256=%s\n' "$(read_asset_checksum android.zip)"
+        ;;
+    -h|--help)
+        usage
+        exit 0
+        ;;
+    --*)
+        usage
+        exit 2
+        ;;
+    *)
+        [[ $# -eq 1 ]] || { usage; exit 2; }
+        read_field "$1"
+        ;;
+esac

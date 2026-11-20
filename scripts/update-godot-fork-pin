@@ -1,0 +1,89 @@
+#!/usr/bin/env bash
+# Rewrite config/godot-fork.json from a published Cafecito Godot release.
+#
+# Checksums come from the release's own SHA256SUMS.txt and are cross-checked
+# against the digests GitHub computed for each asset, so nothing is typed by
+# hand. The editor's version string is derived from the build identity the fork
+# uses: <template version>.cafecito.<first nine characters of the commit>.
+set -euo pipefail
+
+if [[ $# -lt 1 || $# -gt 2 ]]; then
+    echo "usage: scripts/update-godot-fork-pin TAG [REPOSITORY]" >&2
+    exit 2
+fi
+
+requested_tag=$1
+repository=${2:-cafecito-games/godot}
+
+script_dir=$(cd "$(dirname "$0")" && pwd)
+repository_root=$(cd "$script_dir/.." && pwd)
+lock_file=${GODOT_FORK_PIN:-"$repository_root/config/godot-fork.json"}
+
+required_assets=(
+    godot_macos_editor.arm64.zip
+    godot_linux_editor.x86_64.tar.gz
+    android.zip
+)
+
+fail() {
+    echo "error: $*" >&2
+    exit 1
+}
+
+work_dir=$(mktemp -d)
+trap 'rm -rf "$work_dir"' EXIT
+
+commit=$(gh api "repos/$repository/git/ref/tags/$requested_tag" --jq '.object | select(.type == "commit") | .sha') ||
+    fail "$repository has no tag $requested_tag"
+[[ $commit =~ ^[0-9a-f]{40}$ ]] || fail "tag $requested_tag does not resolve to a commit: $commit"
+
+gh release download "$requested_tag" --repo "$repository" --pattern SHA256SUMS.txt --dir "$work_dir" ||
+    fail "release $requested_tag publishes no SHA256SUMS.txt"
+
+release_body=$(gh release view "$requested_tag" --repo "$repository" --json body --jq .body)
+# The backticks below are literal characters in the release notes, not a command substitution.
+# shellcheck disable=SC2016
+template_version=$(printf '%s\n' "$release_body" | sed -n 's/^- Template Version: `\(.*\)`$/\1/p' | head -1)
+if [[ -z $template_version ]]; then
+    # Fall back to the tag, which encodes the engine version as v<version>-<date>.<n>.
+    template_version="${requested_tag#v}"
+    template_version="${template_version%%-*}.stable"
+fi
+[[ $template_version =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[a-z]+$ ]] || fail "unexpected template version: $template_version"
+
+version_string="$template_version.cafecito.${commit:0:9}"
+
+assets_json='{}'
+for asset in "${required_assets[@]}"; do
+    checksum=$(awk -v name="$asset" '$2 == name { print $1 }' "$work_dir/SHA256SUMS.txt" | head -1)
+    [[ $checksum =~ ^[0-9a-f]{64}$ ]] || fail "SHA256SUMS.txt records no checksum for $asset"
+
+    published_digest=$(gh release view "$requested_tag" --repo "$repository" --json assets \
+        --jq ".assets[] | select(.name == \"$asset\") | .digest")
+    [[ "$published_digest" == "sha256:$checksum" ]] ||
+        fail "$asset digest is $published_digest but SHA256SUMS.txt records sha256:$checksum"
+
+    assets_json=$(jq -cn --argjson assets "$assets_json" --arg name "$asset" --arg checksum "$checksum" \
+        '$assets + {($name): $checksum}')
+done
+
+staged_lock="$work_dir/godot-fork.json"
+jq -n \
+    --arg repository "$repository" \
+    --arg tag "$requested_tag" \
+    --arg commit "$commit" \
+    --arg templateVersion "$template_version" \
+    --arg versionString "$version_string" \
+    --argjson assets "$assets_json" \
+    '{repository:$repository,tag:$tag,commit:$commit,templateVersion:$templateVersion,versionString:$versionString,assets:($assets | to_entries | sort_by(.key) | from_entries)}' \
+    > "$staged_lock"
+
+GODOT_FORK_PIN="$staged_lock" "$script_dir/test-godot-fork-pin" >/dev/null
+mv "$staged_lock" "$lock_file"
+
+echo "Pinned $repository@$requested_tag ($commit)"
+echo "Editor version string: $version_string"
+echo "Wrote $lock_file"
+echo
+echo "The checked-in extension API is dumped from the editor, so refresh it next:"
+echo "  task godot-fork:check GODOT_FORK_BIN=/path/to/godot"

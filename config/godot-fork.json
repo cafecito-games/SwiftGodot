@@ -1,0 +1,12 @@
+{
+  "repository": "cafecito-games/godot",
+  "tag": "v4.7.2-20261120.4",
+  "commit": "706f49aa1452308086f8c401e3f37daa2b99a313",
+  "templateVersion": "4.7.2.stable",
+  "versionString": "4.7.2.stable.cafecito.706f49aa1",
+  "assets": {
+    "android.zip": "72cfd35b14755e65fe3647ce440f2169099a26a7345bd4957eb0833b2f2e810e",
+    "godot_linux_editor.x86_64.tar.gz": "86827001d446544707be08fed8d18b331d223a2f4dec8e0524c63682ea851968",
+    "godot_macos_editor.arm64.zip": "a1352333310d8bcd56770ccac69460596ed7ef21e9bd5f00f00c3412544bc6b4"
+  }
+}

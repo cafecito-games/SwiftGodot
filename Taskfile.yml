@@ -1,0 +1,156 @@
+version: "3"
+
+tasks:
+  default:
+    desc: List available tasks
+    silent: true
+    cmds:
+      - task --list
+
+  godot:dump-api:
+    desc: Dump Godot extension_api.json with docs from the local Godot binary
+    silent: true
+    env:
+      GODOT_BIN: '{{.GODOT_BIN | default "godot"}}'
+      OUTPUT: '{{.OUTPUT | default "Sources/ExtensionApi/extension_api.json"}}'
+    cmds:
+      - |
+        bash <<'BASH'
+        set -euo pipefail
+
+        godot_bin="$GODOT_BIN"
+        if resolved=$(command -v "$godot_bin" 2>/dev/null); then
+          godot_bin="$resolved"
+        fi
+
+        tmp_dir=$(mktemp -d)
+        trap 'rm -rf "$tmp_dir"' EXIT
+
+        (
+          cd "$tmp_dir"
+          "$godot_bin" --headless --dump-extension-api-with-docs
+        )
+
+        mkdir -p "$(dirname "$OUTPUT")"
+        cp "$tmp_dir/extension_api.json" "$OUTPUT"
+        jq '.header' "$OUTPUT"
+        BASH
+
+  godot:dump-interface:
+    desc: Dump gdextension_interface.h from the local Godot binary
+    silent: true
+    env:
+      GODOT_BIN: '{{.GODOT_BIN | default "godot"}}'
+      OUTPUT: '{{.OUTPUT | default "Sources/GDExtension/include/gdextension_interface.h"}}'
+    cmds:
+      - |
+        bash <<'BASH'
+        set -euo pipefail
+
+        godot_bin="$GODOT_BIN"
+        if resolved=$(command -v "$godot_bin" 2>/dev/null); then
+          godot_bin="$resolved"
+        fi
+
+        tmp_dir=$(mktemp -d)
+        trap 'rm -rf "$tmp_dir"' EXIT
+
+        (
+          cd "$tmp_dir"
+          "$godot_bin" --headless --dump-gdextension-interface
+        )
+
+        mkdir -p "$(dirname "$OUTPUT")"
+        cp "$tmp_dir/gdextension_interface.h" "$OUTPUT"
+        head -5 "$OUTPUT"
+        BASH
+
+  godot:update-api:
+    desc: Update extension_api.json and gdextension_interface.h from the local Godot binary
+    silent: true
+    cmds:
+      - task godot:dump-api GODOT_BIN='{{.GODOT_BIN | default "godot"}}'
+      - task godot:dump-interface GODOT_BIN='{{.GODOT_BIN | default "godot"}}'
+
+  godot:show-api-version:
+    desc: Print the Godot API version currently checked in
+    silent: true
+    cmds:
+      - |
+        jq -r '
+          .header
+          | "Godot \(.version_major).\(.version_minor).\(.version_patch) \(.version_status).\(.version_build) - \(.version_full_name)"
+        ' Sources/ExtensionApi/extension_api.json
+
+  godot-fork:pin:
+    desc: Pin a published Cafecito Godot release in config/godot-fork.json; set TAG
+    silent: true
+    preconditions:
+      - sh: test -n "{{.TAG}}"
+        msg: "Set TAG, for example: task godot-fork:pin TAG=v4.7.2-20261120.4"
+    cmds:
+      - scripts/update-godot-fork-pin "{{.TAG}}"
+
+  godot-fork:version:
+    desc: Print the version of the local Cafecito Godot editor build
+    silent: true
+    env:
+      GODOT_FORK_BIN: '{{.GODOT_FORK_BIN | default "../godot/bin/godot.macos.editor.arm64"}}'
+    cmds:
+      - |
+        bash <<'BASH'
+        set -euo pipefail
+
+        if [[ ! -x "$GODOT_FORK_BIN" ]]; then
+          echo "Expected executable Cafecito Godot binary: $GODOT_FORK_BIN"
+          exit 1
+        fi
+
+        "$GODOT_FORK_BIN" --version
+        BASH
+
+  godot-fork:update-api:
+    desc: Update API files from the local Cafecito Godot editor build
+    silent: true
+    vars:
+      GODOT_FORK_BIN: '{{.GODOT_FORK_BIN | default "../godot/bin/godot.macos.editor.arm64"}}'
+    cmds:
+      - task godot:dump-api GODOT_BIN='{{.GODOT_FORK_BIN}}'
+      - task godot:dump-interface GODOT_BIN='{{.GODOT_FORK_BIN}}'
+
+  codegen:check:
+    desc: Run SwiftGodot code generation in a clean scratch build
+    vars:
+      SCRATCH_PATH: '{{.SCRATCH_PATH | default ".build/codegen-check"}}'
+    cmds:
+      - rm -rf '{{.SCRATCH_PATH}}'
+      - swift build --target SwiftGodot --scratch-path '{{.SCRATCH_PATH}}' -Xswiftc -no-verify-emitted-module-interface
+
+  godot-fork:check:
+    desc: Update API from Cafecito Godot and verify SwiftGodot code generation
+    silent: true
+    vars:
+      GODOT_FORK_BIN: '{{.GODOT_FORK_BIN | default "../godot/bin/godot.macos.editor.arm64"}}'
+      SCRATCH_PATH: '{{.SCRATCH_PATH | default ".build/godot-fork-codegen-check"}}'
+    cmds:
+      - task godot-fork:version GODOT_FORK_BIN='{{.GODOT_FORK_BIN}}'
+      - task godot-fork:update-api GODOT_FORK_BIN='{{.GODOT_FORK_BIN}}'
+      - task godot:show-api-version
+      - task codegen:check SCRATCH_PATH='{{.SCRATCH_PATH}}'
+
+  build:
+    desc: Build SwiftGodot and tests
+    cmds:
+      - swift build --build-tests
+
+  test:
+    desc: Run Swift tests
+    cmds:
+      - swift test
+
+  test:godot:
+    desc: Run Godot-based tests; pass FILTER=SuiteName.testName to narrow
+    env:
+      SWIFTGODOT_TEST_FILTER: '{{.FILTER | default ""}}'
+    cmds:
+      - swift run SwiftGodotTestRunner

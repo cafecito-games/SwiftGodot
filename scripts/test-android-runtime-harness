@@ -126,11 +126,15 @@ if grep -q 'timed out after' "$launch_log"; then
     fail "a failed launch must not be reported as a marker timeout"
 fi
 
-rg -q 'v4\.7\.2-20260902\.2' "$runtime" || fail "custom Godot release pin missing"
-rg -q '1e6bca23f4278466f9b1ab159ce869ab5a877884122a1faec6d5353c3d7744d2' "$runtime" || fail "Android template checksum missing"
-rg -q 'd5c760b89da2ef01e9e19153f5fae969c058dd9f1e78d0e1a3881923e1a77b38' "$runtime" || fail "editor checksum missing"
-rg -q '5ef9ae1efd521967e803935885e53fd8e620e02a2b8db6aeba3108b92dcd7238' "$runtime" || fail "Linux editor checksum missing"
-rg -q '4\.7\.2\.stable\.cafecito_6b0b715d9\.ed1daf0bf' "$runtime" || fail "custom Godot version identity missing"
+# The engine's release, checksums, and version identity live in
+# config/godot-fork.json, so the harness asserts that the runtime test resolves
+# each of them from that lock and that the lock itself is consistent.
+"$repo_root/scripts/test-godot-fork-pin" >/dev/null || fail "engine lock is inconsistent"
+rg -q -e 'godot-fork-pin" tag' "$runtime" || fail "Cafecito Godot release pin is not read from the engine lock"
+rg -q -e 'godot-fork-pin" --asset android\.zip' "$runtime" || fail "Android template checksum is not read from the engine lock"
+rg -q -e 'godot-fork-pin" --asset godot_macos_editor\.arm64\.zip' "$runtime" || fail "editor checksum is not read from the engine lock"
+rg -q -e 'godot-fork-pin" --asset godot_linux_editor\.x86_64\.tar\.gz' "$runtime" || fail "Linux editor checksum is not read from the engine lock"
+rg -q -e 'godot-fork-pin" versionString' "$runtime" || fail "Cafecito Godot version identity is not read from the engine lock"
 rg -q '120' "$runtime" || fail "bounded runtime timeout missing"
 rg -q -- '--install-android-build-template' "$runtime" || fail "Gradle build template installation missing"
 
@@ -175,8 +179,11 @@ rg -q '^textures/vram_compression/import_etc2_astc=true$' \
     "$repo_root/Tests/AndroidTestProject/project.godot" ||
     fail "the Android test project must enable ETC2/ASTC texture compression"
 
-rg -q 'godot_template_version=4\.7\.2\.stable$' "$runtime" ||
-    fail "export templates must resolve by Godot's short version"
+# Godot resolves export templates by major.minor.patch.status, so the runtime
+# test must use the lock's template version rather than the full build identity
+# that --version reports. test-godot-fork-pin enforces that short form.
+rg -q -e 'godot_template_version=.*godot-fork-pin" templateVersion' "$runtime" ||
+    fail "export templates must resolve by the engine lock's short version"
 rg -q 'android_source\.zip' "$runtime" ||
     fail "the harness must verify the Android export template landed"
 
