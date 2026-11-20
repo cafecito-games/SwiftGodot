@@ -20,6 +20,8 @@ env:
 jobs:
   build-and-test-macos:
     runs-on: macos-26
+    env:
+      SWIFTGODOT_TEST_SCOPE: universal
 
     steps:
     - name: Checkout
@@ -59,13 +61,43 @@ jobs:
         test "$(godot --version)" = "$GODOT_VERSION_STRING"
 
     - name: Build
-      run: swift build --build-tests --quiet
+      run: |
+        swift build --product SwiftGodotPackageTests --quiet
+        swift build --product SwiftGodot --quiet
+        swift build --product SwiftGodotTestExtension --quiet
+        swift build --product SwiftGodotTestRunner --quiet
 
     - name: Run Swift tests
       run: swift test --skip-build --no-parallel
 
     - name: Run Godot-based tests
-      run: swift run SwiftGodotTestRunner
+      run: .build/debug/SwiftGodotTestRunner --skip-build
+
+  macro-tests:
+    name: Macro expansion tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      SWIFTGODOT_TEST_SCOPE: macros
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v6
+
+    # The Ubuntu runner image does not ship the Swift release signing keys
+    # that setup-swift needs to verify its Swiftly download.
+    - name: Import Swift signing keys
+      run: curl -fsSL --compressed https://swift.org/keys/all-keys.asc | gpg --import -
+
+    - name: Set up Swift 6.3.3
+      uses: swift-actions/setup-swift@v3
+      with:
+        swift-version: "6.3.3"
+
+    - name: Build and run macro tests
+      run: |
+        swift build --product SwiftGodotPackageTests --quiet
+        swift test --skip-build --no-parallel
 
   release-script-tests:
     name: Release and packaging script tests
@@ -126,6 +158,8 @@ jobs:
     name: Linux source build and runtime tests
     runs-on: ubuntu-24.04
     timeout-minutes: 60
+    env:
+      SWIFTGODOT_TEST_SCOPE: universal
 
     steps:
     - name: Checkout
@@ -173,13 +207,17 @@ jobs:
         test "$(godot --headless --version 2>/dev/null)" = "$GODOT_VERSION_STRING"
 
     - name: Build
-      run: swift build --build-tests --quiet
+      run: |
+        swift build --product SwiftGodotPackageTests --quiet
+        swift build --product SwiftGodot --quiet
+        swift build --product SwiftGodotTestExtension --quiet
+        swift build --product SwiftGodotTestRunner --quiet
 
     - name: Run Swift tests
       run: swift test --skip-build --no-parallel
 
     - name: Run Godot-based tests
-      run: swift run SwiftGodotTestRunner
+      run: .build/debug/SwiftGodotTestRunner --skip-build
 
     - name: Install pinned Zig
       run: |
