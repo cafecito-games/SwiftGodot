@@ -62,17 +62,19 @@ fi
 scratch=
 product=
 target=
+configuration=release
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --scratch-path) scratch=$2; shift 2 ;;
         --product) product=$2; shift 2 ;;
         --target) target=$2; shift 2 ;;
+        -c) configuration=$2; shift 2 ;;
         *) shift ;;
     esac
 done
 if [[ -n "$scratch" && "$product" == "AndroidTestExtension" ]]; then
-    mkdir -p "$scratch/release"
-    printf 'fake consumer ELF\n' > "$scratch/release/libAndroidTestExtension.so"
+    mkdir -p "$scratch/$configuration"
+    printf 'fake consumer ELF\n' > "$scratch/$configuration/libAndroidTestExtension.so"
 elif [[ -n "$scratch" && "$target" == "HostStub" ]]; then
     mkdir -p "$scratch/debug"
     printf '#!/usr/bin/env bash\nexit 0\n' > "$scratch/debug/SwiftGodotMacroLibrary-tool"
@@ -193,6 +195,20 @@ if grep -Eq -- '--swift-sdk aarch64-unknown-linux-android28' "$SWIFT_TEST_LOG"; 
     fail "single-ABI build must not cross-compile unselected ABIs"
 fi
 [[ ! -e "$single_abi_output/jni/arm64-v8a" ]] || fail "single-ABI build leaked an unselected ABI directory"
+
+mkdir -p \
+    "$work_dir/distribution/build/x86_64/debug/Modules" \
+    "$work_dir/distribution/build/x86_64/debug/GDExtensionC.build"
+printf 'fake debug swiftmodule\n' > "$work_dir/distribution/build/x86_64/debug/Modules/SwiftGodot.swiftmodule"
+printf 'module GDExtensionC {}\n' > "$work_dir/distribution/build/x86_64/debug/GDExtensionC.build/module.modulemap"
+debug_output="$work_dir/debug-consumer-output"
+: > "$SWIFT_TEST_LOG"
+SWIFT_GODOT_ANDROID_CONFIGURATION=debug SWIFT_GODOT_ANDROID_ABIS=x86_64 \
+    "$builder" "$debug_output" >"$work_dir/debug-consumer.log" 2>&1 ||
+    fail "debug consumer build failed: $(cat "$work_dir/debug-consumer.log")"
+grep -Eq 'build .* -c debug --swift-sdk x86_64-unknown-linux-android28 --product AndroidTestExtension' "$SWIFT_TEST_LOG" ||
+    fail "debug consumer build must pass -c debug to swift build"
+[[ -f "$debug_output/jni/x86_64/libAndroidTestExtension.so" ]] || fail "debug consumer build did not stage x86_64"
 
 packaged="$work_dir/packaged"
 "$packager" "$output/jni" "$packaged"

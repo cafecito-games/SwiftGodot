@@ -1,0 +1,109 @@
+#!/usr/bin/env python3
+"""Restore file modification times from git history so incremental SwiftPM
+builds can reuse cached .build artifacts across CI runners."""
+
+from __future__ import annotations
+
+import os
+import subprocess
+import sys
+
+
+def compute_git_mtimes(repo_root: str) -> dict[str, int]:
+    result = subprocess.run(
+        ["git", "-C", repo_root, "log", "--format=COMMIT:%ct", "--name-only"],
+        check=True,
+        stdout=subprocess.PIPE,
+        text=True,
+        errors="surrogateescape",
+    )
+    mtimes: dict[str, int] = {}
+    current_timestamp: int | None = None
+    for line in result.stdout.splitlines():
+        if not line:
+            continue
+        if line.startswith("COMMIT:"):
+            current_timestamp = int(line[len("COMMIT:") :])
+            continue
+        if current_timestamp is not None and line not in mtimes:
+            mtimes[line] = current_timestamp
+    return mtimes
+
+
+def apply_repo_mtimes(repo_root: str, mtimes: dict[str, int]) -> int:
+    updated = 0
+    for relative_path, timestamp in mtimes.items():
+        full_path = os.path.join(repo_root, relative_path)
+        if os.path.isfile(full_path) and not os.path.islink(full_path):
+            os.utime(full_path, (timestamp, timestamp))
+            updated += 1
+    return updated
+
+
+def apply_staged_android_package_mtimes(
+    repo_root: str, staged_dir: str, mtimes: dict[str, int]
+) -> int:
+    generation_prefixes = (
+        "Sources/ExtensionApi/",
+        "Generator/",
+        "Plugins/CodeGeneratorPlugin/",
+    )
+    generation_timestamps = [
+        timestamp
+        for path, timestamp in mtimes.items()
+        if path == "Package.swift" or path.startswith(generation_prefixes)
+    ]
+    generated_timestamp = max(generation_timestamps) if generation_timestamps else 0
+
+    updated = 0
+    package_manifest = os.path.join(staged_dir, "Package.swift")
+    if os.path.isfile(package_manifest) and "Package.android.swift" in mtimes:
+        timestamp = mtimes["Package.android.swift"]
+        os.utime(package_manifest, (timestamp, timestamp))
+        updated += 1
+
+    sources_root = os.path.join(staged_dir, "Sources")
+    for root, _, files in os.walk(sources_root):
+        for filename in files:
+            full_path = os.path.join(root, filename)
+            if os.path.islink(full_path):
+                continue
+            relative_to_staged = os.path.relpath(full_path, staged_dir).replace(os.sep, "/")
+            if relative_to_staged.startswith("Sources/SwiftGodot/_generated/"):
+                if generated_timestamp:
+                    os.utime(full_path, (generated_timestamp, generated_timestamp))
+                    updated += 1
+            elif relative_to_staged in mtimes:
+                timestamp = mtimes[relative_to_staged]
+                os.utime(full_path, (timestamp, timestamp))
+                updated += 1
+    return updated
+
+
+def main() -> int:
+    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    mtimes = compute_git_mtimes(repo_root)
+
+    if len(sys.argv) == 1:
+        count = apply_repo_mtimes(repo_root, mtimes)
+        print(f"Restored git mtimes for {count} repository files")
+        return 0
+
+    if len(sys.argv) == 3 and sys.argv[1] == "--staged-android-package":
+        staged_dir = os.path.abspath(sys.argv[2])
+        if not os.path.isdir(staged_dir):
+            print(f"Error: staged Android package directory not found: {staged_dir}", file=sys.stderr)
+            return 1
+        count = apply_staged_android_package_mtimes(repo_root, staged_dir, mtimes)
+        print(f"Restored git mtimes for {count} staged Android package files")
+        return 0
+
+    print(
+        "Usage: scripts/restore-git-mtimes [--staged-android-package DIR]",
+        file=sys.stderr,
+    )
+    return 2
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

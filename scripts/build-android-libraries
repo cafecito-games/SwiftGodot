@@ -20,6 +20,7 @@ source "$script_dir/android-abis"
 output_dir=$1
 swift_command=${SWIFT_GODOT_SWIFT_COMMAND:-swift}
 java_command=${SWIFT_GODOT_JAVA_COMMAND:-java}
+configuration=${SWIFT_GODOT_ANDROID_CONFIGURATION:-release}
 work_dir=${SWIFT_GODOT_ANDROID_WORK_DIR:-"$repository_root/.build/android-distribution"}
 staged_package=${SWIFT_GODOT_ANDROID_PACKAGE:-"$work_dir/package"}
 scratch_root="$work_dir/build"
@@ -28,6 +29,11 @@ die() {
     echo "Error: $*" >&2
     exit 1
 }
+
+case "$configuration" in
+    release|debug) ;;
+    *) die "unsupported SWIFT_GODOT_ANDROID_CONFIGURATION: $configuration (expected release or debug)" ;;
+esac
 
 case "$output_dir" in
     ""|/|"$repository_root") die "refusing unsafe output directory: $output_dir" ;;
@@ -82,16 +88,16 @@ for abi in $selected_abis; do
     abi_scratch="$scratch_root/$abi"
     mkdir -p "$output_dir/jni/$abi"
     for product in SwiftGodot SwiftGodotEmbed; do
-        echo "Building $product for $abi ($triple)..."
+        echo "Building $product for $abi ($triple, $configuration)..."
         "$swift_command" build \
             --package-path "$staged_package" \
             --scratch-path "$abi_scratch" \
-            -c release \
+            -c "$configuration" \
             --swift-sdk "$triple" \
             --product "$product"
 
-        library=$(find "$abi_scratch" -type f -name "lib${product}.so" -print -quit)
-        [[ -n "$library" ]] || die "build did not emit lib${product}.so for $abi"
+        library=$(find "$abi_scratch" -type f -path "*/$configuration/lib${product}.so" -print -quit)
+        [[ -n "$library" ]] || die "build did not emit lib${product}.so for $abi ($configuration)"
         cp "$library" "$output_dir/jni/$abi/lib${product}.so"
     done
 done
@@ -99,7 +105,7 @@ done
 if [[ -z "${SWIFT_GODOT_SKIP_ELF_VALIDATION:-}" ]]; then
     "$script_dir/stage-android-runtime-libraries" "$output_dir/jni"
     "$script_dir/strip-android-elf" "$output_dir/jni"
-    "$script_dir/validate-android-elf" "$output_dir/jni"
+    SWIFT_GODOT_ANDROID_CONFIGURATION="$configuration" "$script_dir/validate-android-elf" "$output_dir/jni"
 fi
 
 echo "Android libraries staged at $output_dir/jni"
